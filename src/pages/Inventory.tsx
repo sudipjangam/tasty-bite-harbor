@@ -37,8 +37,10 @@ import {
   Warehouse,
   MapPin,
   Home,
+  X,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { useIsMobile } from "@/hooks/use-mobile";
 import HomemadeIngredientPicker, { RawMaterial } from "@/components/Inventory/HomemadeIngredientPicker";
 import {
   Dialog,
@@ -118,6 +120,7 @@ const ITEMS_PER_PAGE = 20;
 
 const Inventory = () => {
   const { restaurantName } = useRestaurantId();
+  const isMobile = useIsMobile();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isAddingStock, setIsAddingStock] = useState(false);
@@ -832,52 +835,155 @@ const Inventory = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,185,129,0.12),transparent),radial-gradient(ellipse_60%_40%_at_80%_50%,rgba(139,92,246,0.08),transparent)] bg-gradient-to-br from-slate-50 via-emerald-50/30 to-violet-50/20 dark:from-gray-950 dark:via-gray-900 dark:to-emerald-950/40 p-3 md:p-6">
-      {/* Header — Glassmorphic Floating Card */}
-      <div className="mb-6 relative overflow-hidden bg-white/40 dark:bg-gray-900/40 backdrop-blur-2xl border border-white/40 dark:border-white/[0.06] rounded-2xl md:rounded-3xl shadow-xl shadow-black/[0.03] p-4 md:p-8">
-        {/* Gradient mesh decoration */}
-        <div className="absolute -top-24 -right-24 w-72 h-72 bg-gradient-to-br from-emerald-400/20 via-teal-300/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-gradient-to-tr from-violet-400/15 via-purple-300/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="flex items-center gap-4">
-            <div
-              className="p-3 md:p-4 bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 rounded-2xl shadow-lg shadow-emerald-500/40 group-hover:shadow-xl transition-all duration-500"
-              style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.3), 0 8px 24px -4px rgba(16,185,129,0.35)' }}
-            >
-              <Package className="h-6 md:h-8 w-6 md:w-8 text-white drop-shadow-sm" />
-            </div>
-            <div>
-              {restaurantName && (
-                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-emerald-300 mb-0.5">
-                  {restaurantName}
+    <div className="min-h-screen bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,185,129,0.12),transparent),radial-gradient(ellipse_60%_40%_at_80%_50%,rgba(139,92,246,0.08),transparent)] bg-gradient-to-br from-slate-50 via-emerald-50/30 to-violet-50/20 dark:from-gray-950 dark:via-gray-900 dark:to-emerald-950/40 p-2.5 sm:p-4 md:p-6 pb-28 md:pb-8">
+      {/* Mobile Top Bar (<md) */}
+      {isMobile ? (
+        <div className="mb-3 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-emerald-200/60 dark:border-emerald-500/20 rounded-2xl p-3 shadow-md">
+          {/* Row 1: Header + Action buttons */}
+          <div className="flex items-center justify-between gap-2 mb-2.5">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="p-1.5 bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 rounded-xl text-white shadow-sm flex-shrink-0">
+                <Package className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">
+                  Inventory Management
+                </h1>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                  {restaurantName || "Stock & Cost Management"}
                 </p>
-              )}
-              <h1 className="text-xl md:text-3xl font-extrabold bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 bg-clip-text text-transparent tracking-tight">
-                Inventory Management
-              </h1>
-              <p className="hidden sm:flex text-gray-500 dark:text-gray-400 text-sm mt-0.5 items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
-                Track stock, manage costs, and optimize reorders
-              </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <Button
+                onClick={() => setIsBillUploadOpen(true)}
+                size="sm"
+                variant="outline"
+                className="h-8 w-8 p-0 rounded-xl bg-violet-50 text-violet-600 border-violet-200/80 dark:bg-violet-950/40 dark:border-violet-800"
+                title="Scan Bill"
+              >
+                <Upload className="h-3.5 w-3.5" />
+              </Button>
+
+              <Button
+                onClick={() => {
+                  setEditingItem(null);
+                  setIsAddingStock(false);
+                  setNewItemCategory("Other");
+                  setIsAddDialogOpen(true);
+                }}
+                size="sm"
+                className="h-8 px-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/20 flex items-center gap-1"
+                title="Add Item"
+              >
+                <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+                <span>Item</span>
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 rounded-xl text-gray-500"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40 rounded-xl">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      const b = document.querySelector(
+                        "[data-export-excel]",
+                      ) as HTMLButtonElement;
+                      b?.click();
+                    }}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" /> Export Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      const b = document.querySelector(
+                        "[data-export-pdf]",
+                      ) as HTMLButtonElement;
+                      b?.click();
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-2 text-red-600" /> Export PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
-          {/* Add Item Dialog */}
-          <Dialog
-            open={isAddDialogOpen}
-            onOpenChange={(open) => {
-              setIsAddDialogOpen(open);
-              if (!open) {
-                setEditingItem(null);
-                setIsHomemade(false);
-                setRawMaterials([]);
-              }
-              if (open && !editingItem) setNewItemCategory("Other");
-              if (open && editingItem)
-                setNewItemCategory(editingItem.category || "Other");
-            }}
-          >
-            <DialogTrigger asChild>
+          {/* Row 2: Compact 4-stat micro row (<40px) */}
+          <div className="grid grid-cols-4 gap-1.5 p-1 bg-emerald-50/60 dark:bg-gray-900/60 rounded-xl border border-emerald-100 dark:border-emerald-950/40">
+            {/* Total Items */}
+            <div className="text-center p-1 rounded-lg bg-white/80 dark:bg-gray-800/80 shadow-xs">
+              <div className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase leading-none mb-0.5">Total</div>
+              <div className="text-xs font-extrabold text-gray-800 dark:text-gray-100 font-mono leading-none">{totalItems}</div>
+            </div>
+            {/* Low Stock */}
+            <div
+              onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+              className={`text-center p-1 rounded-lg shadow-xs cursor-pointer transition-all ${
+                showLowStockOnly
+                  ? "bg-red-500 text-white"
+                  : lowStockCount > 0
+                  ? "bg-red-50/80 dark:bg-red-950/40 text-red-600 dark:text-red-400"
+                  : "bg-white/80 dark:bg-gray-800/80 text-gray-800 dark:text-gray-100"
+              }`}
+            >
+              <div className={`text-[9px] font-bold uppercase leading-none mb-0.5 ${showLowStockOnly ? "text-white" : lowStockCount > 0 ? "text-red-600" : "text-gray-500"}`}>
+                Low
+              </div>
+              <div className="text-xs font-extrabold font-mono leading-none">{lowStockCount}</div>
+            </div>
+            {/* Categories */}
+            <div className="text-center p-1 rounded-lg bg-white/80 dark:bg-gray-800/80 shadow-xs">
+              <div className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase leading-none mb-0.5">Types</div>
+              <div className="text-xs font-extrabold text-gray-800 dark:text-gray-100 font-mono leading-none">{Object.keys(groupedItems).length}</div>
+            </div>
+            {/* Total Value */}
+            <div className="text-center p-1 rounded-lg bg-white/80 dark:bg-gray-800/80 shadow-xs">
+              <div className="text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase leading-none mb-0.5">Value</div>
+              <div className="text-xs font-extrabold text-gray-800 dark:text-gray-100 font-mono leading-none truncate">
+                {currencySymbol}{totalValue >= 100000 ? (totalValue / 1000).toFixed(1) + "k" : totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Header — Glassmorphic Floating Card (Desktop) */}
+          <div className="mb-6 relative overflow-hidden bg-white/40 dark:bg-gray-900/40 backdrop-blur-2xl border border-white/40 dark:border-white/[0.06] rounded-2xl md:rounded-3xl shadow-xl shadow-black/[0.03] p-4 md:p-8">
+            <div className="absolute -top-24 -right-24 w-72 h-72 bg-gradient-to-br from-emerald-400/20 via-teal-300/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-gradient-to-tr from-violet-400/15 via-purple-300/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="flex items-center gap-4">
+                <div
+                  className="p-3 md:p-4 bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 rounded-2xl shadow-lg shadow-emerald-500/40 group-hover:shadow-xl transition-all duration-500"
+                  style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.3), 0 8px 24px -4px rgba(16,185,129,0.35)' }}
+                >
+                  <Package className="h-6 md:h-8 w-6 md:w-8 text-white drop-shadow-sm" />
+                </div>
+                <div>
+                  {restaurantName && (
+                    <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-emerald-300 mb-0.5">
+                      {restaurantName}
+                    </p>
+                  )}
+                  <h1 className="text-xl md:text-3xl font-extrabold bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 bg-clip-text text-transparent tracking-tight">
+                    Inventory Management
+                  </h1>
+                  <p className="hidden sm:flex text-gray-500 dark:text-gray-400 text-sm mt-0.5 items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
+                    Track stock, manage costs, and optimize reorders
+                  </p>
+                </div>
+              </div>
+
               <Button
                 onClick={() => {
                   setEditingItem(null);
@@ -891,282 +997,297 @@ const Inventory = () => {
                 <Plus className="mr-2 h-5 w-5" />
                 Add Item
               </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[560px] bg-white/80 dark:bg-gray-900/80 backdrop-blur-3xl border border-white/40 dark:border-white/[0.06] rounded-3xl shadow-2xl shadow-black/10 p-0 overflow-hidden flex flex-col max-h-[90vh]">
-              {/* Dialog Header — Vibrant gradient with glass overlay */}
-              <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 px-6 py-5">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.2),transparent_70%)]" />
-                <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-xl" />
-                <DialogHeader className="relative">
-                  <DialogTitle className="text-xl font-black text-white flex items-center gap-3 drop-shadow-sm">
-                    {editingItem && !isAddingStock ? (
-                      <>
-                        <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                          <Edit className="h-5 w-5" />
-                        </div>
-                        Edit Item
-                      </>
-                    ) : editingItem && isAddingStock ? (
-                      <>
-                        <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                          <Plus className="h-5 w-5" />
-                        </div>
-                        Add Stock to {editingItem.name}
-                      </>
-                    ) : (
-                      <>
-                        <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                          <Plus className="h-5 w-5" />
-                        </div>
-                        Add New Item
-                      </>
-                    )}
-                  </DialogTitle>
-                  <DialogDescription className="text-white/80 text-sm font-medium">
-                    {editingItem && !isAddingStock
-                      ? "Update the details below"
-                      : editingItem && isAddingStock
-                      ? "Add a new lot/batch for this item"
-                      : "Fill in the details to add a new inventory item"}
-                  </DialogDescription>
-                </DialogHeader>
-              </div>
+            </div>
+          </div>
 
-              <form
-                key={editingItem?.id || "new"}
-                onSubmit={handleSubmit}
-                className="p-6 space-y-5 overflow-y-auto flex-1 bg-white/50 dark:bg-gray-900/50"
-              >
-                {/* Item Name */}
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="name"
-                    className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
-                  >
-                    <Tag className="h-3.5 w-3.5 text-emerald-500" />
-                    Item Name <span className="text-red-400">*</span>
-                  </Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    defaultValue={editingItem?.name}
-                    disabled={!!(editingItem && isAddingStock)}
-                    required
-                    placeholder="e.g., Olive Oil, Basmati Rice"
-                    className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400/60 transition-all backdrop-blur-sm shadow-sm"
-                  />
-                </div>
+          {/* Premium Stats Cards (Desktop) */}
+          <InventoryKPIs
+            totalItems={totalItems}
+            lowStockCount={lowStockCount}
+            categoriesCount={Object.keys(groupedItems).length}
+            totalValue={totalValue}
+            currencySymbol={currencySymbol}
+          />
+        </>
+      )}
 
-                {/* Category */}
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="category"
-                    className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
-                  >
-                    <Layers className="h-3.5 w-3.5 text-blue-500" />
-                    Category
-                  </Label>
-                  <Select
-                    name="category"
-                    value={newItemCategory}
-                    disabled={!!(editingItem && isAddingStock)}
-                    onValueChange={setNewItemCategory}
-                  >
-                    <SelectTrigger className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 backdrop-blur-sm shadow-sm">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Homemade Toggle — only in Add mode */}
-                {!editingItem && (
-                  <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
-                    isHomemade
-                      ? "bg-amber-50/80 dark:bg-amber-900/15 border-amber-200/60 dark:border-amber-800/40"
-                      : "bg-gray-50/50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700"
-                  }`}>
-                    <div className="flex items-center gap-2">
-                      <Home className={`h-4 w-4 ${isHomemade ? "text-amber-600" : "text-gray-400"}`} />
-                      <div>
-                        <p className={`text-sm font-semibold ${isHomemade ? "text-amber-700 dark:text-amber-300" : "text-gray-700 dark:text-gray-300"}`}>
-                          Homemade Item
-                        </p>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                          Create by consuming existing inventory
-                        </p>
-                      </div>
+      {/* Add Item Dialog */}
+      <Dialog
+        open={isAddDialogOpen}
+        onOpenChange={(open) => {
+          setIsAddDialogOpen(open);
+          if (!open) {
+            setEditingItem(null);
+            setIsHomemade(false);
+            setRawMaterials([]);
+          }
+          if (open && !editingItem) setNewItemCategory("Other");
+          if (open && editingItem)
+            setNewItemCategory(editingItem.category || "Other");
+        }}
+      >
+        <DialogContent className="sm:max-w-[560px] bg-white/80 dark:bg-gray-900/80 backdrop-blur-3xl border border-white/40 dark:border-white/[0.06] rounded-3xl shadow-2xl shadow-black/10 p-0 overflow-hidden flex flex-col max-h-[90vh]">
+          {/* Dialog Header — Vibrant gradient with glass overlay */}
+          <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 px-6 py-5">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.2),transparent_70%)]" />
+            <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-xl" />
+            <DialogHeader className="relative">
+              <DialogTitle className="text-xl font-black text-white flex items-center gap-3 drop-shadow-sm">
+                {editingItem && !isAddingStock ? (
+                  <>
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                      <Edit className="h-5 w-5" />
                     </div>
-                    <Switch
-                      checked={isHomemade}
-                      onCheckedChange={(checked) => {
-                        setIsHomemade(checked);
-                        if (!checked) setRawMaterials([]);
-                      }}
-                    />
-                  </div>
+                    Edit Item
+                  </>
+                ) : editingItem && isAddingStock ? (
+                  <>
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                      <Plus className="h-5 w-5" />
+                    </div>
+                    Add Stock to {editingItem.name}
+                  </>
+                ) : (
+                  <>
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                      <Plus className="h-5 w-5" />
+                    </div>
+                    Add New Item
+                  </>
                 )}
+              </DialogTitle>
+              <DialogDescription className="text-white/80 text-sm font-medium">
+                {editingItem && !isAddingStock
+                  ? "Update the details below"
+                  : editingItem && isAddingStock
+                  ? "Add a new lot/batch for this item"
+                  : "Fill in the details to add a new inventory item"}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-                {/* Raw Materials Section — when homemade toggle is ON */}
-                {isHomemade && !editingItem && (
-                  <div className="border border-amber-200/60 dark:border-amber-800/40 rounded-xl p-3 bg-amber-50/30 dark:bg-amber-900/10">
-                    <HomemadeIngredientPicker
-                      materials={rawMaterials}
-                      onMaterialsChange={setRawMaterials}
-                      inventoryItems={items}
-                      currencySymbol={currencySymbol}
-                    />
-                  </div>
-                )}
+          <form
+            key={editingItem?.id || "new"}
+            onSubmit={handleSubmit}
+            className="p-6 space-y-5 overflow-y-auto flex-1 bg-white/50 dark:bg-gray-900/50"
+          >
+            {/* Item Name */}
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="name"
+                className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
+              >
+                <Tag className="h-3.5 w-3.5 text-emerald-500" />
+                Item Name <span className="text-red-400">*</span>
+              </Label>
+              <Input
+                id="name"
+                name="name"
+                defaultValue={editingItem?.name}
+                disabled={!!(editingItem && isAddingStock)}
+                required
+                placeholder="e.g., Olive Oil, Basmati Rice"
+                className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400/60 transition-all backdrop-blur-sm shadow-sm"
+              />
+            </div>
 
-                <Separator className="my-1" />
+            {/* Category */}
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="category"
+                className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
+              >
+                <Layers className="h-3.5 w-3.5 text-blue-500" />
+                Category
+              </Label>
+              <Select
+                name="category"
+                value={newItemCategory}
+                disabled={!!(editingItem && isAddingStock)}
+                onValueChange={setNewItemCategory}
+              >
+                <SelectTrigger className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 backdrop-blur-sm shadow-sm">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-                {/* Quantity + Unit row */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label
-                      htmlFor="quantity"
-                      className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
-                    >
-                      <Box className="h-3.5 w-3.5 text-violet-500" />
-                      Quantity <span className="text-red-400">*</span>
-                    </Label>
-                    <Input
-                      id="quantity"
-                      name="quantity"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      defaultValue={editingItem && !isAddingStock ? editingItem.quantity : ""}
-                      required
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="unit">Unit *</Label>
-                    <Select
-                      name="unit"
-                      defaultValue={editingItem?.unit || "kg"}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {commonUnits.map((unit) => (
-                          <SelectItem key={unit} value={unit}>
-                            {unit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Reorder Level + Cost row */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reorderLevel">Reorder Level</Label>
-                    <Input
-                      id="reorderLevel"
-                      name="reorderLevel"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      defaultValue={editingItem?.reorder_level || ""}
-                      placeholder="Low stock alert threshold"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="costPerUnit">
-                      Cost/Unit ({currencySymbol})
-                    </Label>
-                    <Input
-                      id="costPerUnit"
-                      name="costPerUnit"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      defaultValue={editingItem?.cost_per_unit || ""}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-
-
-
-                {/* Expiry Date for Dairy and Bakery */}
-                {(newItemCategory === "Dairy" ||
-                  newItemCategory === "Bakery") && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="expiryDate">Expiry Date</Label>
-                    <Input id="expiryDate" name="expiryDate" type="date" />
-                    <p className="text-xs text-slate-500">
-                      Only applicable for the initial lot added during item
-                      creation.
+            {/* Homemade Toggle — only in Add mode */}
+            {!editingItem && (
+              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                isHomemade
+                  ? "bg-amber-50/80 dark:bg-amber-900/15 border-amber-200/60 dark:border-amber-800/40"
+                  : "bg-gray-50/50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700"
+              }`}>
+                <div className="flex items-center gap-2">
+                  <Home className={`h-4 w-4 ${isHomemade ? "text-amber-600" : "text-gray-400"}`} />
+                  <div>
+                    <p className={`text-sm font-semibold ${isHomemade ? "text-amber-700 dark:text-amber-300" : "text-gray-700 dark:text-gray-300"}`}>
+                      Homemade Item
+                    </p>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                      Create by consuming existing inventory
                     </p>
                   </div>
-                )}
+                </div>
+                <Switch
+                  checked={isHomemade}
+                  onCheckedChange={(checked) => {
+                    setIsHomemade(checked);
+                    if (!checked) setRawMaterials([]);
+                  }}
+                />
+              </div>
+            )}
 
-                <Button
-                  type="submit"
-                  disabled={
-                    isSubmittingHomemade ||
-                    (isHomemade && (
-                      rawMaterials.length === 0 ||
-                      rawMaterials.some(m => !m.inventory_item_id || m.quantity <= 0) ||
-                      rawMaterials.some(m => m.quantity > m.available_stock)
-                    ))
-                  }
-                  className={`w-full font-black py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 h-13 text-base transform hover:-translate-y-0.5 ${
-                    isHomemade && !editingItem
-                      ? "bg-gradient-to-r from-amber-400 via-orange-500 to-rose-600 hover:from-amber-500 hover:via-orange-600 hover:to-rose-700 text-white shadow-amber-500/30"
-                      : "bg-gradient-to-r from-emerald-400 via-green-500 to-teal-600 hover:from-emerald-500 hover:via-green-600 hover:to-teal-700 text-white shadow-emerald-500/30"
-                  }`}
-                  style={{ boxShadow: isHomemade && !editingItem ? '0 8px 32px -4px rgba(245,158,11,0.35)' : '0 8px 32px -4px rgba(16,185,129,0.35)' }}
+            {/* Raw Materials Section — when homemade toggle is ON */}
+            {isHomemade && !editingItem && (
+              <div className="border border-amber-200/60 dark:border-amber-800/40 rounded-xl p-3 bg-amber-50/30 dark:bg-amber-900/10">
+                <HomemadeIngredientPicker
+                  materials={rawMaterials}
+                  onMaterialsChange={setRawMaterials}
+                  inventoryItems={items}
+                  currencySymbol={currencySymbol}
+                />
+              </div>
+            )}
+
+            <Separator className="my-1" />
+
+            {/* Quantity + Unit row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="quantity"
+                  className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
                 >
-                  {isSubmittingHomemade ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white mr-2" />
-                      Producing...
-                    </>
-                  ) : editingItem && !isAddingStock ? (
-                    <>
-                      <Edit className="mr-2 h-4 w-4" /> Update Item
-                    </>
-                  ) : editingItem && isAddingStock ? (
-                    <>
-                      <Plus className="mr-2 h-4 w-4" /> Add Stock
-                    </>
-                  ) : isHomemade ? (
-                    <>
-                      <Home className="mr-2 h-4 w-4" /> 🏠 Produce & Add to Inventory
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="mr-2 h-4 w-4" /> Add to Inventory
-                    </>
-                  )}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+                  <Box className="h-3.5 w-3.5 text-violet-500" />
+                  Quantity <span className="text-red-400">*</span>
+                </Label>
+                <Input
+                  id="quantity"
+                  name="quantity"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  defaultValue={editingItem && !isAddingStock ? editingItem.quantity : ""}
+                  required
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="unit">Unit *</Label>
+                <Select
+                  name="unit"
+                  defaultValue={editingItem?.unit || "kg"}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {commonUnits.map((unit) => (
+                      <SelectItem key={unit} value={unit}>
+                        {unit}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-      {/* Premium Stats Cards */}
-      <InventoryKPIs
-        totalItems={totalItems}
-        lowStockCount={lowStockCount}
-        categoriesCount={Object.keys(groupedItems).length}
-        totalValue={totalValue}
-        currencySymbol={currencySymbol}
-      />
+            {/* Reorder Level + Cost row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="reorderLevel">Reorder Level</Label>
+                <Input
+                  id="reorderLevel"
+                  name="reorderLevel"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  defaultValue={editingItem?.reorder_level || ""}
+                  placeholder="Low stock alert threshold"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="costPerUnit">
+                  Cost/Unit ({currencySymbol})
+                </Label>
+                <Input
+                  id="costPerUnit"
+                  name="costPerUnit"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  defaultValue={editingItem?.cost_per_unit || ""}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            {/* Expiry Date for Dairy and Bakery */}
+            {(newItemCategory === "Dairy" ||
+              newItemCategory === "Bakery") && (
+              <div className="space-y-1.5">
+                <Label htmlFor="expiryDate">Expiry Date</Label>
+                <Input id="expiryDate" name="expiryDate" type="date" />
+                <p className="text-xs text-slate-500">
+                  Only applicable for the initial lot added during item
+                  creation.
+                </p>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              disabled={
+                isSubmittingHomemade ||
+                (isHomemade && (
+                  rawMaterials.length === 0 ||
+                  rawMaterials.some(m => !m.inventory_item_id || m.quantity <= 0) ||
+                  rawMaterials.some(m => m.quantity > m.available_stock)
+                ))
+              }
+              className={`w-full font-black py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 h-13 text-base transform hover:-translate-y-0.5 ${
+                isHomemade && !editingItem
+                  ? "bg-gradient-to-r from-amber-400 via-orange-500 to-rose-600 hover:from-amber-500 hover:via-orange-600 hover:to-rose-700 text-white shadow-amber-500/30"
+                  : "bg-gradient-to-r from-emerald-400 via-green-500 to-teal-600 hover:from-emerald-500 hover:via-green-600 hover:to-teal-700 text-white shadow-emerald-500/30"
+              }`}
+              style={{ boxShadow: isHomemade && !editingItem ? '0 8px 32px -4px rgba(245,158,11,0.35)' : '0 8px 32px -4px rgba(16,185,129,0.35)' }}
+            >
+              {isSubmittingHomemade ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white mr-2" />
+                  Producing...
+                </>
+              ) : editingItem && !isAddingStock ? (
+                <>
+                  <Edit className="mr-2 h-4 w-4" /> Update Item
+                </>
+              ) : editingItem && isAddingStock ? (
+                <>
+                  <Plus className="mr-2 h-4 w-4" /> Add Stock
+                </>
+              ) : isHomemade ? (
+                <>
+                  <Home className="mr-2 h-4 w-4" /> 🏠 Produce & Add to Inventory
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" /> Add to Inventory
+                </>
+              )}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Main Content with Tabs — Glassmorphic Container */}
       <div className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-2xl border border-white/40 dark:border-white/[0.06] rounded-2xl md:rounded-3xl shadow-xl shadow-black/[0.03] overflow-hidden">
@@ -1201,9 +1322,9 @@ const Inventory = () => {
             </TabsList>
           </div>
 
-          <TabsContent value="overview" className="p-4 md:p-6 space-y-5">
+          <TabsContent value="overview" className="p-3 sm:p-4 md:p-6 space-y-3 md:space-y-5">
             {/* Search and Filter Bar */}
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5">
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1211,8 +1332,16 @@ const Inventory = () => {
                     placeholder="Search items..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl border border-white/40 dark:border-white/[0.08] rounded-2xl h-11 shadow-sm focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400/50 transition-all"
+                    className="pl-10 pr-9 bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl border border-white/40 dark:border-white/[0.08] rounded-2xl h-10 md:h-11 shadow-sm focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400/50 transition-all text-sm"
                   />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
 
                 <Button
@@ -1229,9 +1358,9 @@ const Inventory = () => {
                     <Button
                       variant="outline"
                       size="icon"
-                      className="md:hidden h-10 w-10 rounded-xl shrink-0"
+                      className="md:hidden h-10 w-10 rounded-xl shrink-0 border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80"
                     >
-                      <MoreVertical className="h-4 w-4" />
+                      <MoreVertical className="h-4 w-4 text-gray-500" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-44 rounded-xl">
@@ -1261,12 +1390,12 @@ const Inventory = () => {
                 </DropdownMenu>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Select
                   value={filterCategory}
                   onValueChange={setFilterCategory}
                 >
-                  <SelectTrigger className="flex-1 min-w-[120px] md:w-[180px] md:flex-none bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl border border-white/40 dark:border-white/[0.08] rounded-2xl h-10 text-sm shadow-sm">
+                  <SelectTrigger className="flex-1 min-w-[120px] md:w-[180px] md:flex-none bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl border border-white/40 dark:border-white/[0.08] rounded-xl h-9 md:h-10 text-xs md:text-sm shadow-sm">
                     <Filter className="h-3.5 w-3.5 mr-1.5 text-emerald-500" />
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
@@ -1286,16 +1415,15 @@ const Inventory = () => {
                   size="sm"
                   className={
                     showLowStockOnly
-                      ? "bg-gradient-to-r from-red-400 via-rose-500 to-pink-600 text-white rounded-2xl h-10 shadow-lg shadow-rose-500/25 font-semibold"
-                      : "bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl border border-white/40 dark:border-white/[0.08] rounded-2xl hover:bg-red-50/60 dark:hover:bg-red-950/20 h-10 font-semibold"
+                      ? "bg-gradient-to-r from-red-400 via-rose-500 to-pink-600 text-white rounded-xl h-9 md:h-10 shadow-md shadow-rose-500/25 font-semibold text-xs"
+                      : "bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl border border-white/40 dark:border-white/[0.08] rounded-xl hover:bg-red-50/60 dark:hover:bg-red-950/20 h-9 md:h-10 font-semibold text-xs text-gray-700 dark:text-gray-300"
                   }
                 >
-                  <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
-                  <span className="hidden sm:inline">Low Stock</span>
-                  <span className="sm:hidden">Low</span>
+                  <AlertTriangle className="h-3.5 w-3.5 mr-1 text-red-500" />
+                  <span>Low Stock</span>
                   <Badge
                     variant="secondary"
-                    className="ml-1.5 h-5 px-1.5 text-xs"
+                    className="ml-1.5 h-4.5 px-1.5 text-[10px]"
                   >
                     {lowStockCount}
                   </Badge>
@@ -1330,14 +1458,14 @@ const Inventory = () => {
             </div>
 
             {/* Category Pills */}
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+            <div className="flex gap-1.5 md:gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
               {Object.entries(groupedItems).map(([category, categoryItems]) => (
                 <button
                   key={category}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl shrink-0 border transition-all duration-300 text-sm font-semibold ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl shrink-0 border transition-all duration-300 text-xs md:text-sm font-semibold ${
                     filterCategory === category
-                      ? "bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-emerald-300/60 dark:border-emerald-600/40 text-emerald-700 dark:text-emerald-300 shadow-md shadow-emerald-500/10 scale-[1.02]"
-                      : "bg-white/50 dark:bg-white/[0.04] backdrop-blur-xl border-white/40 dark:border-white/[0.06] text-gray-600 dark:text-gray-300 hover:bg-white/70 dark:hover:bg-white/[0.08] hover:scale-[1.01]"
+                      ? "bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-emerald-300/60 dark:border-emerald-600/40 text-emerald-700 dark:text-emerald-300 shadow-sm shadow-emerald-500/10 scale-[1.02]"
+                      : "bg-white/50 dark:bg-white/[0.04] backdrop-blur-xl border-white/40 dark:border-white/[0.06] text-gray-600 dark:text-gray-300 hover:bg-white/70 dark:hover:bg-white/[0.08]"
                   }`}
                   onClick={() =>
                     setFilterCategory(
@@ -1347,7 +1475,7 @@ const Inventory = () => {
                 >
                   {getCategoryIcon(category)}
                   <span>{category}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-lg font-bold ${
+                  <span className={`text-[10px] md:text-xs px-1.5 py-0.2 rounded-md md:rounded-lg font-bold ${
                     filterCategory === category
                       ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                       : "bg-gray-100/80 dark:bg-gray-600/50 text-gray-500 dark:text-gray-400"
@@ -1360,26 +1488,26 @@ const Inventory = () => {
 
             {/* Loading State */}
             {isLoading && (
-              <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
                 <div className="relative">
-                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-emerald-200 border-t-emerald-500" />
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-200 border-t-emerald-500" />
                 </div>
-                <p className="text-gray-500 text-sm">Loading inventory...</p>
+                <p className="text-gray-500 text-xs">Loading inventory...</p>
               </div>
             )}
 
-            {/* Items Grid */}
+            {/* Items Grid & Mobile List */}
             {!isLoading && (
               <>
                 {filteredItems.length === 0 ? (
-                  <div className="text-center py-16">
-                    <div className="inline-flex p-4 bg-gray-100 dark:bg-gray-700 rounded-2xl mb-4">
-                      <Package className="h-10 w-10 text-gray-400" />
+                  <div className="text-center py-12">
+                    <div className="inline-flex p-3.5 bg-gray-100 dark:bg-gray-700 rounded-2xl mb-3">
+                      <Package className="h-8 w-8 text-gray-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">
                       No items found
                     </h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs">
                       {searchQuery ||
                       filterCategory !== "all" ||
                       showLowStockOnly
@@ -1387,7 +1515,137 @@ const Inventory = () => {
                         : "Add your first inventory item to get started"}
                     </p>
                   </div>
+                ) : isMobile ? (
+                  /* Mobile Compact List Cards */
+                  <div className="space-y-2">
+                    {paginatedItems.map((item) => {
+                      const stock = getStockLevel(item);
+                      const isLow =
+                        item.reorder_level != null &&
+                        item.quantity <= item.reorder_level;
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => setSelectedDetailItem(item)}
+                          className={`group relative flex items-center gap-2.5 p-2.5 bg-white/90 dark:bg-gray-800/90 rounded-2xl border transition-all duration-200 shadow-xs active:scale-[0.99] cursor-pointer ${
+                            isLow
+                              ? "border-red-300/70 dark:border-red-900/60 bg-red-50/30 dark:bg-red-950/20"
+                              : "border-gray-100 dark:border-gray-700/80 hover:border-emerald-200 dark:hover:border-emerald-800"
+                          }`}
+                        >
+                          {/* Left: Category Icon */}
+                          <div
+                            className={`p-2 rounded-xl shrink-0 shadow-xs flex items-center justify-center ${
+                              isLow
+                                ? "bg-gradient-to-br from-red-400 to-rose-500 text-white"
+                                : "bg-gradient-to-br from-emerald-400 to-teal-500 text-white"
+                            }`}
+                          >
+                            {React.cloneElement(getCategoryIcon(item.category), {
+                              className: "h-4 w-4 text-white",
+                            })}
+                          </div>
+
+                          {/* Center: Info */}
+                          <div className="flex-1 min-w-0 pr-1">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <h4 className="text-xs font-bold text-gray-900 dark:text-white truncate leading-tight">
+                                {item.name}
+                              </h4>
+                              {(item as any).is_produced && (
+                                <span className="shrink-0 text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                                  🏠
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400 flex-wrap">
+                              <span className="font-semibold px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300">
+                                {item.category}
+                              </span>
+                              {item.cost_per_unit ? (
+                                <span className="font-medium text-gray-600 dark:text-gray-300">
+                                  {currencySymbol}{item.cost_per_unit}/{item.unit}
+                                </span>
+                              ) : null}
+                              {isLow && (
+                                <span className="font-bold text-red-600 bg-red-50 dark:bg-red-950/50 px-1.5 py-0.2 rounded">
+                                  Low Stock
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Right: Quantity + Dropdown Menu */}
+                          <div
+                            className="flex items-center gap-1.5 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="text-right">
+                              <div
+                                className={`text-sm font-black tracking-tight tabular-nums leading-none ${
+                                  isLow ? "text-red-600" : "text-gray-900 dark:text-white"
+                                }`}
+                              >
+                                {Number(item.quantity).toFixed(
+                                  item.quantity % 1 === 0 ? 0 : 2,
+                                )}
+                              </div>
+                              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mt-0.5">
+                                {item.unit}
+                              </div>
+                            </div>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 rounded-lg text-gray-400 hover:text-gray-700"
+                                >
+                                  <MoreVertical className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="end"
+                                className="w-36 rounded-2xl"
+                              >
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingItem(item);
+                                    setIsAddingStock(true);
+                                    setIsAddDialogOpen(true);
+                                  }}
+                                >
+                                  <Plus className="h-3.5 w-3.5 mr-2 text-emerald-600" />
+                                  Add Stock
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingItem(item);
+                                    setIsAddingStock(false);
+                                    setIsAddDialogOpen(true);
+                                  }}
+                                >
+                                  <Edit className="h-3.5 w-3.5 mr-2 text-blue-600" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => setItemToDelete(item)}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : (
+                  /* Desktop Grid Cards */
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
                     {paginatedItems.map((item) => {
                       const stock = getStockLevel(item);
@@ -1413,24 +1671,31 @@ const Inventory = () => {
                             }`}
                           />
                           {/* Subtle gradient overlay */}
-                          <div className={`absolute inset-0 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity duration-500 bg-gradient-to-br ${
-                            isLow ? "from-rose-500 to-pink-500" : "from-emerald-500 to-teal-500"
-                          }`} />
+                          <div
+                            className={`absolute inset-0 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity duration-500 bg-gradient-to-br ${
+                              isLow ? "from-rose-500 to-pink-500" : "from-emerald-500 to-teal-500"
+                            }`}
+                          />
 
                           <div className="relative p-4 md:p-5">
                             {/* Header: 3D Icon + Name + Actions */}
                             <div className="flex items-start justify-between gap-2 mb-4">
                               <div className="flex items-center gap-3 min-w-0">
-                                {/* 3D Icon Sphere */}
                                 <div
                                   className={`p-2.5 rounded-2xl shrink-0 shadow-md transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${
                                     isLow
                                       ? "bg-gradient-to-br from-red-400 to-rose-500 shadow-red-500/30"
                                       : "bg-gradient-to-br from-emerald-400 to-teal-500 shadow-emerald-500/30"
                                   }`}
-                                  style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.1)' }}
+                                  style={{
+                                    boxShadow:
+                                      "inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.1)",
+                                  }}
                                 >
-                                  {React.cloneElement(getCategoryIcon(item.category), { className: 'h-5 w-5 text-white drop-shadow-sm' })}
+                                  {React.cloneElement(
+                                    getCategoryIcon(item.category),
+                                    { className: "h-5 w-5 text-white drop-shadow-sm" },
+                                  )}
                                 </div>
                                 <div className="min-w-0">
                                   <h3
@@ -1476,48 +1741,9 @@ const Inventory = () => {
                                   <Trash2 className="h-3.5 w-3.5 text-red-500" />
                                 </Button>
                               </div>
-
-                              {/* Mobile menu */}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="md:hidden h-8 w-8 rounded-xl bg-white/40 dark:bg-white/[0.04] shrink-0"
-                                  >
-                                    <MoreVertical className="h-3.5 w-3.5 text-gray-500" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="w-36 rounded-2xl bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/40 dark:border-white/[0.06]"
-                                >
-                                  <DropdownMenuItem
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingItem(item);
-                                      setIsAddDialogOpen(true);
-                                    }}
-                                    className="rounded-xl"
-                                  >
-                                    <Edit className="h-3.5 w-3.5 mr-2 text-emerald-600" />{" "}
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setItemToDelete(item);
-                                    }}
-                                    className="text-red-600 focus:text-red-600 rounded-xl"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5 mr-2" />{" "}
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
                             </div>
 
-                            {/* Quantity Display — Large + Bold */}
+                            {/* Quantity Display */}
                             <div className="mb-4">
                               <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-gray-900 dark:text-white tracking-tight tabular-nums">
@@ -1530,7 +1756,6 @@ const Inventory = () => {
                                 </span>
                               </div>
 
-                              {/* Animated stock level progress bar */}
                               {item.reorder_level != null &&
                                 item.reorder_level > 0 && (
                                   <div className="mt-3">
@@ -1550,28 +1775,26 @@ const Inventory = () => {
                                 )}
                             </div>
 
-                            {/* Badges Container */}
+                            {/* Badges */}
                             <div className="flex flex-wrap gap-2 mb-3">
-                              {/* Low Stock Badge — Vibrant with glow */}
                               {isLow && (
-                                <Badge
-                                  className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-white border-0 shadow-md shadow-red-500/25 animate-pulse"
-                                >
+                                <Badge className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-white border-0 shadow-md shadow-red-500/25 animate-pulse">
                                   <AlertTriangle className="h-3 w-3 mr-1" /> Low Stock
                                 </Badge>
                               )}
-                              
-                              {/* Expired Stock Badge */}
-                              {item.inventory_lots?.some(lot => lot.quantity_remaining > 0 && lot.expiry_date && isPast(new Date(lot.expiry_date))) && (
-                                <Badge
-                                  className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-red-100/80 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800"
-                                >
+                              {item.inventory_lots?.some(
+                                (lot) =>
+                                  lot.quantity_remaining > 0 &&
+                                  lot.expiry_date &&
+                                  isPast(new Date(lot.expiry_date)),
+                              ) && (
+                                <Badge className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-red-100/80 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800">
                                   <AlertTriangle className="h-3 w-3 mr-1" /> Expired
                                 </Badge>
                               )}
                             </div>
 
-                            {/* Footer: Price + Reorder — Glassmorphic */}
+                            {/* Footer */}
                             <div className="flex items-center justify-between pt-3 border-t border-white/20 dark:border-white/[0.04]">
                               <span className="text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
                                 {item.cost_per_unit
@@ -1912,6 +2135,23 @@ const Inventory = () => {
         onOpenChange={setIsExtractedDataDialogOpen}
         extractedData={extractedBillData}
       />
+
+      {/* Floating Action Button (FAB) on Mobile */}
+      {isMobile && (
+        <button
+          onClick={() => {
+            setEditingItem(null);
+            setIsAddingStock(false);
+            setNewItemCategory("Other");
+            setIsAddDialogOpen(true);
+          }}
+          className="fixed bottom-20 right-4 z-40 h-13 w-13 rounded-full bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 text-white shadow-xl shadow-emerald-500/40 flex items-center justify-center active:scale-90 hover:scale-105 transition-all duration-200"
+          style={{ boxShadow: "0 8px 24px -2px rgba(16,185,129,0.5)" }}
+          title="Add New Item"
+        >
+          <Plus className="h-6 w-6 stroke-[2.5]" />
+        </button>
+      )}
     </div>
   );
 };
