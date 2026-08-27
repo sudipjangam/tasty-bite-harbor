@@ -256,7 +256,7 @@ const Tables: React.FC = () => {
 
           {/* Tab 4: QR Management */}
           <TabsContent value="qr">
-            <QRCodeManagement />
+            <QRCodeManagement entityType="table" />
           </TabsContent>
         </Tabs>
 

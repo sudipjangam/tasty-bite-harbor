@@ -179,6 +179,19 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     ],
   },
 
+  // ─── QR Ordering & Self-Service Kiosk ──────────────────────────────────
+  {
+    id: 'qr_kiosk',
+    label: 'QR Scan-to-Order & Kiosk',
+    icon: 'QrCode',
+    color: 'from-amber-500 to-rose-600',
+    features: [
+      { key: 'qr_kiosk.qr_menu', label: 'Guest QR Scan-to-Order', description: 'Zero-login table QR code menu ordering with instant dynamic UPI payment' },
+      { key: 'qr_kiosk.kiosk_mode', label: 'Self-Service Touchscreen Kiosk', description: 'Interactive full-screen kiosk mode for walk-in and self-checkout' },
+      { key: 'qr_kiosk.qr_management', label: 'Table QR Card Generator', description: 'Design and export branded printable table QR tent cards (PDF/PNG)' },
+    ],
+  },
+
   // ─── Reports & Analytics ──────────────────────────────────────────────
   {
     id: 'reports',
