@@ -1028,6 +1028,24 @@ const PaymentDialog = ({
                 })
                 .eq("id", targetOrderId);
             }
+
+            // 2b. Log pos_transaction (matches MobilePaymentDialog pattern)
+            if (method !== "nc" && !isOffline) {
+              const { data: authData } = await supabase.auth.getUser();
+              await supabase.from("pos_transactions").insert({
+                restaurant_id: targetRestaurantId,
+                order_id: targetOrderId || orderId || null,
+                kitchen_order_id: ko ? orderId : null,
+                amount: finalAmount,
+                payment_method: finalMethod,
+                status: method === "pay_later" ? "pending" : "completed",
+                customer_name: customerName.trim() || null,
+                customer_phone: customerMobile.trim() || null,
+                staff_id: authData?.user?.id || null,
+                discount_amount: totalDiscountAmount,
+                ...(isSplit && splitPayload && { split_payments: splitPayload }),
+              }).then(() => {}, console.error);
+            }
           }
 
           // 3. Room Charge handler

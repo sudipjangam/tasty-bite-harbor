@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Order } from "@/types/orders";
 import AddOrderForm from "./AddOrderForm";
 import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
-import { AlertCircle, Trash2 } from "lucide-react";
+import { AlertCircle, Trash2, CreditCard, Banknote, Smartphone, Clock } from "lucide-react";
 import AdaptivePaymentDialog from "@/components/Orders/POS/AdaptivePaymentDialog";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import {
@@ -38,11 +38,21 @@ const OrderList: React.FC<OrderListProps> = ({
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [printBillOrder, setPrintBillOrder] = useState<Order | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
+  const [pendingCompleteOrder, setPendingCompleteOrder] = useState<Order | null>(null);
   const { toast } = useToast();
   const { restaurantId } = useRestaurantId();
   const queryClient = useQueryClient();
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
+    // When completing an order that has no payment_method, prompt for it
+    if (newStatus === "completed") {
+      const order = orders.find(o => o.id === orderId);
+      if (order && !order.payment_method) {
+        setPendingCompleteOrder(order);
+        return;
+      }
+    }
+
     try {
       const { error } = await supabase
         .from("orders")
@@ -77,6 +87,63 @@ const OrderList: React.FC<OrderListProps> = ({
         variant: "destructive",
         title: "Update Failed",
         description: "Could not update order status",
+      });
+    }
+  };
+
+  // Complete order with a specific payment method (triggered from payment picker)
+  const handleCompleteWithPayment = async (paymentMethod: string) => {
+    if (!pendingCompleteOrder) return;
+    const order = pendingCompleteOrder;
+    setPendingCompleteOrder(null);
+
+    try {
+      // Update order with status + payment info
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          status: "completed",
+          payment_status: paymentMethod === "pay_later" ? "pending" : "paid",
+          payment_method: paymentMethod,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", order.id);
+      if (error) throw error;
+
+      // Sync kitchen_orders
+      await supabase.from("kitchen_orders").update({
+        status: "completed",
+        bumped_at: new Date().toISOString(),
+      }).eq("order_id", order.id);
+
+      // Insert pos_transaction
+      const { data: authData } = await supabase.auth.getUser();
+      await supabase.from("pos_transactions").insert({
+        restaurant_id: order.restaurant_id || restaurantId,
+        order_id: order.id,
+        amount: Number(order.total) || 0,
+        payment_method: paymentMethod,
+        status: paymentMethod === "pay_later" ? "pending" : "completed",
+        customer_name: order.customer_name || null,
+        customer_phone: order.customer_phone || null,
+        staff_id: authData?.user?.id || null,
+      }).then(() => {}, console.error);
+
+      toast({
+        title: "Order Completed",
+        description: `Paid via ${paymentMethod.replace("_", " ").toUpperCase()}`,
+      });
+
+      onOrdersChange();
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    } catch (error) {
+      console.error("Error completing order:", error);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "Could not complete order",
       });
     }
   };
@@ -345,6 +412,55 @@ const OrderList: React.FC<OrderListProps> = ({
           serverName={printBillOrder.attendant}
         />
       )}
+
+      {/* Payment Method Picker Dialog */}
+      <AlertDialog
+        open={pendingCompleteOrder !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingCompleteOrder(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-base">
+              <CreditCard className="w-5 h-5 text-blue-500" />
+              Select Payment Method
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              How was this order paid? (₹{Number(pendingCompleteOrder?.total || 0).toFixed(2)})
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid grid-cols-2 gap-2 py-2">
+            <button
+              onClick={() => handleCompleteWithPayment("cash")}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 text-emerald-700 hover:from-emerald-100 hover:to-green-100 hover:shadow-md transition-all"
+            >
+              <Banknote className="w-4 h-4" /> Cash
+            </button>
+            <button
+              onClick={() => handleCompleteWithPayment("card")}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-blue-700 hover:from-blue-100 hover:to-indigo-100 hover:shadow-md transition-all"
+            >
+              <CreditCard className="w-4 h-4" /> Card
+            </button>
+            <button
+              onClick={() => handleCompleteWithPayment("upi")}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 text-purple-700 hover:from-purple-100 hover:to-violet-100 hover:shadow-md transition-all"
+            >
+              <Smartphone className="w-4 h-4" /> UPI / QR
+            </button>
+            <button
+              onClick={() => handleCompleteWithPayment("pay_later")}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 text-amber-700 hover:from-amber-100 hover:to-yellow-100 hover:shadow-md transition-all"
+            >
+              <Clock className="w-4 h-4" /> Pay Later
+            </button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl text-xs">Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog

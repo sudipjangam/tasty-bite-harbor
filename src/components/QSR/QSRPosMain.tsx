@@ -1267,6 +1267,10 @@ export const QSRPosMain: React.FC = () => {
             }
           }
 
+          // NOTE: pos_transactions insert for post-pay is handled by
+          // PaymentDialog / MobilePaymentDialog (which have orderId).
+          // Do NOT insert here to avoid duplicate rows.
+
           // Clear pending order state
           setPendingOrderId(null);
           setPendingKitchenOrderId(null);
@@ -1366,6 +1370,22 @@ export const QSRPosMain: React.FC = () => {
               .from("kitchen_orders")
               .update({ order_id: createdOrder.id })
               .eq("id", kitchenOrder.id);
+          }
+
+          // Insert pos_transaction (pre-pay path)
+          if (!isNC && restaurantId) {
+            const { data: authData } = await supabase.auth.getUser();
+            await supabase.from("pos_transactions").insert({
+              restaurant_id: restaurantId,
+              order_id: createdOrder?.id || null,
+              kitchen_order_id: kitchenOrder?.id || null,
+              amount: paymentDetails?.total ?? orderTotal,
+              payment_method: finalMethod,
+              status: finalPaymentStatus === "pending" ? "pending" : "completed",
+              customer_name: paymentCustomerName || null,
+              staff_id: authData?.user?.id || null,
+              ...(splitPayments && { split_payments: splitPayments }),
+            }).then(() => {}, console.error);
           }
 
           // Deduct inventory based on recipe ingredients (non-blocking)
