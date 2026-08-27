@@ -862,6 +862,9 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
           }).catch(console.error);
         }
       }
+      // NOTE: When orderId is null (e.g., POSMode direct checkout), the parent
+      // component (POSMode/QSRPosMain) creates the order and inserts pos_transactions
+      // with the real order_id. Do NOT insert here with order_id: null to avoid duplicates.
 
       // ── CRM sync (earn points) ───────────────────────────────────────────
       if (customerName.trim()) {

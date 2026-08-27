@@ -883,14 +883,142 @@ const POSMode = () => {
     // Order is already visible, just close the payment dialog
   };
 
-  const handlePaymentSuccess = () => {
-    handleSendToKitchen();
-    setShowPayment(false);
-    setCurrentOrderItems([]);
-    toast({
-      title: "Payment Successful",
-      description: "Order has been processed and sent to kitchen",
-    });
+  const handlePaymentSuccess = async (paymentDetails?: {
+    method?: string;
+    paymentStatus?: string;
+    total?: number;
+    splitPayments?: Array<{ method: string; amount: number }>;
+    customerName?: string;
+    customerMobile?: string;
+  }) => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error("Not authenticated");
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", authUser.id)
+        .maybeSingle();
+      if (!profile?.restaurant_id) throw new Error("No restaurant");
+
+      const restaurantId = profile.restaurant_id;
+      const finalMethod = paymentDetails?.method || "cash";
+      const finalPaymentStatus = paymentDetails?.paymentStatus || "paid";
+      const orderTotal = currentOrderItems.reduce(
+        (sum, item) => sum + item.price * item.quantity, 0
+      );
+      const finalAmount = paymentDetails?.total ?? orderTotal;
+      const effectiveOrderType = orderType === "Dine-In" ? "dine_in" : orderType.toLowerCase();
+      const orderSource = orderType === "Dine-In" && tableNumber
+        ? `Table ${tableNumber}` : orderType;
+      const orderCustomerName = paymentDetails?.customerName?.trim()
+        || (orderType === "Dine-In" && tableNumber ? `Table ${tableNumber}` : "Walk-in Customer");
+
+      // 1. Create kitchen order as completed (bumped)
+      const { data: kitchenOrder, error: kitchenError } = await supabase
+        .from("kitchen_orders")
+        .insert({
+          restaurant_id: restaurantId,
+          source: `POS-${orderSource}`,
+          items: currentOrderItems.map((item) => ({
+            name: item.name, quantity: item.quantity, price: item.price,
+            notes: [...(item.modifiers || []), ...(item.notes ? [item.notes] : [])],
+          })),
+          status: "completed",
+          customer_name: orderCustomerName,
+          server_name: attendantName || "Staff",
+          bumped_at: new Date().toISOString(),
+          order_type: effectiveOrderType,
+        })
+        .select()
+        .maybeSingle();
+      if (kitchenError) throw kitchenError;
+
+      // 2. Create order as completed with payment info
+      const { data: createdOrder, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          restaurant_id: restaurantId,
+          customer_name: orderCustomerName,
+          items: currentOrderItems.map((item) =>
+            formatOrderItemString(item.quantity, item.name, item.price, item.notes, item.modifiers)
+          ),
+          total: finalAmount,
+          status: "completed",
+          source: "pos",
+          order_type: effectiveOrderType,
+          payment_status: finalPaymentStatus,
+          payment_method: finalMethod,
+          attendant: attendantName,
+          ...(paymentDetails?.splitPayments && { split_payments: paymentDetails.splitPayments }),
+          ...(paymentDetails?.customerMobile && { customer_phone: paymentDetails.customerMobile }),
+        })
+        .select()
+        .maybeSingle();
+      if (orderError) throw orderError;
+
+      // 3. Link kitchen order → orders
+      if (createdOrder?.id && kitchenOrder?.id) {
+        await supabase.from("kitchen_orders")
+          .update({ order_id: createdOrder.id })
+          .eq("id", kitchenOrder.id);
+      }
+
+      // 4. Insert pos_transaction
+      await supabase.from("pos_transactions").insert({
+        restaurant_id: restaurantId,
+        order_id: createdOrder?.id || null,
+        kitchen_order_id: kitchenOrder?.id || null,
+        amount: finalAmount,
+        payment_method: finalMethod,
+        status: finalPaymentStatus === "pending" ? "pending" : "completed",
+        customer_name: orderCustomerName || null,
+        customer_phone: paymentDetails?.customerMobile || null,
+        staff_id: authUser.id,
+        ...(paymentDetails?.splitPayments && { split_payments: paymentDetails.splitPayments }),
+      }).then(() => {}, console.error);
+
+      // 5. Print KOT
+      try {
+        await thermalPrinterService.printKOT({
+          tableName: orderType === "Dine-In" && tableNumber ? `Table ${tableNumber}` : orderType,
+          serverName: attendantName || "Staff",
+          items: currentOrderItems.map((item) => ({
+            name: item.name, quantity: item.quantity, price: item.price, notes: item.notes,
+          })),
+          orderType: effectiveOrderType.replace("-", "_"),
+        });
+      } catch (printErr) {
+        console.warn("[POSMode] KOT print failed:", printErr);
+      }
+
+      // 6. Cleanup
+      setShowPayment(false);
+      setCurrentOrderItems([]);
+      setRecalledKitchenOrderId(null);
+
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
+      queryClient.invalidateQueries({ queryKey: ["todays-pos-revenue"] });
+
+      toast({
+        title: "Payment Successful",
+        description: "Order completed and sent to kitchen",
+      });
+    } catch (error: any) {
+      console.error("POSMode payment error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error?.message || "Failed to process payment",
+      });
+    }
   };
 
   return (
