@@ -15,9 +15,13 @@ import {
   DollarSign,
   CloudSun,
   UserCheck,
+  ShoppingCart,
+  Bed,
+  Users,
+  AlertCircle,
 } from "lucide-react";
 
-export const MAX_WIDGETS = 8;
+export const MAX_WIDGETS = 10;
 
 export interface WidgetDefinition {
   id: string;
@@ -30,12 +34,28 @@ export interface WidgetDefinition {
 
 export const WIDGET_CATALOG: WidgetDefinition[] = [
   {
+    id: "owner-attendance",
+    name: "Attendance & Leaves",
+    description: "Manage your attendance, live staff times, and upcoming leaves",
+    icon: UserCheck,
+    gradient: "from-rose-500 to-red-600",
+    category: "info",
+  },
+  {
     id: "weekly-sales",
     name: "Weekly Sales",
     description: "Column chart showing this week's daily revenue",
     icon: BarChart3,
     gradient: "from-blue-500 to-indigo-600",
     category: "charts",
+  },
+  {
+    id: "live-orders",
+    name: "Live Orders",
+    description: "Real-time kitchen and POS order tracking",
+    icon: ShoppingCart,
+    gradient: "from-blue-500 to-indigo-600",
+    category: "stats",
   },
   {
     id: "trending-items",
@@ -62,6 +82,14 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     category: "stats",
   },
   {
+    id: "low-inventory",
+    name: "Low Inventory Alert",
+    description: "Items running low on stock that need restocking",
+    icon: AlertTriangle,
+    gradient: "from-amber-500 to-orange-600",
+    category: "info",
+  },
+  {
     id: "nc-stats",
     name: "Non-Chargeable Orders",
     description: "Track NC orders count and percentage of revenue",
@@ -70,11 +98,27 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     category: "stats",
   },
   {
-    id: "low-inventory",
-    name: "Low Inventory Alert",
-    description: "Items running low on stock that need restocking",
-    icon: AlertTriangle,
-    gradient: "from-amber-500 to-orange-600",
+    id: "room-status",
+    name: "Room Status",
+    description: "Overview of hotel rooms, occupancy, and maintenance",
+    icon: Bed,
+    gradient: "from-cyan-500 to-blue-600",
+    category: "info",
+  },
+  {
+    id: "staff-attendance",
+    name: "Staff Attendance (Detailed)",
+    description: "Complete list of clocked-in, late, and absent staff",
+    icon: Users,
+    gradient: "from-violet-500 to-purple-600",
+    category: "info",
+  },
+  {
+    id: "owner-alerts",
+    name: "Staff & Operations Alerts",
+    description: "Notifications for overtime, late clock-ins, and leave requests",
+    icon: AlertCircle,
+    gradient: "from-amber-500 to-red-600",
     category: "info",
   },
   {
@@ -110,6 +154,22 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     category: "charts",
   },
   {
+    id: "menu-margins",
+    name: "Menu Item Margins",
+    description: "Profit margin per dish based on ingredient costs",
+    icon: DollarSign,
+    gradient: "from-emerald-500 to-green-600",
+    category: "stats",
+  },
+  {
+    id: "weather-forecast",
+    name: "Weather Forecast",
+    description: "Current weather + 3-day forecast with operational tips",
+    icon: CloudSun,
+    gradient: "from-sky-400 to-blue-600",
+    category: "info",
+  },
+  {
     id: "location-today",
     name: "Today's Location",
     description: "Current location and upcoming schedule info",
@@ -133,30 +193,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     gradient: "from-amber-500 to-orange-600",
     category: "stats",
   },
-  {
-    id: "menu-margins",
-    name: "Menu Item Margins",
-    description: "Profit margin per dish based on ingredient costs",
-    icon: DollarSign,
-    gradient: "from-emerald-500 to-green-600",
-    category: "stats",
-  },
-  {
-    id: "weather-forecast",
-    name: "Weather Forecast",
-    description: "Current weather + 3-day forecast with food truck tips",
-    icon: CloudSun,
-    gradient: "from-sky-400 to-blue-600",
-    category: "info",
-  },
-  {
-    id: "owner-attendance",
-    name: "Attendance & Leaves",
-    description: "Manage your attendance, live staff times, and upcoming leaves",
-    icon: UserCheck,
-    gradient: "from-rose-500 to-red-600",
-    category: "info",
-  },
 ];
 
 export const DEFAULT_WIDGETS = [
@@ -170,11 +206,13 @@ export const DEFAULT_WIDGETS = [
 ];
 
 export const RESTAURANT_DEFAULT_WIDGETS = [
-  "low-inventory",
+  "owner-attendance",
   "weekly-sales",
+  "live-orders",
   "trending-items",
   "revenue-pie",
   "recent-orders",
+  "low-inventory",
   "nc-stats",
 ];
 

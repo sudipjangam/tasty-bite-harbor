@@ -6,6 +6,7 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useToast } from "@/hooks/use-toast";
 import { StandardizedCard } from "@/components/ui/standardized-card";
 import { StandardizedButton } from "@/components/ui/standardized-button";
+import { Button } from "@/components/ui/button";
 import { PermissionDeniedDialog } from "@/components/Auth/PermissionDeniedDialog";
 import {
   BarChart3,
@@ -15,14 +16,11 @@ import {
   Clock,
   PieChart,
   Table2,
+  Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
-import WeeklySalesChart from "@/components/Dashboard/WeeklySalesChart";
-import TrendingItems from "@/components/Dashboard/TrendingItems";
 import StaffSelfServiceSection from "@/components/Dashboard/StaffSelfServiceSection";
-import RevenuePieChart from "@/components/Dashboard/RevenuePieChart";
-import RecentOrdersTable from "@/components/Dashboard/RecentOrdersTable";
 import TimeClockDialog from "@/components/Staff/TimeClockDialog";
 import LeaveRequestDialog from "@/components/Staff/LeaveRequestDialog";
 import { useRefetchOnNavigation } from "@/hooks/useRefetchOnNavigation";
@@ -31,12 +29,22 @@ import type { StaffMember } from "@/types/staff";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import FoodTruckDashboard from "@/components/Dashboard/FoodTruckDashboard";
+import { WidgetPickerDialog } from "@/components/Dashboard/widgets/WidgetPickerDialog";
+import { WidgetRenderer } from "@/components/Dashboard/widgets/WidgetRenderer";
+import { useWidgetPreferences } from "@/hooks/useWidgetPreferences";
+import { RESTAURANT_DEFAULT_WIDGETS } from "@/components/Dashboard/widgets/WidgetRegistry";
 
 const Index = () => {
   const { user, hasPermission } = useAuth();
   const { restaurantId, restaurantName } = useRestaurantId();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [showWidgetPicker, setShowWidgetPicker] = useState(false);
+  const { selectedWidgets, saveWidgets } = useWidgetPreferences(
+    restaurantId,
+    "restaurant",
+    RESTAURANT_DEFAULT_WIDGETS,
+  );
 
   // Refetch dashboard data when navigating to this page
   useRefetchOnNavigation(["dashboard-orders"]);
@@ -345,62 +353,33 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Charts & Activity - High Priority */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-500/20 border-b border-gray-100 dark:border-gray-700/50">
-              <CardTitle className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20">
-                  <BarChart3 className="h-5 w-5 text-white" />
-                </div>
-                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  Sales Trend
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <WeeklySalesChart />
-            </CardContent>
-          </Card>
+        {/* Customizable Dashboard Widgets */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-indigo-500" />
+              Dashboard Widgets
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowWidgetPicker(true)}
+              className="rounded-xl border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-semibold gap-1.5"
+            >
+              <Zap className="h-3.5 w-3.5" />
+              Customize
+            </Button>
+          </div>
 
-          <TrendingItems />
-        </div>
-
-        {/* Financial Insights Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Revenue Breakdown Pie Chart */}
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-pink-500/10 to-rose-500/10 dark:from-pink-500/20 dark:to-rose-500/20 border-b border-gray-100 dark:border-gray-700/50">
-              <CardTitle className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl shadow-lg shadow-pink-500/20">
-                  <PieChart className="h-5 w-5 text-white" />
-                </div>
-                <span className="bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">
-                  Revenue by Category
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <RevenuePieChart />
-            </CardContent>
-          </Card>
-
-          {/* Recent Orders Table */}
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl shadow-xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-cyan-500/10 to-teal-500/10 dark:from-cyan-500/20 dark:to-teal-500/20 border-b border-gray-100 dark:border-gray-700/50">
-              <CardTitle className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-xl shadow-lg shadow-cyan-500/20">
-                  <Table2 className="h-5 w-5 text-white" />
-                </div>
-                <span className="bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent">
-                  Top Orders Today
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <RecentOrdersTable restaurantId={restaurantId} />
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {selectedWidgets.map((widgetId) => (
+              <WidgetRenderer
+                key={widgetId}
+                widgetId={widgetId}
+                restaurantId={restaurantId}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -412,6 +391,15 @@ const Index = () => {
         featureName={permissionDialog.featureName}
         requiredPermission={permissionDialog.requiredPermission}
         onNavigateToHome={() => navigate("/")}
+      />
+
+      {/* Widget Picker Dialog */}
+      <WidgetPickerDialog
+        isOpen={showWidgetPicker}
+        onClose={() => setShowWidgetPicker(false)}
+        selectedWidgets={selectedWidgets}
+        onSave={saveWidgets}
+        defaultWidgets={RESTAURANT_DEFAULT_WIDGETS}
       />
 
       {staff && restaurantId && (

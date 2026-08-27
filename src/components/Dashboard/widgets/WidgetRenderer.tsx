@@ -35,6 +35,20 @@ const LocationPerformanceWidget = lazy(
 const MenuMarginsWidget = lazy(() => import("./MenuMarginsWidget"));
 const WeatherWidget = lazy(() => import("./WeatherWidget"));
 const OwnerAttendanceWidget = lazy(() => import("./OwnerAttendanceWidget"));
+const LiveOrderStatus = lazy(() =>
+  import("@/components/Dashboard/LiveOrderStatus").then((module) => ({
+    default: module.LiveOrderStatus,
+  })),
+);
+const RoomStatusWidget = lazy(
+  () => import("@/components/Dashboard/RoomStatusWidget"),
+);
+const StaffAttendanceWidget = lazy(
+  () => import("@/components/Dashboard/StaffAttendanceWidget"),
+);
+const OwnerAlertsWidget = lazy(
+  () => import("@/components/Dashboard/OwnerAlertsWidget"),
+);
 
 // Import NC Stats (named export)
 import { NCStatsCard } from "@/components/Dashboard/NCStatsCard";
@@ -57,6 +71,14 @@ const WidgetContent: React.FC<{
   switch (widgetId) {
     case "weekly-sales":
       return <WeeklySalesChart />;
+    case "live-orders":
+      return <LiveOrderStatus />;
+    case "room-status":
+      return <RoomStatusWidget />;
+    case "staff-attendance":
+      return <StaffAttendanceWidget />;
+    case "owner-alerts":
+      return <OwnerAlertsWidget />;
     case "trending-items":
       return <TrendingItems />;
     case "revenue-pie":

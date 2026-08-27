@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DEFAULT_WIDGETS, MAX_WIDGETS } from "@/components/Dashboard/widgets/WidgetRegistry";
 
 const STORAGE_KEY = "dashboard_widgets";
@@ -24,6 +24,25 @@ export function useWidgetPreferences(
     return defaultWidgets;
   });
 
+  // Sync state when restaurantId or dashboardType changes
+  useEffect(() => {
+    if (!restaurantId) {
+      setSelectedWidgets(defaultWidgets);
+      return;
+    }
+    try {
+      const saved = localStorage.getItem(getStorageKey(restaurantId, dashboardType));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSelectedWidgets(parsed);
+          return;
+        }
+      }
+    } catch {}
+    setSelectedWidgets(defaultWidgets);
+  }, [restaurantId, dashboardType]);
+
   const saveWidgets = useCallback(
     (widgets: string[]) => {
       setSelectedWidgets(widgets);
@@ -34,7 +53,7 @@ export function useWidgetPreferences(
         );
       }
     },
-    [restaurantId],
+    [restaurantId, dashboardType],
   );
 
   const toggleWidget = useCallback(
@@ -56,12 +75,12 @@ export function useWidgetPreferences(
         return next;
       });
     },
-    [restaurantId],
+    [restaurantId, dashboardType],
   );
 
   const resetToDefaults = useCallback(() => {
-    saveWidgets(DEFAULT_WIDGETS);
-  }, [saveWidgets]);
+    saveWidgets(defaultWidgets);
+  }, [saveWidgets, defaultWidgets]);
 
   return { selectedWidgets, toggleWidget, saveWidgets, resetToDefaults };
 }
