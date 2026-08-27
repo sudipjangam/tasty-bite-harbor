@@ -119,7 +119,15 @@ const OrderItem: React.FC<OrderItemProps> = ({
   const getSourceLabel = (source?: string, orderType?: string) => {
     if (!source) return null;
     const sourceLabels: Record<string, string> = {
-      pos: "POS", table: "Table Order", manual: "Manual", room_service: "Room Service", qsr: "QSR",
+      pos: "POS",
+      table: "Table Order",
+      manual: "Manual",
+      room_service: "Room Service",
+      qsr: "QSR",
+      swiggy: "Swiggy",
+      zomato: "Zomato",
+      magicpin: "magicpin",
+      urbanpiper: "UrbanPiper",
     };
     const orderTypeLabels: Record<string, string> = {
       "dine-in": "Dine-In", takeaway: "Takeaway", delivery: "Delivery", "non-chargeable": "Non-Chargeable",

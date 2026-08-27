@@ -66,6 +66,12 @@ import {
   Sparkles,
   Megaphone,
   Soup,
+  Store,
+  LayoutDashboard,
+  Bed,
+  Globe,
+  Key,
+  Network,
 } from "lucide-react";
 import {
   FEATURE_REGISTRY,
@@ -94,6 +100,12 @@ const ICON_MAP: Record<string, any> = {
   Settings,
   Sparkles,
   Megaphone,
+  Store,
+  LayoutDashboard,
+  Bed,
+  Globe,
+  Key,
+  Network,
 };
 
 interface SubscriptionPlan {

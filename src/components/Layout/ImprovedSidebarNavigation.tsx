@@ -83,6 +83,7 @@ const hrefToComponentMap: Record<string, string> = {
   "/settings": "settings",
   "/digital-twin": "tables.digital_twin",
   "/franchise": "franchise",
+  "/aggregators": "aggregators.view",
 };
 
 interface NavigationItem {
@@ -142,6 +143,13 @@ const navigationGroups: NavigationGroup[] = [
         icon: Store,
         href: "/quickserve-pos",
         description: "Counter & takeaway POS",
+        requiredPermissions: ["orders.view"],
+      },
+      {
+        title: "Online Delivery",
+        icon: Globe,
+        href: "/aggregators",
+        description: "Swiggy, Zomato & magicpin",
         requiredPermissions: ["orders.view"],
       },
       {

@@ -538,6 +538,10 @@ const OrdersView = ({
                   <SelectContent>
                     <SelectItem value="all">All Sources</SelectItem>
                     <SelectItem value="pos">POS</SelectItem>
+                    <SelectItem value="swiggy">Swiggy</SelectItem>
+                    <SelectItem value="zomato">Zomato</SelectItem>
+                    <SelectItem value="magicpin">magicpin</SelectItem>
+                    <SelectItem value="urbanpiper">UrbanPiper</SelectItem>
                     <SelectItem value="table">Table Order</SelectItem>
                     <SelectItem value="manual">Manual</SelectItem>
                     <SelectItem value="quickserve">QSR / QuickServe</SelectItem>
