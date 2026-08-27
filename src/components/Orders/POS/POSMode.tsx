@@ -22,6 +22,10 @@ import { formatOrderItemString } from "@/lib/order-utils";
 import { useToast } from "@/hooks/use-toast";
 import { thermalPrinterService } from "@/services/thermalPrinterService";
 import { POSPayment } from "../Payment/POSPayment";
+import { POSRiderTrackingDrawer } from "@/components/Aggregators/POSRiderTrackingDrawer";
+import { useRiderTracking } from "@/hooks/useRiderTracking";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
+import { Bike } from "lucide-react";
 import { OrderPayment } from "../Payment/OrderPayment";
 import type { OrderItem, TableData } from "@/types/orders";
 import { WeightQuantityDialog } from "../WeightQuantityDialog";
@@ -55,6 +59,13 @@ const POSMode = () => {
   const [showWeightDialog, setShowWeightDialog] = useState(false);
   const [pendingWeightItem, setPendingWeightItem] = useState<any>(null);
   const [isSendingToKitchen, setIsSendingToKitchen] = useState(false);
+
+  // Rider Tracking Drawer state & Feature Lock check
+  const [showRiderTracking, setShowRiderTracking] = useState(false);
+  const { totalActiveRiders, ridersAtStore } = useRiderTracking();
+  const { isLocked: isRiderTrackingLocked } = useFeatureGate("aggregators.rider_tracking");
+  const { isLocked: isAggregatorsViewLocked } = useFeatureGate("aggregators.view");
+  const canShowRiderTracking = !isRiderTrackingLocked && !isAggregatorsViewLocked;
 
   // Duplicate order warning state
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
@@ -1058,6 +1069,29 @@ const POSMode = () => {
                   </div>
                 )}
 
+                {/* Live Rider Tracking Button */}
+                {canShowRiderTracking && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowRiderTracking(true)}
+                    size="sm"
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all shadow-sm ${
+                      ridersAtStore.length > 0
+                        ? "bg-emerald-500 text-white animate-pulse border-0"
+                        : "bg-white/80 dark:bg-gray-700/80 border-2 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+                    }`}
+                    title="Live Aggregator Delivery Riders"
+                  >
+                    <Bike className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    <span className="hidden sm:inline">Riders</span>
+                    {totalActiveRiders > 0 && (
+                      <span className="px-1.5 py-0.2 text-[10px] bg-purple-600 text-white rounded-full font-extrabold">
+                        {totalActiveRiders}
+                      </span>
+                    )}
+                  </Button>
+                )}
+
                 {/* Hide/Show Orders button */}
                 <Button
                   variant="outline"
@@ -1285,6 +1319,12 @@ const POSMode = () => {
               "This order has been marked as an accidental KOT and won't count towards revenue.",
           });
         }}
+      />
+
+      {/* Rider Tracking Drawer */}
+      <POSRiderTrackingDrawer
+        isOpen={showRiderTracking}
+        onClose={() => setShowRiderTracking(false)}
       />
     </div>
   );

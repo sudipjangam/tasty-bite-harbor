@@ -11,13 +11,16 @@ import {
   TrendingUp,
   Radio,
   ShoppingBag,
+  Bike,
 } from "lucide-react";
 import { useAggregatorHub } from "@/hooks/useAggregatorHub";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
 import { AggregatorStoreStatusHeader } from "@/components/Aggregators/AggregatorStoreStatusHeader";
 import { AggregatorLiveOrderCard } from "@/components/Aggregators/AggregatorLiveOrderCard";
 import { AggregatorMenuMappingTab } from "@/components/Aggregators/AggregatorMenuMappingTab";
 import { AggregatorChannelSettingsTab } from "@/components/Aggregators/AggregatorChannelSettingsTab";
 import { AggregatorPnLTab } from "@/components/Aggregators/AggregatorPnLTab";
+import { AggregatorRiderTrackingTab } from "@/components/Aggregators/AggregatorRiderTrackingTab";
 import { AggregatorSimulatorModal } from "@/components/Aggregators/AggregatorSimulatorModal";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 
@@ -36,6 +39,7 @@ export const AggregatorsPage: React.FC = () => {
   } = useAggregatorHub();
 
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
+  const { isLocked: isRiderTrackingLocked } = useFeatureGate("aggregators.rider_tracking");
 
   return (
     <FeatureLock feature="aggregators.view" interceptClicks={true}>
@@ -51,19 +55,29 @@ export const AggregatorsPage: React.FC = () => {
         {/* Main Tabs Navigation */}
         <Tabs defaultValue="live-board" className="space-y-6">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl p-2 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-md">
-            <TabsList className="grid grid-cols-2 md:grid-cols-4 gap-2 bg-transparent h-auto p-0">
+            <TabsList className={`grid grid-cols-2 ${!isRiderTrackingLocked ? "md:grid-cols-5" : "md:grid-cols-4"} gap-2 bg-transparent h-auto p-0`}>
               <TabsTrigger
                 value="live-board"
                 className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-600 data-[state=active]:text-white font-bold text-xs shadow-sm transition-all"
               >
                 <Radio className="h-4 w-4" />
-                <span>Live Relay Board</span>
+                <span>Live Orders</span>
                 {summaryStats.activeOrdersCount > 0 && (
                   <Badge className="ml-1 bg-white text-orange-600 dark:bg-gray-900 text-[10px] px-1.5 py-0">
                     {summaryStats.activeOrdersCount}
                   </Badge>
                 )}
               </TabsTrigger>
+
+              {!isRiderTrackingLocked && (
+                <TabsTrigger
+                  value="riders"
+                  className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-600 data-[state=active]:text-white font-bold text-xs shadow-sm transition-all"
+                >
+                  <Bike className="h-4 w-4" />
+                  <span>Rider Tracking</span>
+                </TabsTrigger>
+              )}
 
               <TabsTrigger
                 value="menu-markups"
@@ -182,7 +196,12 @@ export const AggregatorsPage: React.FC = () => {
             )}
           </TabsContent>
 
-          {/* Tab 2: Menu & 86ing */}
+          {/* Tab 2: Live Rider Tracking */}
+          <TabsContent value="riders">
+            <AggregatorRiderTrackingTab />
+          </TabsContent>
+
+          {/* Tab 3: Menu & 86ing */}
           <TabsContent value="menu-markups">
             <AggregatorMenuMappingTab onToggle86={toggle86} />
           </TabsContent>

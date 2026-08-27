@@ -388,6 +388,7 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     color: 'from-orange-500 to-red-600',
     features: [
       { key: 'aggregators.view', label: 'Aggregators Hub', description: 'Access to Online Delivery & Aggregators Hub' },
+      { key: 'aggregators.rider_tracking', label: 'Live Rider Tracking', description: 'Real-time GPS delivery partner and rider tracking in POS & Delivery Hub' },
       { key: 'aggregators.swiggy', label: 'Swiggy Integration', description: 'Two-way order relay and menu sync with Swiggy' },
       { key: 'aggregators.zomato', label: 'Zomato Integration', description: 'Two-way order relay and menu sync with Zomato' },
       { key: 'aggregators.magicpin', label: 'magicpin Integration', description: 'Direct order ingestion & offers with magicpin' },
