@@ -41,6 +41,12 @@ import {
   CookingPot,
   Layers,
   Check,
+  Store,
+  LayoutDashboard,
+  Bed,
+  Globe,
+  Key,
+  Network,
 } from "lucide-react";
 import {
   FEATURE_REGISTRY,
@@ -52,7 +58,8 @@ import {
 const ICON_MAP: Record<string, any> = {
   Monitor, Zap, ShoppingCart, ChefHat, UtensilsCrossed, Package, Soup,
   LayoutGrid, BarChart3, Users, UserCheck, DollarSign, Receipt, Truck,
-  CalendarDays, Shield, Settings, Sparkles, Megaphone,
+  CalendarDays, Shield, Settings, Sparkles, Megaphone, Store, LayoutDashboard,
+  Bed, Globe, Key, Network,
 };
 
 interface SubscriptionPlan {

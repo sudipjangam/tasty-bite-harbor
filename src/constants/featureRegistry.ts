@@ -380,6 +380,24 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     ],
   },
 
+  // ─── Online Aggregators (Swiggy / Zomato / magicpin) ───────────────
+  {
+    id: 'aggregators',
+    label: 'Online Aggregators',
+    icon: 'Store',
+    color: 'from-orange-500 to-red-600',
+    features: [
+      { key: 'aggregators.view', label: 'Aggregators Hub', description: 'Access to Online Delivery & Aggregators Hub' },
+      { key: 'aggregators.swiggy', label: 'Swiggy Integration', description: 'Two-way order relay and menu sync with Swiggy' },
+      { key: 'aggregators.zomato', label: 'Zomato Integration', description: 'Two-way order relay and menu sync with Zomato' },
+      { key: 'aggregators.magicpin', label: 'magicpin Integration', description: 'Direct order ingestion & offers with magicpin' },
+      { key: 'aggregators.urbanpiper', label: 'UrbanPiper Gateway', description: 'Unified multi-channel gateway & Atlas sync' },
+      { key: 'aggregators.price_markup', label: 'Channel Price Markups', description: 'Configure automated percentage markups per delivery platform' },
+      { key: 'aggregators.live_86', label: 'Universal 86 (Out-of-Stock)', description: 'Instant one-click out of stock toggle across all delivery apps' },
+      { key: 'aggregators.pnl_reconciliation', label: 'Aggregator P&L & Commission', description: 'Commission tracking, cancellation loss, and net payout audit' },
+    ],
+  },
+
   // ─── Franchise Management ─────────────────────────────────────────────
   {
     id: 'franchise',

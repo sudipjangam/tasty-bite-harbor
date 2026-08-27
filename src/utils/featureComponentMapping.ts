@@ -77,6 +77,12 @@ const buildComponentMap = (): Record<string, ComponentMapping> => {
     'franchise': 'franchise',
     'franchise portal': 'franchise',
     'franchise management': 'franchise',
+    'online delivery': 'aggregators',
+    'aggregators': 'aggregators',
+    'swiggy': 'aggregators',
+    'zomato': 'aggregators',
+    'magicpin': 'aggregators',
+    'urbanpiper': 'aggregators',
   };
 
   for (const [alias, categoryId] of Object.entries(aliases)) {
@@ -271,6 +277,7 @@ const getDisplayNameForCategory = (cat: FeatureCategory): string => {
     'ai': 'AI Assistant',
     'marketing': 'Marketing',
     'franchise': 'Franchise Portal',
+    'aggregators': 'Online Delivery',
   };
   return knownNames[cat.id] || cat.label;
 };

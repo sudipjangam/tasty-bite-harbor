@@ -66,6 +66,7 @@ const Marketing = lazy(() => import("@/pages/Marketing"));
 // Other Features
 const AI = lazy(() => import("@/pages/AI"));
 const ChannelManagement = lazy(() => import("@/pages/ChannelManagement"));
+const Aggregators = lazy(() => import("@/pages/Aggregators"));
 const Security = lazy(() => import("@/pages/Security"));
 const Settings = lazy(() => import("@/pages/Settings"));
 const AdminPanel = lazy(() => import("@/pages/AdminPanel"));
@@ -422,6 +423,16 @@ export const AppRoutes = () => {
               <PermissionGuard permission="analytics.view">
                 <LazyRoute>
                   <ChannelManagement />
+                </LazyRoute>
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/aggregators"
+            element={
+              <PermissionGuard permission="orders.view">
+                <LazyRoute>
+                  <Aggregators />
                 </LazyRoute>
               </PermissionGuard>
             }
