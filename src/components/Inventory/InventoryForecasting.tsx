@@ -15,6 +15,7 @@ import {
   ShoppingCart, Zap, Target, ArrowRight, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { subDays, format, differenceInDays } from "date-fns";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ForecastItem {
   id: string;
@@ -211,6 +212,8 @@ const InventoryForecasting = () => {
     },
   };
 
+  const isMobile = useIsMobile();
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -227,107 +230,169 @@ const InventoryForecasting = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl shadow-lg shadow-cyan-500/30">
-            <Zap className="h-6 w-6 text-white" />
+      {isMobile ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg text-white shadow-sm">
+                <Zap className="h-4 w-4" />
+              </div>
+              <h2 className="text-sm font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
+                Forecast & Planning
+              </h2>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Select value={String(lookbackDays)} onValueChange={(v) => setLookbackDays(Number(v))}>
+                <SelectTrigger className="h-8 text-xs w-[105px] rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">7 days</SelectItem>
+                  <SelectItem value="14">14 days</SelectItem>
+                  <SelectItem value="30">30 days</SelectItem>
+                  <SelectItem value="60">60 days</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={String(leadTimeDays)} onValueChange={(v) => setLeadTimeDays(Number(v))}>
+                <SelectTrigger className="h-8 text-xs w-[105px] rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Lead: 1d</SelectItem>
+                  <SelectItem value="2">Lead: 2d</SelectItem>
+                  <SelectItem value="3">Lead: 3d</SelectItem>
+                  <SelectItem value="5">Lead: 5d</SelectItem>
+                  <SelectItem value="7">Lead: 7d</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-              Inventory Forecast & Planning
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Consumption velocity analysis over {lookbackDays} days
-            </p>
+
+          {/* Compact 4-Stat Micro Row for Mobile */}
+          <div className="grid grid-cols-4 gap-1.5 p-1 bg-cyan-50/60 dark:bg-gray-900/60 rounded-xl border border-cyan-100 dark:border-cyan-950/40">
+            <div className="text-center p-1 rounded-lg bg-white/80 dark:bg-gray-800/80 shadow-xs">
+              <div className="text-[9px] font-bold text-red-600 uppercase leading-none mb-0.5">Critical</div>
+              <div className="text-xs font-extrabold text-red-600 font-mono leading-none">{criticalCount}</div>
+            </div>
+            <div className="text-center p-1 rounded-lg bg-white/80 dark:bg-gray-800/80 shadow-xs">
+              <div className="text-[9px] font-bold text-amber-600 uppercase leading-none mb-0.5">Warning</div>
+              <div className="text-xs font-extrabold text-amber-600 font-mono leading-none">{warningCount}</div>
+            </div>
+            <div className="text-center p-1 rounded-lg bg-white/80 dark:bg-gray-800/80 shadow-xs">
+              <div className="text-[9px] font-bold text-blue-600 uppercase leading-none mb-0.5">Overstock</div>
+              <div className="text-xs font-extrabold text-blue-600 font-mono leading-none">{overstockedCount}</div>
+            </div>
+            <div className="text-center p-1 rounded-lg bg-white/80 dark:bg-gray-800/80 shadow-xs">
+              <div className="text-[9px] font-bold text-emerald-600 uppercase leading-none mb-0.5">Reorder</div>
+              <div className="text-xs font-extrabold text-emerald-600 font-mono leading-none truncate">{currencySymbol}{totalReorderCost.toFixed(0)}</div>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Select value={String(lookbackDays)} onValueChange={(v) => setLookbackDays(Number(v))}>
-            <SelectTrigger className="w-[140px] rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">Last 7 days</SelectItem>
-              <SelectItem value="14">Last 14 days</SelectItem>
-              <SelectItem value="30">Last 30 days</SelectItem>
-              <SelectItem value="60">Last 60 days</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={String(leadTimeDays)} onValueChange={(v) => setLeadTimeDays(Number(v))}>
-            <SelectTrigger className="w-[150px] rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1">Lead: 1 day</SelectItem>
-              <SelectItem value="2">Lead: 2 days</SelectItem>
-              <SelectItem value="3">Lead: 3 days</SelectItem>
-              <SelectItem value="5">Lead: 5 days</SelectItem>
-              <SelectItem value="7">Lead: 7 days</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="overflow-hidden border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg rounded-2xl">
-          <div className="h-1.5 w-full bg-gradient-to-r from-red-500 to-rose-500" />
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-gradient-to-br from-red-500 to-rose-500 rounded-lg">
-                <AlertTriangle className="h-3.5 w-3.5 text-white" />
+      ) : (
+        <>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl shadow-lg shadow-cyan-500/30">
+                <Zap className="h-6 w-6 text-white" />
               </div>
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Critical</span>
-            </div>
-            <span className="text-2xl font-bold text-red-600">{criticalCount}</span>
-            <p className="text-[10px] text-gray-500 mt-1">Items at risk of stockout</p>
-          </CardContent>
-        </Card>
-
-        <Card className="overflow-hidden border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg rounded-2xl">
-          <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 to-orange-500" />
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg">
-                <Clock className="h-3.5 w-3.5 text-white" />
+              <div>
+                <h2 className="text-xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
+                  Inventory Forecast & Planning
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Consumption velocity analysis over {lookbackDays} days
+                </p>
               </div>
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Warning</span>
             </div>
-            <span className="text-2xl font-bold text-amber-600">{warningCount}</span>
-            <p className="text-[10px] text-gray-500 mt-1">Reorder soon</p>
-          </CardContent>
-        </Card>
+            <div className="flex items-center gap-3">
+              <Select value={String(lookbackDays)} onValueChange={(v) => setLookbackDays(Number(v))}>
+                <SelectTrigger className="w-[140px] rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">Last 7 days</SelectItem>
+                  <SelectItem value="14">Last 14 days</SelectItem>
+                  <SelectItem value="30">Last 30 days</SelectItem>
+                  <SelectItem value="60">Last 60 days</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={String(leadTimeDays)} onValueChange={(v) => setLeadTimeDays(Number(v))}>
+                <SelectTrigger className="w-[150px] rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Lead: 1 day</SelectItem>
+                  <SelectItem value="2">Lead: 2 days</SelectItem>
+                  <SelectItem value="3">Lead: 3 days</SelectItem>
+                  <SelectItem value="5">Lead: 5 days</SelectItem>
+                  <SelectItem value="7">Lead: 7 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-        <Card className="overflow-hidden border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg rounded-2xl">
-          <div className="h-1.5 w-full bg-gradient-to-r from-blue-500 to-cyan-500" />
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
-                <Package className="h-3.5 w-3.5 text-white" />
-              </div>
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Overstocked</span>
-            </div>
-            <span className="text-2xl font-bold text-blue-600">{overstockedCount}</span>
-            <p className="text-[10px] text-gray-500 mt-1">60+ days of supply</p>
-          </CardContent>
-        </Card>
+          {/* Desktop KPI Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card className="overflow-hidden border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg rounded-2xl">
+              <div className="h-1.5 w-full bg-gradient-to-r from-red-500 to-rose-500" />
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 bg-gradient-to-br from-red-500 to-rose-500 rounded-lg">
+                    <AlertTriangle className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Critical</span>
+                </div>
+                <span className="text-2xl font-bold text-red-600">{criticalCount}</span>
+                <p className="text-[10px] text-gray-500 mt-1">Items at risk of stockout</p>
+              </CardContent>
+            </Card>
 
-        <Card className="overflow-hidden border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg rounded-2xl">
-          <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 to-green-500" />
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-gradient-to-br from-emerald-500 to-green-500 rounded-lg">
-                <ShoppingCart className="h-3.5 w-3.5 text-white" />
-              </div>
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Reorder Cost</span>
-            </div>
-            <span className="text-2xl font-bold">{currencySymbol}{totalReorderCost.toFixed(0)}</span>
-            <p className="text-[10px] text-gray-500 mt-1">Estimated purchase needed</p>
-          </CardContent>
-        </Card>
-      </div>
+            <Card className="overflow-hidden border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg rounded-2xl">
+              <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 to-orange-500" />
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg">
+                    <Clock className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Warning</span>
+                </div>
+                <span className="text-2xl font-bold text-amber-600">{warningCount}</span>
+                <p className="text-[10px] text-gray-500 mt-1">Reorder soon</p>
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg rounded-2xl">
+              <div className="h-1.5 w-full bg-gradient-to-r from-blue-500 to-cyan-500" />
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
+                    <Package className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Overstocked</span>
+                </div>
+                <span className="text-2xl font-bold text-blue-600">{overstockedCount}</span>
+                <p className="text-[10px] text-gray-500 mt-1">60+ days of supply</p>
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg rounded-2xl">
+              <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 to-green-500" />
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 bg-gradient-to-br from-emerald-500 to-green-500 rounded-lg">
+                    <ShoppingCart className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Reorder Cost</span>
+                </div>
+                <span className="text-2xl font-bold">{currencySymbol}{totalReorderCost.toFixed(0)}</span>
+                <p className="text-[10px] text-gray-500 mt-1">Estimated purchase needed</p>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
 
       {/* Consumption Chart */}
       {consumptionChart.length > 0 && (
