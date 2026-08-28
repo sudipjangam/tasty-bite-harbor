@@ -96,9 +96,24 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     features: [
       { key: 'orders.view', label: 'View Orders', description: 'Basic order list and tracking' },
       { key: 'orders.analytics', label: 'Order Analytics', description: 'Advanced order breakdowns' },
-      { key: 'orders.third_party_sync', label: 'Third-Party Sync', description: 'Zomato, Swiggy integration' },
       { key: 'orders.nc_orders', label: 'NC Orders', description: 'Non-chargeable order management' },
       { key: 'orders.whatsapp_status_updates', label: 'WhatsApp Order Status Updates', description: 'Send automated WhatsApp notifications when order status changes (preparing, ready, completed)' },
+    ],
+  },
+
+  // ─── Online Aggregators & Delivery Hub ────────────────────────────────
+  {
+    id: 'aggregators',
+    label: 'Online Aggregators (Swiggy / Zomato)',
+    icon: 'Bike',
+    color: 'from-orange-500 to-rose-600',
+    features: [
+      { key: 'aggregators.hub', label: 'Aggregator Hub', description: 'Central dashboard for live Swiggy, Zomato, and online delivery orders' },
+      { key: 'aggregators.auto_accept', label: 'Auto-Accept & Surge Throttle', description: 'Automatic order accept rules and dynamic kitchen prep buffer adjustments' },
+      { key: 'aggregators.rider_tracking', label: 'Live Rider Tracking', description: 'Track rider assignment, transit, distance, ETA and live handover' },
+      { key: 'aggregators.menu_sync', label: 'Menu & 86 Item Toggle', description: 'Push menu pricing and 1-click out-of-stock toggle directly to Swiggy/Zomato' },
+      { key: 'aggregators.margin_analytics', label: 'Channel Margin & Bleed Analysis', description: 'Real-time dish-level aggregator commission, GST, and net profit analytics' },
+      { key: 'aggregators.channel_settings', label: 'Channel & Webhook Config', description: 'Configure store open/close status, commission rates, and API keys' },
     ],
   },
 
