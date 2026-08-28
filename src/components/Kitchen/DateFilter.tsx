@@ -3,9 +3,49 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 interface DateFilterProps {
   value: string;
   onChange: (value: string) => void;
+  compact?: boolean;
 }
 
-const DateFilter = ({ value, onChange }: DateFilterProps) => {
+const DateFilter = ({ value, onChange, compact = false }: DateFilterProps) => {
+  if (compact) {
+    return (
+      <Tabs value={value} onValueChange={onChange} className="inline-block">
+        <TabsList className="h-8 p-0.5 bg-gray-100 dark:bg-gray-700/80 rounded-xl border border-gray-200 dark:border-gray-600 gap-0.5">
+          <TabsTrigger 
+            value="today" 
+            className="h-7 px-2.5 text-xs rounded-lg data-[state=active]:bg-indigo-600 data-[state=active]:text-white font-bold transition-all"
+          >
+            Today
+          </TabsTrigger>
+          <TabsTrigger 
+            value="yesterday"
+            className="h-7 px-2.5 text-xs rounded-lg data-[state=active]:bg-indigo-600 data-[state=active]:text-white font-bold transition-all"
+          >
+            Yesterday
+          </TabsTrigger>
+          <TabsTrigger 
+            value="last7days"
+            className="h-7 px-2.5 text-xs rounded-lg data-[state=active]:bg-indigo-600 data-[state=active]:text-white font-bold transition-all"
+          >
+            7 Days
+          </TabsTrigger>
+          <TabsTrigger 
+            value="thisMonth"
+            className="h-7 px-2.5 text-xs rounded-lg data-[state=active]:bg-indigo-600 data-[state=active]:text-white font-bold transition-all"
+          >
+            Month
+          </TabsTrigger>
+          <TabsTrigger 
+            value="all"
+            className="h-7 px-2.5 text-xs rounded-lg data-[state=active]:bg-indigo-600 data-[state=active]:text-white font-bold transition-all"
+          >
+            All
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+    );
+  }
+
   return (
     <div className="mb-4">
       <Tabs value={value} onValueChange={onChange} className="w-full">

@@ -9,7 +9,7 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { playNewOrder, playModified, playRushOrder } = useKitchenSounds();
+  const { playNewOrder, playModified, playRushOrder, speakOrder } = useKitchenSounds();
 
   // Determine auth mode: PIN-based RPC or direct table query (email login)
   const useDirectQuery = !pin;
@@ -71,12 +71,14 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     });
   }, []);
 
-  const triggerSounds = useCallback((sorted: KitchenOrder[]) => {
-    if (ordersRef.current.length === 0) return;
+  // Check for newly arrived orders and trigger sound & voice notifications
+  const handleSounds = useCallback((sorted: KitchenOrder[]) => {
+    if (ordersRef.current.length === 0) return; // Don't chime on initial load
 
     let hasNew = false;
     let hasModified = false;
     let isRush = false;
+    const newArrivals: KitchenOrder[] = [];
 
     const oldMap = new Map(ordersRef.current.map(o => [o.id, o]));
 
@@ -84,6 +86,7 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
       const oldOrd = oldMap.get(newOrd.id);
       if (!oldOrd) {
         hasNew = true;
+        newArrivals.push(newOrd);
         if (newOrd.priority === "vip" || newOrd.priority === "rush") isRush = true;
       } else if (JSON.stringify(oldOrd.items) !== JSON.stringify(newOrd.items)) {
         hasModified = true;
@@ -94,10 +97,20 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     if (hasNew) {
       if (isRush) playRushOrder();
       else playNewOrder();
+
+      // Speak new order
+      newArrivals.forEach((nord) => {
+        speakOrder({
+          source: nord.source,
+          orderType: nord.order_type,
+          items: nord.items,
+          isRush: nord.priority === "vip" || nord.priority === "rush",
+        });
+      });
     } else if (hasModified) {
       playModified();
     }
-  }, [playNewOrder, playModified, playRushOrder]);
+  }, [playNewOrder, playModified, playRushOrder, speakOrder]);
 
 
 

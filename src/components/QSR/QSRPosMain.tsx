@@ -33,6 +33,9 @@ import { getPaperSize } from "@/services/nativePrinterBridge";
 import { useFeatureGate } from "@/hooks/useFeatureGate";
 import { POSRiderTrackingDrawer } from "@/components/Aggregators/POSRiderTrackingDrawer";
 import { useRiderTracking } from "@/hooks/useRiderTracking";
+import { Quick86Modal } from "@/components/Menu/Quick86Modal";
+import { use86Cascade } from "@/hooks/use86Cascade";
+import { KitchenLoadGauge } from "@/components/Kitchen/KitchenLoadGauge";
 import {
   Clock,
   Zap,
@@ -132,6 +135,12 @@ export const QSRPosMain: React.FC = () => {
   const { isLocked: isRiderTrackingLocked } = useFeatureGate("aggregators.rider_tracking");
   const { isLocked: isAggregatorsViewLocked } = useFeatureGate("aggregators.view");
   const canShowRiderTracking = !isRiderTrackingLocked && !isAggregatorsViewLocked;
+
+  // 86 Stock-Kill modal state & Feature Lock check
+  const [show86Modal, setShow86Modal] = useState(false);
+  const { unavailableCount } = use86Cascade();
+  const { isLocked: is86MenuSyncLocked } = useFeatureGate("aggregators.menu_sync");
+  const canShow86Button = !is86MenuSyncLocked;
 
   // Hooks
   const { restaurantId, restaurantName } = useRestaurantId();
@@ -1716,6 +1725,31 @@ export const QSRPosMain: React.FC = () => {
                     )}
                   </Button>
                 )}
+                {canShow86Button && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShow86Modal(true)}
+                    className={`flex items-center gap-1.5 rounded-xl font-bold transition-all shadow-xs ${
+                      unavailableCount > 0
+                        ? "border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300 animate-pulse"
+                        : "border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300"
+                    }`}
+                    title="1-Click 86 Out of Stock Cascade"
+                  >
+                    <Zap className="w-4 h-4 text-rose-600 dark:text-rose-400 fill-rose-600" />
+                    <span className="hidden sm:inline text-xs">86 Items</span>
+                    {unavailableCount > 0 && (
+                      <span className="px-1.5 py-0.2 text-[10px] bg-rose-600 text-white rounded-full font-extrabold">
+                        {unavailableCount}
+                      </span>
+                    )}
+                  </Button>
+                )}
+
+                {/* Kitchen Load & Surge Throttle Gauge */}
+                <KitchenLoadGauge compact />
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -1974,6 +2008,11 @@ export const QSRPosMain: React.FC = () => {
         isOpen={showPrinterDialog}
         onClose={() => setShowPrinterDialog(false)}
         onPrinterStateChange={refreshPrinterStatus}
+      />
+      {/* 1-Click 86 Stock Auto-Kill Dialog */}
+      <Quick86Modal
+        isOpen={show86Modal}
+        onClose={() => setShow86Modal(false)}
       />
     </div>
   );

@@ -23,6 +23,7 @@ import { AggregatorPnLTab } from "@/components/Aggregators/AggregatorPnLTab";
 import { AggregatorRiderTrackingTab } from "@/components/Aggregators/AggregatorRiderTrackingTab";
 import { AggregatorSimulatorModal } from "@/components/Aggregators/AggregatorSimulatorModal";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { KitchenLoadGauge } from "@/components/Kitchen/KitchenLoadGauge";
 
 export const AggregatorsPage: React.FC = () => {
   const {
@@ -51,6 +52,9 @@ export const AggregatorsPage: React.FC = () => {
           onToggleStore={toggleStore}
           onOpenSimulator={() => setIsSimulatorOpen(true)}
         />
+
+        {/* Kitchen Surge Throttle & Emergency Store Pause Bar */}
+        <KitchenLoadGauge />
 
         {/* Main Tabs Navigation */}
         <Tabs defaultValue="live-board" className="space-y-6">

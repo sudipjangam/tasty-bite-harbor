@@ -18,11 +18,25 @@ import {
   Loader2,
   Play,
   RotateCw,
+  Zap,
+  Languages,
+  Mic,
 } from "lucide-react";
-import { useKitchenSounds } from "@/hooks/useKitchenSounds";
+import { useKitchenSounds, SUPPORTED_LANGUAGES } from "@/hooks/useKitchenSounds";
 import { useKitchenTVOrders } from "@/hooks/useKitchenTVOrders";
 import OrdersColumn from "@/components/Kitchen/OrdersColumn";
 import { KitchenOrder } from "@/components/Kitchen/KitchenDisplay";
+import { Quick86Modal } from "@/components/Menu/Quick86Modal";
+import { use86Cascade } from "@/hooks/use86Cascade";
+import { KitchenVoiceSettings } from "@/components/Kitchen/KitchenVoiceSettings";
+import { KitchenLoadGauge } from "@/components/Kitchen/KitchenLoadGauge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const TV_AUTH_KEY = "kds_tv_auth";
 
@@ -65,14 +79,19 @@ const KitchenTV = () => {
 
   // TV View Mode Preferences
   const [fontSizeClass, setFontSizeClass] = useState<"text-base" | "text-lg" | "text-xl">("text-lg");
+  const [show86Modal, setShow86Modal] = useState(false);
+  const { unavailableCount } = use86Cascade();
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
-  // KDS sounds
+  // KDS sounds & multi-lingual speech
   const {
     isAudioEnabled,
     enableAudio,
     disableAudio,
-    playReadyChime
+    playReadyChime,
+    selectedLanguage,
+    setLanguage,
   } = useKitchenSounds();
 
   // Fetch active KDS orders (if PIN-based or authenticated)
@@ -784,7 +803,40 @@ const KitchenTV = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Kitchen Load Throttle Meter */}
+          <KitchenLoadGauge compact />
+
+          {/* Vernacular Language Dropdown Selector */}
+          <Select value={selectedLanguage} onValueChange={(val) => setLanguage(val)}>
+            <SelectTrigger className="w-44 bg-slate-800 text-slate-100 border border-slate-700 rounded-xl text-xs font-bold shadow-sm h-9">
+              <Languages className="w-3.5 h-3.5 mr-1.5 text-indigo-400" />
+              <SelectValue placeholder="Voice Language" />
+            </SelectTrigger>
+            <SelectContent className="max-h-64 rounded-xl bg-slate-900 border-slate-700 text-slate-100">
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <SelectItem key={lang.code} value={lang.code} className="text-xs font-medium text-slate-200">
+                  <div className="flex items-center gap-1.5">
+                    <span>{lang.flag}</span>
+                    <span className="font-bold">{lang.name}</span>
+                    <span className="text-slate-400 font-normal">({lang.nativeName})</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Voice Settings Button */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowVoiceSettings(true)}
+            title="Kitchen Voice Settings"
+            className="rounded-xl border shadow-sm bg-slate-800 border-slate-700 text-purple-300 hover:bg-slate-700 h-9 w-9"
+          >
+            <Mic className="w-4 h-4 text-purple-400" />
+          </Button>
+
           {/* FontSize Toggle */}
           <Button
             variant="outline"
@@ -793,10 +845,10 @@ const KitchenTV = () => {
                 prev === "text-base" ? "text-lg" : prev === "text-lg" ? "text-xl" : "text-base"
               )
             }
-            className="bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 text-xs font-semibold rounded-xl px-4 py-2 flex items-center gap-2 shadow-sm"
+            className="bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 text-xs font-semibold rounded-xl px-3 py-2 flex items-center gap-1.5 shadow-sm h-9"
           >
-            <Grid className="w-4 h-4 text-indigo-400" />
-            <span>Font Size: <strong className="text-indigo-300 font-bold capitalize">{fontSizeClass === "text-base" ? "Standard" : fontSizeClass === "text-lg" ? "Large" : "Extra Large"}</strong></span>
+            <Grid className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Size: <strong className="text-indigo-300 font-bold capitalize">{fontSizeClass === "text-base" ? "STD" : fontSizeClass === "text-lg" ? "LG" : "XL"}</strong></span>
           </Button>
 
           {/* Sound enable button */}
@@ -805,13 +857,33 @@ const KitchenTV = () => {
             size="icon"
             onClick={isAudioEnabled ? disableAudio : enableAudio}
             title={isAudioEnabled ? "Audio Alerts Enabled" : "Audio Alerts Disabled"}
-            className={`rounded-xl border shadow-sm transition-all ${
+            className={`rounded-xl border shadow-sm transition-all h-9 w-9 ${
               isAudioEnabled
                 ? "bg-emerald-900/80 border-emerald-600 text-emerald-300 hover:bg-emerald-800/80"
                 : "bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700"
             }`}
           >
-            {isAudioEnabled ? <Volume2 className="w-5 h-5 text-emerald-400" /> : <VolumeX className="w-5 h-5 text-amber-400" />}
+            {isAudioEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-amber-400" />}
+          </Button>
+
+          {/* 1-Click 86 Stock Auto-Kill Button */}
+          <Button
+            variant="outline"
+            onClick={() => setShow86Modal(true)}
+            className={`rounded-xl px-4 py-2 text-xs font-bold transition-all gap-1.5 shadow-sm ${
+              unavailableCount > 0
+                ? "bg-rose-900/80 border-rose-600 text-rose-200 hover:bg-rose-800/80 animate-pulse"
+                : "bg-slate-800 hover:bg-slate-700 text-rose-300 border border-slate-700"
+            }`}
+            title="1-Click 86 Out of Stock Cascade"
+          >
+            <Zap className="w-4 h-4 text-rose-400 fill-rose-400" />
+            <span>86 Items</span>
+            {unavailableCount > 0 && (
+              <span className="px-1.5 py-0.2 text-[10px] bg-rose-600 text-white rounded-full font-extrabold">
+                {unavailableCount}
+              </span>
+            )}
           </Button>
 
           {/* Fullscreen Button */}
@@ -904,6 +976,18 @@ const KitchenTV = () => {
           onToggleExpand={handleToggleExpand}
         />
       </div>
+
+      {/* 1-Click 86 Stock Auto-Kill Dialog */}
+      <Quick86Modal
+        isOpen={show86Modal}
+        onClose={() => setShow86Modal(false)}
+      />
+
+      {/* Kitchen Vernacular Voice Settings Dialog */}
+      <KitchenVoiceSettings
+        isOpen={showVoiceSettings}
+        onClose={() => setShowVoiceSettings(false)}
+      />
     </div>
   );
 };

@@ -52,10 +52,18 @@ export const SandboxOverviewView: React.FC = () => {
 
   // Multi-channel revenue breakdown calculation
   const channelRevenue = {
-    "Dine-in": orders.filter((o) => o.channel === "Dine-in").reduce((s, o) => s + o.total, 22400),
-    WebStore: orders.filter((o) => o.channel === "WebStore").reduce((s, o) => s + o.total, 11800),
-    Swiggy: orders.filter((o) => o.channel === "Swiggy").reduce((s, o) => s + o.total, 8420),
-    Zomato: orders.filter((o) => o.channel === "Zomato").reduce((s, o) => s + o.total, 6300),
+    "Dine-in": orders
+      .filter((o) => o.channel === "Dine-in")
+      .reduce((s, o) => s + o.total, 22400),
+    WebStore: orders
+      .filter((o) => o.channel === "WebStore")
+      .reduce((s, o) => s + o.total, 11800),
+    Swiggy: orders
+      .filter((o) => o.channel === "Swiggy")
+      .reduce((s, o) => s + o.total, 8420),
+    Zomato: orders
+      .filter((o) => o.channel === "Zomato")
+      .reduce((s, o) => s + o.total, 6300),
   };
 
   const channelTotal = Object.values(channelRevenue).reduce((a, b) => a + b, 0);
@@ -84,11 +92,15 @@ export const SandboxOverviewView: React.FC = () => {
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl">
               <div className="w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(74,222,128,0.5)]" />
-              <span className="text-sm font-medium text-white">Systems Online</span>
+              <span className="text-sm font-medium text-white">
+                Systems Online
+              </span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl">
               <Users className="h-4 w-4 text-blue-300" />
-              <span className="text-sm font-medium text-white">Staff Active</span>
+              <span className="text-sm font-medium text-white">
+                Staff Active
+              </span>
             </div>
           </div>
         </div>
@@ -104,7 +116,7 @@ export const SandboxOverviewView: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Sudip Jangam's Workspace
+                  Test User's Workspace
                 </h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Manage your shifts, role permissions, and live operations
@@ -126,20 +138,36 @@ export const SandboxOverviewView: React.FC = () => {
           {workspaceExpanded && (
             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
-                <span className="text-slate-400 block font-medium">Clocked In</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">08:00 AM (4h 12m)</span>
+                <span className="text-slate-400 block font-medium">
+                  Clocked In
+                </span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">
+                  08:00 AM (4h 12m)
+                </span>
               </div>
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
-                <span className="text-slate-400 block font-medium">Assigned Role</span>
-                <span className="font-bold text-indigo-600 dark:text-indigo-400">Owner & GM</span>
+                <span className="text-slate-400 block font-medium">
+                  Assigned Role
+                </span>
+                <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                  Owner & GM
+                </span>
               </div>
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
-                <span className="text-slate-400 block font-medium">POS Terminal</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">Online & Ready</span>
+                <span className="text-slate-400 block font-medium">
+                  POS Terminal
+                </span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  Online & Ready
+                </span>
               </div>
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
-                <span className="text-slate-400 block font-medium">KDS Station</span>
-                <span className="font-bold text-amber-600 dark:text-amber-400">Curry & Grill Active</span>
+                <span className="text-slate-400 block font-medium">
+                  KDS Station
+                </span>
+                <span className="font-bold text-amber-600 dark:text-amber-400">
+                  Curry & Grill Active
+                </span>
               </div>
             </div>
           )}
@@ -320,7 +348,9 @@ export const SandboxOverviewView: React.FC = () => {
                 <h4 className="text-base font-bold text-slate-900 dark:text-white">
                   Multi-Channel Revenue Mix (Today)
                 </h4>
-                <p className="text-xs text-slate-500">Real-time settlement breakdown</p>
+                <p className="text-xs text-slate-500">
+                  Real-time settlement breakdown
+                </p>
               </div>
               <Badge variant="outline" className="text-xs font-mono">
                 Total: {formatCurrency(channelTotal)}
@@ -331,7 +361,9 @@ export const SandboxOverviewView: React.FC = () => {
               {/* Dine-In */}
               <div>
                 <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700 dark:text-slate-300">Dine-In Tables</span>
+                  <span className="text-slate-700 dark:text-slate-300">
+                    Dine-In Tables
+                  </span>
                   <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                     0% Commission • {formatCurrency(channelRevenue["Dine-in"])}
                   </span>
@@ -339,7 +371,11 @@ export const SandboxOverviewView: React.FC = () => {
                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
                   <div
                     className="bg-emerald-500 h-full rounded-full"
-                    style={{ width: `${(channelRevenue["Dine-in"] / channelTotal) * 100}%` }}
+                    style={{
+                      width: `${
+                        (channelRevenue["Dine-in"] / channelTotal) * 100
+                      }%`,
+                    }}
                   />
                 </div>
               </div>
@@ -347,7 +383,9 @@ export const SandboxOverviewView: React.FC = () => {
               {/* Direct WebStore */}
               <div>
                 <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700 dark:text-slate-300">Direct WebStore (.in)</span>
+                  <span className="text-slate-700 dark:text-slate-300">
+                    Direct WebStore (.in)
+                  </span>
                   <span className="text-cyan-600 dark:text-cyan-400 font-bold">
                     0% Commission • {formatCurrency(channelRevenue.WebStore)}
                   </span>
@@ -355,7 +393,11 @@ export const SandboxOverviewView: React.FC = () => {
                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
                   <div
                     className="bg-cyan-500 h-full rounded-full"
-                    style={{ width: `${(channelRevenue.WebStore / channelTotal) * 100}%` }}
+                    style={{
+                      width: `${
+                        (channelRevenue.WebStore / channelTotal) * 100
+                      }%`,
+                    }}
                   />
                 </div>
               </div>
@@ -363,7 +405,9 @@ export const SandboxOverviewView: React.FC = () => {
               {/* Swiggy */}
               <div>
                 <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700 dark:text-slate-300">Swiggy Orders</span>
+                  <span className="text-slate-700 dark:text-slate-300">
+                    Swiggy Orders
+                  </span>
                   <span className="text-orange-500 font-bold">
                     23% Aggregator Cut • {formatCurrency(channelRevenue.Swiggy)}
                   </span>
@@ -371,7 +415,9 @@ export const SandboxOverviewView: React.FC = () => {
                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
                   <div
                     className="bg-orange-500 h-full rounded-full"
-                    style={{ width: `${(channelRevenue.Swiggy / channelTotal) * 100}%` }}
+                    style={{
+                      width: `${(channelRevenue.Swiggy / channelTotal) * 100}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -379,7 +425,9 @@ export const SandboxOverviewView: React.FC = () => {
               {/* Zomato */}
               <div>
                 <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700 dark:text-slate-300">Zomato Orders</span>
+                  <span className="text-slate-700 dark:text-slate-300">
+                    Zomato Orders
+                  </span>
                   <span className="text-red-500 font-bold">
                     24% Aggregator Cut • {formatCurrency(channelRevenue.Zomato)}
                   </span>
@@ -387,7 +435,9 @@ export const SandboxOverviewView: React.FC = () => {
                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
                   <div
                     className="bg-red-500 h-full rounded-full"
-                    style={{ width: `${(channelRevenue.Zomato / channelTotal) * 100}%` }}
+                    style={{
+                      width: `${(channelRevenue.Zomato / channelTotal) * 100}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -399,13 +449,16 @@ export const SandboxOverviewView: React.FC = () => {
             <div>
               <div className="flex items-center gap-2 text-amber-400 mb-2">
                 <Sparkles className="h-4 w-4" />
-                <span className="text-xs font-bold uppercase tracking-wider">Test Scenarios</span>
+                <span className="text-xs font-bold uppercase tracking-wider">
+                  Test Scenarios
+                </span>
               </div>
               <h4 className="text-lg font-bold text-white leading-tight">
                 Simulate Peak Kitchen Rush
               </h4>
               <p className="text-xs text-slate-400 mt-1">
-                Interact with live orders across multi-channel streams in real-time.
+                Interact with live orders across multi-channel streams in
+                real-time.
               </p>
             </div>
 
@@ -414,8 +467,8 @@ export const SandboxOverviewView: React.FC = () => {
                 onClick={() => simulateOrder("Dine-in")}
                 className="w-full justify-start text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl h-10 shadow-md shadow-indigo-600/30"
               >
-                <ShoppingBag className="h-3.5 w-3.5 mr-2" />
-                + Punch 1-Click Dine-In KOT
+                <ShoppingBag className="h-3.5 w-3.5 mr-2" />+ Punch 1-Click
+                Dine-In KOT
               </Button>
 
               <Button
@@ -448,7 +501,8 @@ export const SandboxOverviewView: React.FC = () => {
                 Live Consolidated Kitchen Stream
               </h4>
               <p className="text-xs text-slate-500">
-                Single screen replaces 4 separate delivery tablets & POS terminals
+                Single screen replaces 4 separate delivery tablets & POS
+                terminals
               </p>
             </div>
             <Badge className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 text-xs font-semibold">
@@ -472,17 +526,21 @@ export const SandboxOverviewView: React.FC = () => {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {orders.map((order) => {
                   const channelColors = {
-                    Swiggy: "bg-orange-500/10 text-orange-600 border-orange-500/20",
+                    Swiggy:
+                      "bg-orange-500/10 text-orange-600 border-orange-500/20",
                     Zomato: "bg-red-500/10 text-red-600 border-red-500/20",
-                    "Dine-in": "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+                    "Dine-in":
+                      "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
                     WebStore: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
-                    "Room Service": "bg-purple-500/10 text-purple-600 border-purple-500/20",
+                    "Room Service":
+                      "bg-purple-500/10 text-purple-600 border-purple-500/20",
                   };
 
                   const statusColors = {
                     NEW: "bg-amber-500/10 text-amber-600 border-amber-500/30 animate-pulse",
                     COOKING: "bg-blue-500/10 text-blue-600 border-blue-500/30",
-                    READY: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
+                    READY:
+                      "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
                     SERVED: "bg-slate-100 dark:bg-slate-800 text-slate-500",
                   };
 
@@ -497,7 +555,9 @@ export const SandboxOverviewView: React.FC = () => {
                       <td className="py-3.5 px-3">
                         <Badge
                           variant="outline"
-                          className={`font-semibold ${channelColors[order.channel]}`}
+                          className={`font-semibold ${
+                            channelColors[order.channel]
+                          }`}
                         >
                           {order.channel}
                         </Badge>
@@ -506,7 +566,9 @@ export const SandboxOverviewView: React.FC = () => {
                         {order.tableOrRef}
                       </td>
                       <td className="py-3.5 px-3 text-slate-600 dark:text-slate-300 max-w-xs truncate">
-                        {order.items.map((i) => `${i.qty}x ${i.name}`).join(", ")}
+                        {order.items
+                          .map((i) => `${i.qty}x ${i.name}`)
+                          .join(", ")}
                       </td>
                       <td className="py-3.5 px-3 text-right font-bold text-slate-900 dark:text-white font-mono">
                         {formatCurrency(order.total)}
@@ -514,7 +576,9 @@ export const SandboxOverviewView: React.FC = () => {
                       <td className="py-3.5 px-3 text-center">
                         <Badge
                           variant="outline"
-                          className={`font-bold text-[10px] ${statusColors[order.status]}`}
+                          className={`font-bold text-[10px] ${
+                            statusColors[order.status]
+                          }`}
                         >
                           {order.status}
                         </Badge>
