@@ -13,12 +13,14 @@ import {
   UserRole,
   AuthContextType,
 } from "@/types/auth";
+import { setRememberedUser } from "@/utils/pinAuth";
+import { isNativeApp } from "@/utils/platform";
 
 const ROLE_TIMEOUTS_HOURS = {
-  admin: 24,
-  owner: 24,
-  manager: 18,
-  staff: 12,
+  admin: 48,
+  owner: 48,
+  manager: 24,
+  staff: 18,
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -63,38 +65,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Enforce role-based session timeout
+  // Enforce sliding role-based session timeout (refreshes on active user interaction)
   useEffect(() => {
     if (!user) return;
 
     const currentRole = (user.role_name_text || user.role || "staff").toLowerCase();
-    const timeoutHours = (ROLE_TIMEOUTS_HOURS as any)[currentRole] || 12;
+    const timeoutHours = (ROLE_TIMEOUTS_HOURS as any)[currentRole] || 24;
     const timeoutMs = timeoutHours * 60 * 60 * 1000;
 
-    const sessionStartStr = localStorage.getItem("session_start_time");
-    let sessionStart = sessionStartStr ? parseInt(sessionStartStr, 10) : 0;
+    // Record last active time
+    localStorage.setItem("session_last_active", Date.now().toString());
 
-    if (!sessionStart) {
-      sessionStart = Date.now();
-      localStorage.setItem("session_start_time", sessionStart.toString());
-    }
+    const updateActivity = () => {
+      localStorage.setItem("session_last_active", Date.now().toString());
+    };
+
+    // User activity listeners for sliding window
+    window.addEventListener("click", updateActivity, { passive: true });
+    window.addEventListener("touchstart", updateActivity, { passive: true });
+    window.addEventListener("keydown", updateActivity, { passive: true });
 
     const checkSessionTimeout = async () => {
-      const elapsed = Date.now() - sessionStart;
-      if (elapsed >= timeoutMs) {
-        // Call the local signOut function
+      // On native mobile app, avoid unexpected hard session drops if refresh token is valid
+      if (isNativeApp()) return;
+
+      const lastActiveStr = localStorage.getItem("session_last_active");
+      const lastActive = lastActiveStr ? parseInt(lastActiveStr, 10) : Date.now();
+      const inactiveElapsed = Date.now() - lastActive;
+
+      if (inactiveElapsed >= timeoutMs) {
         await signOut();
-        // Force reload to redirect to login and clear all state completely
         window.location.href = "/auth";
       }
     };
 
-    // Check immediately
-    checkSessionTimeout();
-
-    // Check periodically (every minute)
     const interval = setInterval(checkSessionTimeout, 60000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("click", updateActivity);
+      window.removeEventListener("touchstart", updateActivity);
+      window.removeEventListener("keydown", updateActivity);
+    };
   }, [user]);
 
   const fetchUserProfile = async (userId: string, email?: string) => {
@@ -122,7 +133,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const userRole =
           profile.roles?.name || profile.role_name_text || profile.role;
 
-        setUser({
+        const userObj: UserProfile = {
           id: profile.id,
           email: email,
           first_name: profile.first_name,
@@ -138,6 +149,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           is_active: profile.is_active ?? true,
           created_at: profile.created_at,
           updated_at: profile.updated_at,
+        };
+
+        setUser(userObj);
+
+        // Keep remembered user metadata up-to-date
+        setRememberedUser({
+          userId: profile.id,
+          email: email || profile.email || "",
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          role: userRole,
+          avatarUrl: profile.avatar_url,
+          restaurantId: profile.restaurant_id,
         });
 
         // Fetch user's component access from database

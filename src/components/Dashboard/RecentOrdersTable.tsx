@@ -1,11 +1,9 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import SwadeshiLoader from "@/styles/Loader/SwadeshiLoader";
-import { format, parseISO, subHours } from "date-fns";
-import { Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { formatIndianCurrency } from "@/utils/formatters";
+import { format } from "date-fns";
+import { Filter, ShoppingBag } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -13,6 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SkeuomorphicTable, ColumnDef } from "@/components/ui/skeuomorphic";
+import { cn } from "@/lib/utils";
 
 interface Order {
   id: string;
@@ -22,13 +22,71 @@ interface Order {
   total: number;
   created_at: string;
   order_type: string | null;
+  attendant?: string | null;
 }
 
 interface RecentOrdersTableProps {
   restaurantId?: string | null;
 }
 
-const RecentOrdersTable = ({ restaurantId }: RecentOrdersTableProps) => {
+const STATUS_CONFIGS: Record<
+  string,
+  { label: string; bg: string; text: string; dot: string; glow: string }
+> = {
+  completed: {
+    label: "completed",
+    bg: "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300/50 dark:border-emerald-700/50",
+    text: "text-emerald-700 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+    glow: "shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+  },
+  paid: {
+    label: "paid",
+    bg: "bg-purple-50 dark:bg-purple-950/40 border border-purple-300/50 dark:border-purple-700/50",
+    text: "text-purple-700 dark:text-purple-300",
+    dot: "bg-purple-500",
+    glow: "shadow-[0_0_8px_rgba(168,85,247,0.5)]",
+  },
+  ready: {
+    label: "ready",
+    bg: "bg-teal-50 dark:bg-teal-950/40 border border-teal-300/50 dark:border-teal-700/50",
+    text: "text-teal-700 dark:text-teal-300",
+    dot: "bg-teal-500",
+    glow: "shadow-[0_0_8px_rgba(20,184,166,0.5)]",
+  },
+  preparing: {
+    label: "preparing",
+    bg: "bg-blue-50 dark:bg-blue-950/40 border border-blue-300/50 dark:border-blue-700/50",
+    text: "text-blue-700 dark:text-blue-300",
+    dot: "bg-blue-500",
+    glow: "shadow-[0_0_8px_rgba(59,130,246,0.5)]",
+  },
+  pending: {
+    label: "pending",
+    bg: "bg-amber-50 dark:bg-amber-950/40 border border-amber-300/50 dark:border-amber-700/50",
+    text: "text-amber-700 dark:text-amber-300",
+    dot: "bg-amber-500",
+    glow: "shadow-[0_0_8px_rgba(245,158,11,0.5)]",
+  },
+  held: {
+    label: "held",
+    bg: "bg-orange-50 dark:bg-orange-950/40 border border-orange-300/50 dark:border-orange-700/50",
+    text: "text-orange-700 dark:text-orange-300",
+    dot: "bg-orange-500",
+    glow: "shadow-[0_0_8px_rgba(249,115,22,0.5)]",
+  },
+  cancelled: {
+    label: "cancelled",
+    bg: "bg-rose-50 dark:bg-rose-950/40 border border-rose-300/50 dark:border-rose-700/50",
+    text: "text-rose-700 dark:text-rose-300",
+    dot: "bg-rose-500",
+    glow: "shadow-[0_0_8px_rgba(244,63,94,0.5)]",
+  },
+};
+
+export const RecentOrdersTable: React.FC<RecentOrdersTableProps> = ({
+  restaurantId,
+}) => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
   const pageSize = 5;
@@ -36,7 +94,6 @@ const RecentOrdersTable = ({ restaurantId }: RecentOrdersTableProps) => {
   const { data, isLoading } = useQuery({
     queryKey: ["top-orders-today", restaurantId, statusFilter, page],
     queryFn: async () => {
-      // Get today's date range in UTC
       const now = new Date();
       const todayStart = new Date(
         Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
@@ -53,7 +110,6 @@ const RecentOrdersTable = ({ restaurantId }: RecentOrdersTableProps) => {
         )
       ).toISOString();
 
-      // Fetch from orders table - today's orders for this restaurant
       let query = supabase
         .from("orders")
         .select(
@@ -79,187 +135,142 @@ const RecentOrdersTable = ({ restaurantId }: RecentOrdersTableProps) => {
         return { orders: [], total: 0 };
       }
 
-      // Map orders fields to our interface and parse total as number
       const mappedOrders: Order[] = (orders || []).map((o) => ({
         id: o.id,
-        order_number: o.id.slice(0, 8).toUpperCase(), // Use first 8 chars of ID as order number
-        customer_name: o.customer_name,
+        order_number: `#${o.id.slice(0, 8).toUpperCase()}`,
+        customer_name: o.customer_name || "Walk-in Guest",
         status: o.status,
-        total: parseFloat(o.total) || 0, // Parse string to number
+        total: parseFloat(o.total) || 0,
         created_at: o.created_at,
-        order_type: o.order_type,
+        order_type: o.order_type || "Dine-In",
       }));
 
-      // Sort by total amount descending (highest first) and take top results
       const sortedOrders = mappedOrders
         .sort((a, b) => b.total - a.total)
         .slice(page * pageSize, (page + 1) * pageSize);
 
       return { orders: sortedOrders, total: count || 0 };
     },
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 30 * 1000,
   });
 
   const orders = data?.orders || [];
   const totalOrders = data?.total || 0;
-  const totalPages = Math.ceil(totalOrders / pageSize);
+  const totalPages = Math.max(Math.ceil(totalOrders / pageSize), 1);
 
-  const statusColors: Record<string, string> = {
-    pending:
-      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-    preparing:
-      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-    ready:
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-    completed:
-      "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
-    paid: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-    cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-    held: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-[300px]">
-        <SwadeshiLoader
-          loadingText="loading"
-          words={["orders", "data", "table"]}
-          size={100}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Filter Bar */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-500" />
-          <Select
-            value={statusFilter}
-            onValueChange={(val) => {
-              setStatusFilter(val);
-              setPage(0);
-            }}
-          >
-            <SelectTrigger className="w-[140px] h-8 text-xs">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="preparing">Preparing</SelectItem>
-              <SelectItem value="ready">Ready</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {totalOrders} orders
-        </span>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800/50">
-            <tr className="text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-              <th className="px-4 py-3">Order</th>
-              <th className="px-4 py-3">Customer</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Amount</th>
-              <th className="px-4 py-3">Time</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-            {orders.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={5}
-                  className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
-                >
-                  No orders found
-                </td>
-              </tr>
-            ) : (
-              orders.map((order) => (
-                <tr
-                  key={order.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                >
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900 dark:text-white">
-                      #{order.order_number || order.id.slice(0, 6)}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                      {order.order_type || "dine-in"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                    {order.customer_name || "Walk-in"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge
-                      className={`text-xs font-medium ${
-                        statusColors[order.status] || statusColors.pending
-                      }`}
-                    >
-                      {order.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">
-                    {formatCurrency(order.total || 0)}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-                    {format(parseISO(order.created_at), "MMM d, h:mm a")}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            Page {page + 1} of {totalPages}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="h-8 w-8 p-0"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
-              className="h-8 w-8 p-0"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+  const columns: ColumnDef<Order>[] = [
+    {
+      key: "order",
+      header: "Order",
+      render: (item) => (
+        <div>
+          <div className="font-black text-gray-900 dark:text-white tracking-tight">
+            {item.order_number}
+          </div>
+          <div className="text-[10px] text-gray-400 font-semibold">
+            {item.order_type}
           </div>
         </div>
-      )}
+      ),
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      render: (item) => (
+        <div className="font-bold text-gray-800 dark:text-gray-200">
+          {item.customer_name}
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (item) => {
+        const config = STATUS_CONFIGS[item.status.toLowerCase()] || STATUS_CONFIGS.completed;
+        return (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold capitalize",
+              config.bg,
+              config.text
+            )}
+          >
+            <span className={cn("h-1.5 w-1.5 rounded-full", config.dot, config.glow)} />
+            {item.status}
+          </span>
+        );
+      },
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      align: "right",
+      render: (item) => (
+        <span className="font-black text-gray-900 dark:text-white text-sm">
+          {formatIndianCurrency(item.total).formatted}
+        </span>
+      ),
+    },
+    {
+      key: "time",
+      header: "Time",
+      align: "right",
+      render: (item) => (
+        <div className="text-[11px] text-gray-400 font-medium whitespace-nowrap">
+          {format(new Date(item.created_at), "MMM d, h:mm a")}
+        </div>
+      ),
+    },
+  ];
+
+  const filterControl = (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center p-1 rounded-xl skeuo-inset">
+        <Filter className="h-3.5 w-3.5 text-gray-400 ml-2" />
+        <Select
+          value={statusFilter}
+          onValueChange={(val) => {
+            setStatusFilter(val);
+            setPage(0);
+          }}
+        >
+          <SelectTrigger className="border-0 bg-transparent h-7 text-xs font-bold focus:ring-0 w-[130px]">
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent className="skeuo-card border-0">
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="preparing">Preparing</SelectItem>
+            <SelectItem value="ready">Ready</SelectItem>
+            <SelectItem value="held">Held</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <span className="text-[11px] text-gray-400 font-bold px-2">
+        {totalOrders} orders
+      </span>
     </div>
+  );
+
+  return (
+    <SkeuomorphicTable
+      title="Top Orders Today"
+      subtitle="Highest value orders placed today"
+      icon={<ShoppingBag className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+      columns={columns}
+      data={orders}
+      keyExtractor={(item) => item.id}
+      filterControl={filterControl}
+      isLoading={isLoading}
+      pagination={{
+        currentPage: page,
+        totalPages,
+        onPageChange: (newPage) => setPage(newPage),
+        totalItems: totalOrders,
+      }}
+    />
   );
 };
 

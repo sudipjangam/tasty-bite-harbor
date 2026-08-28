@@ -18,6 +18,7 @@ import {
   Clock,
   Package,
   Zap,
+  Layers,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
@@ -30,12 +31,23 @@ import { WidgetRenderer } from "@/components/Dashboard/widgets/WidgetRenderer";
 import { useWidgetPreferences } from "@/hooks/useWidgetPreferences";
 import { RESTAURANT_DEFAULT_WIDGETS } from "@/components/Dashboard/widgets/WidgetRegistry";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import SkeuomorphicDashboard from "@/components/Dashboard/SkeuomorphicDashboard";
+import { cn } from "@/lib/utils";
 
 const Dashboard = () => {
   const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
   const { restaurantId } = useRestaurantId();
   const [showWidgetPicker, setShowWidgetPicker] = useState(false);
+  const [dashboardTheme, setDashboardTheme] = useState<"classic" | "skeuomorphic">(() => {
+    return (localStorage.getItem("dashboard_theme_mode") as "classic" | "skeuomorphic") || "skeuomorphic";
+  });
+
+  const handleToggleTheme = (mode: "classic" | "skeuomorphic") => {
+    setDashboardTheme(mode);
+    localStorage.setItem("dashboard_theme_mode", mode);
+  };
+
   const { selectedWidgets, saveWidgets } = useWidgetPreferences(
     restaurantId,
     "restaurant",
@@ -208,6 +220,23 @@ const Dashboard = () => {
         ? "Good afternoon"
         : "Good evening";
 
+  // If food truck mode, render specialized dashboard
+  if (locationType === "mobile") {
+    return <FoodTruckDashboard />;
+  }
+
+  // If 3D Skeuomorphic mode is active, render Skeuomorphic & Neumorphic 3D Dashboard
+  if (dashboardTheme === "skeuomorphic") {
+    return (
+      <FeatureLock feature="dashboard.basic" interceptClicks={true}>
+        <SkeuomorphicDashboard
+          currentTheme={dashboardTheme}
+          onToggleTheme={handleToggleTheme}
+        />
+      </FeatureLock>
+    );
+  }
+
   return (
     <FeatureLock feature="dashboard.basic" interceptClicks={true}>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-slate-900 dark:to-purple-950">
@@ -226,7 +255,39 @@ const Dashboard = () => {
                 </p>
                 <HelpProvider />
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Theme Toggle Button */}
+                <div className="flex items-center p-1 rounded-2xl bg-black/30 backdrop-blur-md border border-white/20 shadow-inner">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleTheme("skeuomorphic")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all touch-manipulation",
+                      dashboardTheme === "skeuomorphic"
+                        ? "bg-white text-[#2E3192] shadow-lg scale-105"
+                        : "text-white/70 hover:text-white"
+                    )}
+                    title="Skeuomorphic & Neumorphic 3D UI"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-[#F26722]" />
+                    <span>3D Neu-Skeuo</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleTheme("classic")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all touch-manipulation",
+                      dashboardTheme === "classic"
+                        ? "bg-white text-[#2E3192] shadow-lg scale-105"
+                        : "text-white/70 hover:text-white"
+                    )}
+                    title="Classic Flat UI"
+                  >
+                    <Layers className="h-3.5 w-3.5 text-blue-400" />
+                    <span>Classic</span>
+                  </button>
+                </div>
+
                 <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">
                   <Clock className="h-5 w-5 text-white" />
                   <span className="text-white font-medium text-sm sm:text-base">
