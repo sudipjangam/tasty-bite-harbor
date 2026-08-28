@@ -96,3 +96,21 @@ export interface AggregatorSummaryStats {
     urbanpiper: { orders: number; revenue: number; isOpen: boolean };
   };
 }
+
+export interface AggregatorRider {
+  id: string;
+  name: string;
+  phone: string;
+  vehicle_number: string;
+  vehicle_type?: 'bike' | 'scooter' | 'ev';
+  photo_url?: string;
+  status: 'assigned' | 'arrived_at_store' | 'picked_up' | 'in_transit' | 'delivered';
+  eta_minutes: number;
+  distance_meters: number;
+  latitude: number;
+  longitude: number;
+  speed_kmh?: number;
+  battery_pct?: number;
+  channel: 'in_house' | 'swiggy' | 'zomato' | 'ubereats' | 'magicpin';
+}
+

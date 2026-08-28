@@ -16,276 +16,355 @@ import {
   Sparkles,
   ShieldCheck,
   Search,
-  ArrowUpRight,
+  Zap,
   Radio,
+  BatteryCharging,
+  Gauge,
+  UserCheck,
 } from "lucide-react";
-import { useRiderTracking } from "@/hooks/useRiderTracking";
-import { AggregatorOrder } from "@/types/aggregators";
+import { useRiderTracking, DeliveryRiderTicket } from "@/hooks/useRiderTracking";
+import { RiderMapCanvas } from "./RiderMapCanvas";
+import { RiderHandshakeModal } from "./RiderHandshakeModal";
 
-const PLATFORM_STYLES: Record<string, { bg: string; text: string; label: string; ring: string }> = {
-  swiggy: { bg: "bg-orange-500", text: "text-orange-500", label: "Swiggy", ring: "border-orange-500" },
-  zomato: { bg: "bg-red-500", text: "text-red-500", label: "Zomato", ring: "border-red-500" },
-  ubereats: { bg: "bg-emerald-600", text: "text-emerald-600", label: "Uber Eats", ring: "border-emerald-500" },
-  magicpin: { bg: "bg-purple-600", text: "text-purple-600", label: "magicpin", ring: "border-purple-500" },
-  urbanpiper: { bg: "bg-blue-600", text: "text-blue-600", label: "UrbanPiper", ring: "border-blue-500" },
+const PLATFORM_STYLES: Record<string, { bg: string; text: string; label: string; border: string }> = {
+  in_house: { bg: "bg-emerald-600", text: "text-emerald-400", label: "In-House", border: "border-emerald-500" },
+  swiggy: { bg: "bg-orange-500", text: "text-orange-400", label: "Swiggy", border: "border-orange-500" },
+  zomato: { bg: "bg-red-500", text: "text-red-400", label: "Zomato", border: "border-red-500" },
+  ubereats: { bg: "bg-emerald-600", text: "text-emerald-400", label: "Uber Eats", border: "border-emerald-500" },
+  magicpin: { bg: "bg-purple-600", text: "text-purple-400", label: "magicpin", border: "border-purple-500" },
 };
 
 export const AggregatorRiderTrackingTab: React.FC = () => {
   const {
-    orders,
-    isLoading,
+    tickets,
+    selectedTicket,
+    selectedTicketId,
+    setSelectedTicketId,
+    handshakeModalTicket,
+    setHandshakeModalTicket,
+    verifyHandoff,
+    autoAssignFleet,
     ridersAtStore,
-    ridersEnRoute,
-    totalActiveRiders,
-    handoverFood,
-    delayOrder,
+    inTransitCount,
+    activeDriversCount,
+    totalDrivers,
+    avgDeliveryMinutes,
+    onTimeRatePercent,
   } = useRiderTracking();
 
-  const [filterPlatform, setFilterPlatform] = useState<string>("all");
+  const [filterChannel, setFilterChannel] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filtered = orders.filter((o) => {
-    const matchesPlatform = filterPlatform === "all" || o.platform === filterPlatform;
+  const filteredTickets = tickets.filter((t) => {
+    const matchesChannel = filterChannel === "all" || t.channel === filterChannel;
     const matchesSearch =
       !searchQuery ||
-      o.platform_order_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.rider?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesPlatform && matchesSearch;
+      t.displayOrderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.rider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.customerAddress.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesChannel && matchesSearch;
   });
 
   return (
-    <div className="space-y-6">
-      {/* Top Metric Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 rounded-3xl border border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500">RIDERS AT COUNTER</span>
-            <div className="p-2 bg-emerald-500/10 text-emerald-600 rounded-xl">
-              <MapPin className="h-5 w-5" />
+    <div className="space-y-4">
+      
+      {/* Top Fleet KPI Header Strip */}
+      <div className="bg-slate-900/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-4 shadow-xl">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+              <Navigation className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-white tracking-tight">
+                Live Rider Tracking & Delivery Dispatch Matrix
+              </h2>
+              <p className="text-xs text-gray-400">
+                Real-time GPS fleet telemetry, aggregator handoff handshake & OTP verification
+              </p>
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-emerald-600">{ridersAtStore.length}</span>
-            <span className="text-xs text-gray-400">Ready for Handover</span>
-          </div>
-        </Card>
 
-        <Card className="p-4 rounded-3xl border border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500">EN ROUTE TO STORE</span>
-            <div className="p-2 bg-blue-500/10 text-blue-600 rounded-xl">
-              <Bike className="h-5 w-5" />
+          {/* Metric Stats Counters */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-800/80 border border-slate-700">
+              <div className="text-left leading-none">
+                <span className="text-[10px] text-gray-400 font-bold uppercase">Active Drivers</span>
+                <div className="text-sm font-black text-white mt-0.5">
+                  {activeDriversCount}/{totalDrivers}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-blue-600">{ridersEnRoute.length}</span>
-            <span className="text-xs text-gray-400">ETA &lt; 5 mins</span>
-          </div>
-        </Card>
 
-        <Card className="p-4 rounded-3xl border border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500">OUT FOR DELIVERY</span>
-            <div className="p-2 bg-purple-500/10 text-purple-600 rounded-xl">
-              <Navigation className="h-5 w-5" />
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-800/80 border border-slate-700">
+              <div className="text-left leading-none">
+                <span className="text-[10px] text-gray-400 font-bold uppercase">In-Transit</span>
+                <div className="text-sm font-black text-cyan-400 mt-0.5">
+                  {inTransitCount} Orders
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-purple-600">
-              {orders.filter((o) => o.status === "dispatched").length}
-            </span>
-            <span className="text-xs text-gray-400">En Route to Customer</span>
-          </div>
-        </Card>
 
-        <Card className="p-4 rounded-3xl border border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500">ACTIVE CHANNELS</span>
-            <div className="p-2 bg-orange-500/10 text-orange-600 rounded-xl">
-              <Radio className="h-5 w-5" />
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-800/80 border border-slate-700">
+              <div className="text-left leading-none">
+                <span className="text-[10px] text-gray-400 font-bold uppercase">Avg Delivery</span>
+                <div className="text-sm font-black text-emerald-400 mt-0.5">
+                  {avgDeliveryMinutes} mins
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-orange-600">Swiggy • Zomato • Uber</span>
-          </div>
-        </Card>
-      </div>
 
-      {/* Filter Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl p-3.5 rounded-3xl border border-gray-200/50 dark:border-gray-700/50 shadow-md">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-          {["all", "swiggy", "zomato", "ubereats", "magicpin"].map((p) => (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-800/80 border border-slate-700">
+              <div className="text-left leading-none">
+                <span className="text-[10px] text-gray-400 font-bold uppercase">On-Time Rate</span>
+                <div className="text-sm font-black text-emerald-400 mt-0.5">
+                  {onTimeRatePercent}%
+                </div>
+              </div>
+            </div>
+
             <Button
-              key={p}
-              size="sm"
-              variant={filterPlatform === p ? "default" : "outline"}
-              onClick={() => setFilterPlatform(p)}
-              className={`rounded-xl text-xs font-bold capitalize ${
-                filterPlatform === p
-                  ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                  : ""
-              }`}
+              onClick={autoAssignFleet}
+              className="rounded-2xl h-10 px-4 text-xs font-black bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25 gap-1.5"
             >
-              {p === "all" ? "All Platforms" : p}
+              <Zap className="w-4 h-4 fill-white" />
+              Auto-Assign
             </Button>
-          ))}
-        </div>
-
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search rider, order, ID..."
-            className="pl-9 rounded-2xl h-9 text-xs"
-          />
+          </div>
         </div>
       </div>
 
-      {/* Live Rider Cards Grid */}
-      {filtered.length === 0 ? (
-        <Card className="p-12 text-center rounded-3xl border border-dashed space-y-3">
-          <Bike className="h-12 w-12 text-gray-300 mx-auto" />
-          <h3 className="text-base font-bold text-gray-700 dark:text-gray-300">
-            No Active Delivery Riders Right Now
-          </h3>
-          <p className="text-xs text-gray-500 max-w-sm mx-auto">
-            When customer orders are accepted on Swiggy, Zomato, or UberEats, assigned delivery partners appear here with live GPS & counter proximity.
-          </p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((order) => {
-            const platformConfig = PLATFORM_STYLES[order.platform] || PLATFORM_STYLES.swiggy;
-            const isAtStore = order.rider?.status === "arrived_at_store" || order.status === "food_ready";
-            const isDispatched = order.status === "dispatched" || order.rider?.status === "picked_up";
+      {/* Main 3-Column Dispatch Matrix Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        
+        {/* Left Column: Dispatch Queue (4 Cols) */}
+        <div className="lg:col-span-4 space-y-3">
+          
+          {/* Search & Channel Filter Bar */}
+          <div className="bg-slate-900/90 backdrop-blur-xl p-3 rounded-2xl border border-slate-800 shadow-md space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-white uppercase tracking-wider">
+                Dispatch Queue ({filteredTickets.length})
+              </span>
+              {ridersAtStore.length > 0 && (
+                <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-black">
+                  {ridersAtStore.length} At Counter
+                </Badge>
+              )}
+            </div>
 
-            return (
-              <Card
-                key={order.id}
-                className={`p-5 rounded-3xl border-2 transition-all space-y-4 shadow-lg ${
-                  isAtStore
-                    ? "border-emerald-500 ring-4 ring-emerald-400/20 bg-emerald-50/10"
-                    : isDispatched
-                    ? "border-purple-200 dark:border-purple-900/40 opacity-95"
-                    : "border-gray-200 dark:border-gray-700"
-                }`}
-              >
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-3 py-1 rounded-xl text-white font-black text-xs uppercase shadow-sm ${platformConfig.bg}`}
-                    >
-                      {platformConfig.label}
-                    </span>
-                    <span className="font-mono font-extrabold text-sm text-gray-800 dark:text-gray-200">
-                      #{order.platform_order_id.slice(-6)}
-                    </span>
-                  </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-gray-400" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search Order, Driver, Address..."
+                className="pl-8 rounded-xl h-8 text-xs bg-slate-800 border-slate-700 text-white placeholder:text-gray-500"
+              />
+            </div>
 
-                  <Badge
-                    className={`font-black text-[10px] uppercase tracking-wide px-2.5 py-1 ${
-                      isAtStore
-                        ? "bg-emerald-500 text-white animate-pulse shadow-md shadow-emerald-500/30"
-                        : isDispatched
-                        ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
-                        : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
-                    }`}
-                  >
-                    {isAtStore ? "🚨 RIDER AT COUNTER" : isDispatched ? "🚀 OUT FOR DELIVERY" : "🛵 EN ROUTE TO STORE"}
-                  </Badge>
-                </div>
+            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
+              {["all", "in_house", "swiggy", "zomato"].map((ch) => (
+                <button
+                  key={ch}
+                  type="button"
+                  onClick={() => setFilterChannel(ch)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold capitalize transition-all whitespace-nowrap ${
+                    filterChannel === ch
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "bg-slate-800/80 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  {ch === "all" ? "All Channels" : ch === "in_house" ? "In-House" : ch}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                {/* Rider Profile Card */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/60 rounded-2xl border border-gray-100 dark:border-gray-800">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
-                      <Bike className="h-5 w-5" />
-                    </div>
+          {/* Tickets List */}
+          <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
+            {filteredTickets.map((t) => {
+              const isSelected = selectedTicket?.id === t.id;
+              const chStyle = PLATFORM_STYLES[t.channel] || PLATFORM_STYLES.in_house;
+
+              return (
+                <div
+                  key={t.id}
+                  onClick={() => setSelectedTicketId(t.id)}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
+                    isSelected
+                      ? "bg-slate-900 border-indigo-500 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500"
+                      : "bg-slate-900/80 border-slate-800 hover:border-slate-700"
+                  }`}
+                >
+                  {/* Left Accent Bar */}
+                  <div
+                    className={`absolute left-0 top-0 bottom-0 w-1 ${chStyle.bg}`}
+                  />
+
+                  <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-bold text-sm text-gray-900 dark:text-white">
-                        {order.rider?.name || "Assigned Driver"}
-                      </p>
-                      <span className="text-xs text-gray-400 font-mono">
-                        {order.rider?.vehicle_number || "MH-12-XX-0000"}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black text-white">{t.displayOrderId}</span>
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] px-1.5 py-0 capitalize ${chStyle.text} border-slate-700 bg-slate-800/60`}
+                        >
+                          {chStyle.label}
+                        </Badge>
+                      </div>
+                      <p className="text-xs font-bold text-gray-200 mt-1">{t.customerName}</p>
+                      <p className="text-[11px] text-gray-400 line-clamp-1 mt-0.5">{t.customerAddress}</p>
+                    </div>
+
+                    <div className="text-right flex-shrink-0">
+                      <span className="text-xs font-black text-cyan-400 flex items-center gap-1 justify-end">
+                        <Clock className="w-3 h-3" /> {t.etaMinutes}m
                       </span>
+                      <Badge
+                        className={`text-[9px] font-black capitalize mt-1.5 ${
+                          t.status === "arrived_at_store"
+                            ? "bg-emerald-600 text-white animate-pulse"
+                            : t.status === "in_transit"
+                            ? "bg-cyan-600 text-white"
+                            : t.status === "delayed"
+                            ? "bg-rose-600 text-white"
+                            : "bg-slate-700 text-gray-300"
+                        }`}
+                      >
+                        {t.status === "arrived_at_store" ? "At Counter" : t.status.replace("_", " ")}
+                      </Badge>
                     </div>
                   </div>
 
-                  {order.rider?.phone && (
-                    <a
-                      href={`tel:${order.rider.phone}`}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-sm"
-                    >
-                      <Phone className="h-3.5 w-3.5" /> Call
-                    </a>
-                  )}
-                </div>
+                  {/* Rider Badge & Quick Action */}
+                  <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] font-black text-white">
+                        {t.rider.id}
+                      </div>
+                      <span className="text-xs text-gray-300 font-medium">{t.rider.name}</span>
+                    </div>
 
-                {/* Live Distance & ETA Radar */}
-                <div className="bg-blue-50/50 dark:bg-blue-950/20 p-3 rounded-2xl border border-blue-100 dark:border-blue-900/40 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping" />
-                    <span className="font-bold text-blue-900 dark:text-blue-300">
-                      {isAtStore
-                        ? "At Restaurant Pickup Desk"
-                        : isDispatched
-                        ? "Delivering to customer"
-                        : `${order.rider?.distance_meters || 450}m away`}
+                    {t.status === "arrived_at_store" && (
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHandshakeModalTicket(t);
+                        }}
+                        className="h-7 px-2.5 rounded-xl text-[10px] font-black bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        <ShieldCheck className="w-3 h-3 mr-1" />
+                        Verify OTP
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Center & Right Column: Interactive Map & Live Rider Detail (8 Cols) */}
+        <div className="lg:col-span-8 space-y-4">
+          
+          {/* Interactive Radar Vector Map */}
+          <RiderMapCanvas
+            tickets={filteredTickets}
+            selectedTicket={selectedTicket}
+            onSelectTicket={setSelectedTicketId}
+            onOpenHandshake={(ticket) => setHandshakeModalTicket(ticket)}
+          />
+
+          {/* Active Rider Inspection & Quick Handoff Card */}
+          {selectedTicket && (
+            <div className="p-4 rounded-3xl bg-slate-900/90 backdrop-blur-xl border border-slate-800 shadow-xl">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                
+                <div className="flex items-center gap-3.5">
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-800 border-2 border-indigo-500 shadow-md">
+                      {selectedTicket.rider.photoUrl ? (
+                        <img src={selectedTicket.rider.photoUrl} alt={selectedTicket.rider.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center font-bold text-white">
+                          {selectedTicket.rider.name.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    <span className="absolute -bottom-1 -right-1 p-0.5 bg-emerald-500 rounded-full text-white">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
                     </span>
                   </div>
 
-                  <span className="font-extrabold text-blue-700 dark:text-blue-400">
-                    {isAtStore ? "0 min" : isDispatched ? "ETA ~12m" : `ETA ${order.rider?.eta_minutes || 3} mins`}
-                  </span>
-                </div>
-
-                {/* Items & Amount */}
-                <div className="flex items-center justify-between text-xs pt-1 border-t">
-                  <span className="text-gray-500 font-medium">
-                    {order.items.length} Items ({order.customer_name})
-                  </span>
-                  <span className="font-extrabold text-emerald-600 text-sm">
-                    ₹{order.total_amount}
-                  </span>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  {!isDispatched ? (
-                    <>
-                      <Button
-                        size="sm"
-                        onClick={() => handoverFood(order.id)}
-                        className="rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 text-white font-bold text-xs gap-1.5 shadow-md"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        Handover Food
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => delayOrder({ orderId: order.id, extraMinutes: 5 })}
-                        className="rounded-2xl text-xs font-semibold gap-1 text-amber-700 border-amber-200 hover:bg-amber-50"
-                      >
-                        <Hourglass className="h-3.5 w-3.5" />
-                        +5m Delay
-                      </Button>
-                    </>
-                  ) : (
-                    <div className="col-span-2 text-center py-2 text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center justify-center gap-1.5 bg-purple-50 dark:bg-purple-950/40 rounded-2xl">
-                      <ShieldCheck className="h-4 w-4" /> Dispatched & Discharged
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-black text-white">{selectedTicket.rider.name}</h3>
+                      <Badge className="bg-indigo-600 text-white text-[10px] font-black">
+                        {selectedTicket.rider.id}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] text-gray-300 border-slate-700 capitalize">
+                        {selectedTicket.channel === "in_house" ? "In-House Fleet" : selectedTicket.channel}
+                      </Badge>
                     </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {selectedTicket.rider.vehicleModel} • <strong className="text-cyan-300">{selectedTicket.rider.vehicleNumber}</strong> • {selectedTicket.rider.phone}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Telemetry Metrics */}
+                <div className="flex items-center gap-3">
+                  <div className="text-left px-3 py-1.5 rounded-2xl bg-slate-800 border border-slate-700/80">
+                    <span className="text-[9px] text-gray-400 font-bold uppercase flex items-center gap-1">
+                      <Gauge className="w-3 h-3 text-cyan-400" /> Speed
+                    </span>
+                    <span className="text-xs font-black text-white">{selectedTicket.rider.speedKmh} km/h</span>
+                  </div>
+
+                  <div className="text-left px-3 py-1.5 rounded-2xl bg-slate-800 border border-slate-700/80">
+                    <span className="text-[9px] text-gray-400 font-bold uppercase flex items-center gap-1">
+                      <BatteryCharging className="w-3 h-3 text-emerald-400" /> Battery
+                    </span>
+                    <span className="text-xs font-black text-white">{selectedTicket.rider.batteryPct}%</span>
+                  </div>
+
+                  {selectedTicket.status === "arrived_at_store" ? (
+                    <Button
+                      onClick={() => setHandshakeModalTicket(selectedTicket)}
+                      className="rounded-2xl h-11 px-5 text-xs font-black bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25"
+                    >
+                      <ShieldCheck className="w-4 h-4 mr-1.5" />
+                      Verify OTP & Handover
+                    </Button>
+                  ) : (
+                    <Badge className="h-10 px-4 rounded-2xl bg-slate-800 text-cyan-300 border border-slate-700 text-xs font-bold flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      ETA: {selectedTicket.etaMinutes} mins ({selectedTicket.distanceKm} km)
+                    </Badge>
                   )}
                 </div>
-              </Card>
-            );
-          })}
+
+              </div>
+            </div>
+          )}
+
         </div>
-      )}
+      </div>
+
+      {/* 4-Digit Handshake OTP Verification Modal */}
+      <RiderHandshakeModal
+        ticket={handshakeModalTicket}
+        isOpen={!!handshakeModalTicket}
+        onClose={() => setHandshakeModalTicket(null)}
+        onConfirmHandoff={verifyHandoff}
+      />
+
     </div>
   );
 };
+
+export default AggregatorRiderTrackingTab;
