@@ -25,6 +25,7 @@ import { BatchProductionManager } from "@/components/Recipes/BatchProductionMana
 import { RecipeCostingCard } from "@/components/Recipes/RecipeCostingCard";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { MenuEngineering } from "@/components/Recipes/MenuEngineering";
+import { DishMarginCalculator } from "@/components/Recipes/DishMarginCalculator";
 import { useRecipes } from "@/hooks/useRecipes";
 import { MobileNavigation } from "@/components/ui/mobile-navigation";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -38,7 +39,7 @@ const RecipeManagement = () => {
   const { restaurantName } = useRestaurantId();
   const [showRecipeDialog, setShowRecipeDialog] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
-  const { recipes, batchProductions, isLoading } = useRecipes();
+  const { recipes, recipeIngredients, batchProductions, isLoading, updateRecipe } = useRecipes();
   const { symbol: currencySymbol } = useCurrencyContext();
   const isMobile = useIsMobile();
 
@@ -261,13 +262,20 @@ const RecipeManagement = () => {
       {/* Main Content Tabs */}
       <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 dark:border-orange-500/20 rounded-2xl md:rounded-3xl shadow-xl overflow-hidden">
         <Tabs defaultValue="recipes" className="p-2.5 sm:p-4 md:p-6">
-          <TabsList className="grid w-full grid-cols-4 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-gray-800/80 dark:to-gray-700/80 p-1 rounded-xl sm:rounded-2xl border border-orange-100 dark:border-orange-500/30 gap-1">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-gray-800/80 dark:to-gray-700/80 p-1 rounded-xl sm:rounded-2xl border border-orange-100 dark:border-orange-500/30 gap-1 h-auto">
             <TabsTrigger
               value="recipes"
               className="flex items-center justify-center gap-1 sm:gap-2 py-2 px-1 text-[11px] sm:text-xs md:text-sm rounded-lg sm:rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md font-bold transition-all duration-300"
             >
               <Utensils className="h-3.5 w-3.5 flex-shrink-0" />
               <span>Recipes</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="margins"
+              className="flex items-center justify-center gap-1 sm:gap-2 py-2 px-1 text-[11px] sm:text-xs md:text-sm rounded-lg sm:rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md font-bold transition-all duration-300"
+            >
+              <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-yellow-300" />
+              <span>Channel Margins</span>
             </TabsTrigger>
             <TabsTrigger
               value="costing"
@@ -286,7 +294,7 @@ const RecipeManagement = () => {
             <TabsTrigger
               value="batch"
               disabled
-              className="flex items-center justify-center gap-1 sm:gap-2 py-2 px-1 text-[11px] sm:text-xs md:text-sm rounded-lg sm:rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white data-[state=active]:shadow-md font-bold transition-all duration-300 pointer-events-none opacity-50 cursor-not-allowed"
+              className="flex items-center justify-center gap-1 sm:gap-2 py-2 px-1 text-[11px] sm:text-xs md:text-sm rounded-lg sm:rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white data-[state=active]:shadow-md font-bold transition-all duration-300 pointer-events-none opacity-50 cursor-not-allowed hidden sm:flex"
             >
               <Factory className="h-3.5 w-3.5 flex-shrink-0" />
               <span>Batch</span>
@@ -299,6 +307,17 @@ const RecipeManagement = () => {
               isLoading={isLoading}
               onEdit={handleEditRecipe}
             />
+          </TabsContent>
+
+          <TabsContent value="margins" className="mt-4 md:mt-6">
+            <FeatureLock feature="aggregators.margin_analytics">
+              <DishMarginCalculator
+                recipes={recipes}
+                recipeIngredients={recipeIngredients}
+                isLoading={isLoading}
+                onUpdateRecipe={updateRecipe.mutateAsync}
+              />
+            </FeatureLock>
           </TabsContent>
 
           <TabsContent value="costing" className="mt-4 md:mt-6">
