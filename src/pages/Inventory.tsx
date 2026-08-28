@@ -100,6 +100,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { Quick86Modal } from "@/components/Menu/Quick86Modal";
+import { use86Cascade } from "@/hooks/use86Cascade";
 
 interface InventoryItem {
   id: string;
@@ -138,6 +140,8 @@ const Inventory = () => {
     formData: any;
     restaurantId: string;
   } | null>(null);
+  const [show86Modal, setShow86Modal] = useState(false);
+  const { unavailableCount } = use86Cascade();
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
 
@@ -984,19 +988,40 @@ const Inventory = () => {
                 </div>
               </div>
 
-              <Button
-                onClick={() => {
-                  setEditingItem(null);
-                  setIsAddingStock(false);
-                  setNewItemCategory("Other");
-                  setIsAddDialogOpen(true);
-                }}
-                className="bg-gradient-to-r from-emerald-400 via-green-500 to-teal-600 hover:from-emerald-500 hover:via-green-600 hover:to-teal-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transform hover:-translate-y-1 hover:scale-[1.02] transition-all duration-300"
-                style={{ boxShadow: '0 8px 32px -4px rgba(16,185,129,0.35)' }}
-              >
-                <Plus className="mr-2 h-5 w-5" />
-                Add Item
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShow86Modal(true)}
+                  className={`font-bold px-4 py-3 rounded-2xl transition-all duration-300 gap-1.5 shadow-sm ${
+                    unavailableCount > 0
+                      ? "bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 text-rose-700 dark:text-rose-300 animate-pulse"
+                      : "bg-white dark:bg-gray-800 border-2 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50"
+                  }`}
+                  title="1-Click 86 Out of Stock Cascade"
+                >
+                  <Zap className="h-4 w-4 text-rose-600 dark:text-rose-400 fill-rose-600" />
+                  <span>86 Dish Kill</span>
+                  {unavailableCount > 0 && (
+                    <span className="px-1.5 py-0.2 text-[10px] bg-rose-600 text-white rounded-full font-extrabold">
+                      {unavailableCount}
+                    </span>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    setEditingItem(null);
+                    setIsAddingStock(false);
+                    setNewItemCategory("Other");
+                    setIsAddDialogOpen(true);
+                  }}
+                  className="bg-gradient-to-r from-emerald-400 via-green-500 to-teal-600 hover:from-emerald-500 hover:via-green-600 hover:to-teal-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transform hover:-translate-y-1 hover:scale-[1.02] transition-all duration-300"
+                  style={{ boxShadow: '0 8px 32px -4px rgba(16,185,129,0.35)' }}
+                >
+                  <Plus className="mr-2 h-5 w-5" />
+                  Add Item
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -2152,6 +2177,12 @@ const Inventory = () => {
           <Plus className="h-6 w-6 stroke-[2.5]" />
         </button>
       )}
+
+      {/* 1-Click 86 Stock Auto-Kill Dialog */}
+      <Quick86Modal
+        isOpen={show86Modal}
+        onClose={() => setShow86Modal(false)}
+      />
     </div>
   );
 };

@@ -13,6 +13,7 @@ import {
   LayoutGrid,
   List,
   Tv,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HelpProvider from "@/components/Help/HelpProvider";
@@ -26,9 +27,15 @@ import {
 import OrderTicket from "./OrderTicket";
 import OrdersColumn from "./OrdersColumn";
 import DateFilter from "./DateFilter";
-import { useKitchenSounds } from "@/hooks/useKitchenSounds";
+import { useKitchenSounds, SUPPORTED_LANGUAGES } from "@/hooks/useKitchenSounds";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Quick86Modal } from "@/components/Menu/Quick86Modal";
+import { use86Cascade } from "@/hooks/use86Cascade";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
+import { KitchenVoiceSettings } from "./KitchenVoiceSettings";
+import { KitchenLoadGauge } from "./KitchenLoadGauge";
+import { Languages, Mic } from "lucide-react";
 import {
   startOfDay,
   endOfDay,
@@ -87,12 +94,16 @@ const KitchenDisplay = () => {
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const {
     isAudioEnabled,
+    isVoiceEnabled,
+    selectedLanguage,
+    setLanguage,
     enableAudio,
     disableAudio,
     playNewOrder,
     playModified,
     playRushOrder,
-    playReadyChime
+    playReadyChime,
+    speakOrder,
   } = useKitchenSounds();
   const [dateFilter, setDateFilter] = useState("today");
   const [stationFilter, setStationFilter] = useState("all");
@@ -103,6 +114,11 @@ const KitchenDisplay = () => {
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"detailed" | "compact">("compact");
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [show86Modal, setShow86Modal] = useState(false);
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const { unavailableCount } = use86Cascade();
+  const { isLocked: is86MenuSyncLocked } = useFeatureGate("aggregators.menu_sync");
+  const canShow86Button = !is86MenuSyncLocked;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -367,11 +383,13 @@ const KitchenDisplay = () => {
               });
             });
 
-            if (newOrder.priority === "vip" || newOrder.priority === "rush") {
-              playRushOrder();
-            } else {
-              playNewOrder();
-            }
+            // Speak vernacular voice order call
+            speakOrder({
+              source: newOrder.source,
+              orderType: newOrder.order_type,
+              items: newOrder.items,
+              isRush: newOrder.priority === "vip" || newOrder.priority === "rush",
+            });
 
             toast({
               title:
@@ -930,6 +948,22 @@ const KitchenDisplay = () => {
                 <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
               </Button>
 
+              {canShow86Button && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShow86Modal(true)}
+                  className={`h-8 w-8 rounded-lg ${
+                    unavailableCount > 0
+                      ? "bg-rose-100 dark:bg-rose-950/60 text-rose-600 animate-slow-pulse"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-500"
+                  }`}
+                  title="1-Click 86 Out of Stock"
+                >
+                  <Zap className="h-4 w-4 fill-rose-600 text-rose-600" />
+                </Button>
+              )}
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -947,6 +981,16 @@ const KitchenDisplay = () => {
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={() => setShowVoiceSettings(true)}
+                className="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300"
+                title="Kitchen Voice Settings"
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => window.open("/kitchen-tv", "_blank")}
                 className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400"
                 title="Kitchen TV Mode"
@@ -954,6 +998,11 @@ const KitchenDisplay = () => {
                 <Tv className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+
+          {/* Mobile Kitchen Load Gauge */}
+          <div className="mb-2.5">
+            <KitchenLoadGauge compact />
           </div>
 
           {/* Row 2: Station Filter & Quick Date Filter */}
@@ -1068,7 +1117,7 @@ const KitchenDisplay = () => {
           </div>
 
           {lateOrders > 0 && (
-            <div className="mt-2 flex items-center justify-between px-3 py-1.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-semibold animate-pulse">
+            <div className="mt-2 flex items-center justify-between px-3 py-1.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-semibold animate-slow-pulse">
               <span className="flex items-center gap-1">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 {lateOrders} Late {lateOrders === 1 ? 'Order' : 'Orders'} (&gt;15 min)
@@ -1077,153 +1126,191 @@ const KitchenDisplay = () => {
           )}
         </div>
       ) : (
-        /* Desktop Header */
-        <>
-          <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 rounded-3xl shadow-xl p-6">
-            <div className="flex flex-wrap justify-between items-center gap-4">
-              <div>
-                {restaurantName && (
-                  <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-400 dark:text-purple-300 mb-0.5">
-                    {restaurantName}
-                  </p>
-                )}
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
-                  Kitchen Display System
+        /* Desktop Header — Space-Optimized KDS Command Bar */
+        <div className="mb-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/60 rounded-2xl shadow-xs px-4 py-2.5">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            {/* Left: Branding & Inline Date Filter */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-black tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Kitchen Display
                 </h1>
-                <p className="text-gray-600 dark:text-gray-300 text-lg">
-                  Real-time order management dashboard
-                </p>
+                {restaurantName && (
+                  <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 truncate max-w-[130px]">
+                    {restaurantName}
+                  </span>
+                )}
               </div>
 
-              {/* Action Buttons with Modern Design */}
-              <div className="flex items-center gap-4 flex-wrap">
-                <HelpProvider />
-                {/* Station Filter */}
-                <Select value={stationFilter} onValueChange={setStationFilter}>
-                  <SelectTrigger className="w-40 bg-white/60 dark:bg-gray-700/60 backdrop-blur-sm rounded-xl border border-white/30 dark:border-gray-600">
-                    <ChefHat className="w-4 h-4 mr-2" />
-                    <SelectValue placeholder="Station" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATION_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="flex items-center gap-2 bg-white/60 dark:bg-gray-700/60 backdrop-blur-sm rounded-2xl p-2 border border-white/30 dark:border-gray-600">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => fetchOrders(true)}
-                    disabled={isLoading}
-                    className="rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900 transition-all duration-300"
-                  >
-                    <RefreshCw
-                      className={`h-5 w-5 ${isLoading ? "animate-spin" : ""}`}
-                    />
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => isAudioEnabled ? disableAudio() : enableAudio()}
-                    className={`rounded-xl transition-all duration-300 ${
-                      isAudioEnabled
-                        ? "bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    }`}
-                  >
-                    {isAudioEnabled ? (
-                      <Volume2 className="h-5 w-5" />
-                    ) : (
-                      <VolumeX className="h-5 w-5" />
-                    )}
-                  </Button>
-
-                  {/* View Mode Toggle */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() =>
-                      setViewMode(viewMode === "detailed" ? "compact" : "detailed")
-                    }
-                    className={`rounded-xl transition-all duration-300 ${
-                      viewMode === "compact"
-                        ? "bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    }`}
-                    title={
-                      viewMode === "compact"
-                        ? "Switch to Detailed View"
-                        : "Switch to Compact View"
-                    }
-                  >
-                    {viewMode === "compact" ? (
-                      <List className="h-5 w-5" />
-                    ) : (
-                      <LayoutGrid className="h-5 w-5" />
-                    )}
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={toggleFullscreen}
-                    className="rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900 transition-all duration-300"
-                  >
-                    <Maximize2 className="h-5 w-5" />
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => window.open("/kitchen-tv", "_blank")}
-                    className="rounded-xl bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-all duration-300"
-                    title="Open Kitchen TV Mode"
-                  >
-                    <Tv className="h-5 w-5" />
-                  </Button>
-                </div>
-              </div>
+              {/* Inline Compact Date Filter */}
+              <DateFilter value={dateFilter} onChange={setDateFilter} compact />
             </div>
 
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-4 text-white shadow-lg">
-                <div className="text-2xl font-bold">{totalOrders}</div>
-                <div className="text-blue-100">Total Orders</div>
+            {/* Middle: Compact Stat Pills */}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-blue-700 dark:text-blue-300" title="Total Orders">
+                <span className="text-[11px] font-medium">Total</span>
+                <span className="text-xs font-black px-1.5 py-0.2 bg-blue-600 text-white rounded-md">{totalOrders}</span>
               </div>
-              <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-4 text-white shadow-lg">
-                <div className="text-2xl font-bold">{newOrders}</div>
-                <div className="text-amber-100">New Orders</div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-700 dark:text-amber-300" title="New Orders">
+                <span className="text-[11px] font-medium">New</span>
+                <span className="text-xs font-black px-1.5 py-0.2 bg-amber-500 text-white rounded-md">{newOrders}</span>
               </div>
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg">
-                <div className="text-2xl font-bold">{preparingOrders}</div>
-                <div className="text-purple-100">Preparing</div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-purple-700 dark:text-purple-300" title="Preparing Orders">
+                <span className="text-[11px] font-medium">Prep</span>
+                <span className="text-xs font-black px-1.5 py-0.2 bg-purple-600 text-white rounded-md">{preparingOrders}</span>
               </div>
-              <div className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl p-4 text-white shadow-lg">
-                <div className="text-2xl font-bold">{readyOrders}</div>
-                <div className="text-green-100">Ready</div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300" title="Ready Orders">
+                <span className="text-[11px] font-medium">Ready</span>
+                <span className="text-xs font-black px-1.5 py-0.2 bg-emerald-600 text-white rounded-md">{readyOrders}</span>
               </div>
               {lateOrders > 0 && (
-                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-4 text-white shadow-lg animate-pulse">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5" />
-                    <div className="text-2xl font-bold">{lateOrders}</div>
-                  </div>
-                  <div className="text-red-100">Late Orders</div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 animate-slow-pulse" title="Late Orders (>15 min)">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                  <span className="text-[11px] font-bold">Late</span>
+                  <span className="text-xs font-black px-1.5 py-0.2 bg-rose-600 text-white rounded-md">{lateOrders}</span>
                 </div>
               )}
             </div>
-          </div>
 
-          <div className="mb-6">
-            <DateFilter value={dateFilter} onChange={setDateFilter} />
+            {/* Right: Actions & Tools Bar */}
+            <div className="flex items-center gap-2">
+              <HelpProvider />
+
+              {/* Kitchen Load & Surge Throttle Meter */}
+              <KitchenLoadGauge compact />
+
+              {/* Vernacular Voice Language Dropdown Selector */}
+              <Select value={selectedLanguage} onValueChange={(val) => setLanguage(val)}>
+                <SelectTrigger className="w-36 h-8 bg-white/80 dark:bg-gray-700/80 rounded-xl border border-indigo-200 dark:border-indigo-700 text-xs font-bold shadow-2xs">
+                  <Languages className="w-3.5 h-3.5 mr-1 text-indigo-500" />
+                  <SelectValue placeholder="Voice" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64 rounded-xl border-2 border-indigo-100 dark:border-indigo-800">
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <SelectItem key={lang.code} value={lang.code} className="text-xs font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <span>{lang.flag}</span>
+                        <span className="font-bold">{lang.name}</span>
+                        <span className="text-gray-400 font-normal">({lang.nativeName})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Voice Settings Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowVoiceSettings(true)}
+                className="h-8 w-8 rounded-xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 hover:bg-purple-200 transition-all"
+                title="Kitchen Voice Calls Settings"
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
+
+              {/* Station Filter */}
+              <Select value={stationFilter} onValueChange={setStationFilter}>
+                <SelectTrigger className="w-32 h-8 bg-white/60 dark:bg-gray-700/60 rounded-xl border border-gray-200 dark:border-gray-600 text-xs font-medium">
+                  <ChefHat className="w-3.5 h-3.5 mr-1 text-gray-500" />
+                  <SelectValue placeholder="Station" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Toolbar button cluster */}
+              <div className="flex items-center gap-1 bg-gray-100/80 dark:bg-gray-700/60 rounded-xl p-0.5 border border-gray-200/60 dark:border-gray-600">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => fetchOrders(true)}
+                  disabled={isLoading}
+                  className="h-7 w-7 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                  title="Refresh Orders"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => isAudioEnabled ? disableAudio() : enableAudio()}
+                  className={`h-7 w-7 rounded-lg transition-all ${
+                    isAudioEnabled
+                      ? "text-emerald-600 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-900/50"
+                      : "text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                  title={isAudioEnabled ? "Mute Audio Chimes" : "Enable Audio Chimes"}
+                >
+                  {isAudioEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setViewMode(viewMode === "detailed" ? "compact" : "detailed")}
+                  className={`h-7 w-7 rounded-lg transition-all ${
+                    viewMode === "compact"
+                      ? "text-purple-600 dark:text-purple-400 bg-purple-100/80 dark:bg-purple-900/50"
+                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                  title={viewMode === "compact" ? "Switch to Detailed View" : "Switch to Compact View"}
+                >
+                  {viewMode === "compact" ? <List className="h-3.5 w-3.5" /> : <LayoutGrid className="h-3.5 w-3.5" />}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleFullscreen}
+                  className="h-7 w-7 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  title="Toggle Fullscreen"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </Button>
+
+                {/* 1-Click 86 Stock Auto-Kill Button */}
+                {canShow86Button && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShow86Modal(true)}
+                    className={`h-7 rounded-lg px-2 text-xs font-bold gap-1 transition-all ${
+                      unavailableCount > 0
+                        ? "bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-slow-pulse"
+                        : "text-rose-700 dark:text-rose-300 hover:bg-rose-50"
+                    }`}
+                    title="1-Click 86 Out of Stock Cascade"
+                  >
+                    <Zap className="h-3.5 w-3.5 text-rose-600 fill-rose-600" />
+                    <span>86</span>
+                    {unavailableCount > 0 && (
+                      <span className="px-1 py-0.2 text-[9px] bg-rose-600 text-white rounded-full font-black">
+                        {unavailableCount}
+                      </span>
+                    )}
+                  </Button>
+                )}
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => window.open("/kitchen-tv", "_blank")}
+                  className="h-7 w-7 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                  title="Open Kitchen TV Mode"
+                >
+                  <Tv className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Columns: On Mobile render selected tab; On Desktop render 3-column grid */}
@@ -1389,6 +1476,18 @@ const KitchenDisplay = () => {
           <span>Tap to enable sound alerts</span>
         </div>
       )}
+
+      {/* 1-Click 86 Stock Auto-Kill Dialog */}
+      <Quick86Modal
+        isOpen={show86Modal}
+        onClose={() => setShow86Modal(false)}
+      />
+
+      {/* Kitchen Vernacular Voice Settings Dialog */}
+      <KitchenVoiceSettings
+        isOpen={showVoiceSettings}
+        onClose={() => setShowVoiceSettings(false)}
+      />
     </div>
   );
 };

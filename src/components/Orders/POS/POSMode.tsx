@@ -21,11 +21,12 @@ import { Button } from "@/components/ui/button";
 import { formatOrderItemString } from "@/lib/order-utils";
 import { useToast } from "@/hooks/use-toast";
 import { thermalPrinterService } from "@/services/thermalPrinterService";
-import { POSPayment } from "../Payment/POSPayment";
 import { POSRiderTrackingDrawer } from "@/components/Aggregators/POSRiderTrackingDrawer";
 import { useRiderTracking } from "@/hooks/useRiderTracking";
 import { useFeatureGate } from "@/hooks/useFeatureGate";
-import { Bike } from "lucide-react";
+import { Bike, Zap } from "lucide-react";
+import { Quick86Modal } from "@/components/Menu/Quick86Modal";
+import { use86Cascade } from "@/hooks/use86Cascade";
 import { OrderPayment } from "../Payment/OrderPayment";
 import type { OrderItem, TableData } from "@/types/orders";
 import { WeightQuantityDialog } from "../WeightQuantityDialog";
@@ -66,6 +67,12 @@ const POSMode = () => {
   const { isLocked: isRiderTrackingLocked } = useFeatureGate("aggregators.rider_tracking");
   const { isLocked: isAggregatorsViewLocked } = useFeatureGate("aggregators.view");
   const canShowRiderTracking = !isRiderTrackingLocked && !isAggregatorsViewLocked;
+
+  // 86 Stock-Kill modal state & Feature Lock check
+  const [show86Modal, setShow86Modal] = useState(false);
+  const { unavailableCount } = use86Cascade();
+  const { isLocked: is86MenuSyncLocked } = useFeatureGate("aggregators.menu_sync");
+  const canShow86Button = !is86MenuSyncLocked;
 
   // Duplicate order warning state
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
@@ -1092,6 +1099,29 @@ const POSMode = () => {
                   </Button>
                 )}
 
+                {/* 1-Click 86 Stock Auto-Kill Button */}
+                {canShow86Button && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShow86Modal(true)}
+                    size="sm"
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all shadow-sm ${
+                      unavailableCount > 0
+                        ? "bg-rose-600 text-white animate-pulse border-0"
+                        : "bg-white/80 dark:bg-gray-700/80 border-2 border-rose-200 dark:border-rose-700 text-rose-700 dark:text-rose-300"
+                    }`}
+                    title="1-Click 86 Out of Stock Cascade"
+                  >
+                    <Zap className="h-4 w-4 text-rose-600 dark:text-rose-400 fill-rose-600" />
+                    <span className="hidden sm:inline">86 Items</span>
+                    {unavailableCount > 0 && (
+                      <span className="px-1.5 py-0.2 text-[10px] bg-rose-600 text-white rounded-full font-extrabold">
+                        {unavailableCount}
+                      </span>
+                    )}
+                  </Button>
+                )}
+
                 {/* Hide/Show Orders button */}
                 <Button
                   variant="outline"
@@ -1325,6 +1355,12 @@ const POSMode = () => {
       <POSRiderTrackingDrawer
         isOpen={showRiderTracking}
         onClose={() => setShowRiderTracking(false)}
+      />
+
+      {/* 1-Click 86 Stock Auto-Kill Dialog */}
+      <Quick86Modal
+        isOpen={show86Modal}
+        onClose={() => setShow86Modal(false)}
       />
     </div>
   );
