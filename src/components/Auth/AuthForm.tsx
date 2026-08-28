@@ -140,7 +140,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
         <div className="space-y-1.5">
           <Label
             htmlFor="email"
-            className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300"
+            className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300"
           >
             Email address
           </Label>
@@ -153,7 +153,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="pl-10 sm:pl-12 h-11 sm:h-13 bg-gray-50/50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600 focus:border-[#2E3192] focus:ring-[#2E3192]/20 focus:ring-2 transition-all duration-200 rounded-xl text-sm sm:text-base"
+              className="pl-10 sm:pl-12 h-12 sm:h-13 skeuo-inset border-0 text-gray-900 dark:text-white placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-[#2E3192]/30 transition-all rounded-2xl text-sm sm:text-base font-medium"
             />
           </div>
         </div>
@@ -162,7 +162,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
         <div className="space-y-1.5">
           <Label
             htmlFor="password"
-            className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300"
+            className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300"
           >
             Password
           </Label>
@@ -175,7 +175,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="pl-10 sm:pl-12 pr-11 sm:pr-12 h-11 sm:h-13 bg-gray-50/50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600 focus:border-[#2E3192] focus:ring-[#2E3192]/20 focus:ring-2 transition-all duration-200 rounded-xl text-sm sm:text-base"
+              className="pl-10 sm:pl-12 pr-11 sm:pr-12 h-12 sm:h-13 skeuo-inset border-0 text-gray-900 dark:text-white placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-[#2E3192]/30 transition-all rounded-2xl text-sm sm:text-base font-medium"
             />
             <button
               type="button"
@@ -190,13 +190,34 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
             </button>
           </div>
         </div>
+
+        {/* Remember Me & Forgot Password Row */}
+        {authMode === "signin" && (
+          <div className="flex items-center justify-between pt-1">
+            <label className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none font-medium">
+              <input
+                type="checkbox"
+                defaultChecked={true}
+                className="h-4 w-4 rounded border-gray-300 text-[#2E3192] focus:ring-[#2E3192]"
+              />
+              <span>Remember me</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => setAuthMode("forgot")}
+              className="text-xs sm:text-sm font-bold text-[#2E3192] hover:text-[#1a1f6e] dark:text-indigo-400 hover:underline"
+            >
+              Forgot password?
+            </button>
+          </div>
+        )}
       </CardContent>
 
       <CardFooter className="flex flex-col px-5 sm:px-8 pb-5 sm:pb-8 space-y-4 sm:space-y-5">
-        {/* Primary Email/Password Submit Button — FIRST, right after inputs */}
-        <Button
+        {/* Primary Email/Password Submit Button (Skeuomorphic) */}
+        <button
           type="submit"
-          className="w-full h-11 sm:h-13 bg-gradient-to-r from-[#2E3192] to-[#1a1f6e] hover:from-[#1a1f6e] hover:to-[#0d1045] text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl text-sm sm:text-base"
+          className="w-full h-12 sm:h-14 skeuo-btn-primary flex items-center justify-center font-bold text-sm sm:text-base touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           disabled={loading || !email || !password}
         >
           {loading ? (
@@ -212,25 +233,24 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
               <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
             </>
           )}
-        </Button>
+        </button>
 
         {/* Divider */}
         <div className="relative w-full">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-gray-200 dark:border-slate-600" />
+            <span className="w-full border-t border-gray-300/60 dark:border-slate-700" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white dark:bg-slate-800 px-3 text-gray-400 dark:text-gray-500 font-medium text-[10px] sm:text-xs">
+            <span className="bg-[#ebf0f7] dark:bg-[#181c28] px-3 text-gray-400 font-bold text-[10px] sm:text-xs">
               or continue with
             </span>
           </div>
         </div>
 
-        {/* Google Sign In Button */}
-        <Button
+        {/* Google Sign In Button (Skeuomorphic) */}
+        <button
           type="button"
-          variant="outline"
-          className="w-full h-11 sm:h-13 bg-white hover:bg-gray-50 text-gray-700 font-medium border border-gray-200 shadow-sm rounded-xl transition-all duration-200"
+          className="w-full h-12 sm:h-13 skeuo-btn flex items-center justify-center text-gray-800 dark:text-white font-bold text-sm touch-manipulation transition-all"
           onClick={handleGoogleSignIn}
           disabled={loading}
         >
@@ -253,36 +273,22 @@ const AuthForm: React.FC<AuthFormProps> = ({ authMode, setAuthMode, onSuccess })
             />
           </svg>
           Continue with Google
-        </Button>
+        </button>
 
         {/* Toggle auth mode */}
-        <div className="w-full">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-200 dark:border-slate-600" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white dark:bg-slate-800 px-3 text-gray-400 dark:text-gray-500 font-medium text-[10px] sm:text-xs">
-                {authMode === "signin"
-                  ? "New to RMS Pro?"
-                  : "Already have an account?"}
-              </span>
-            </div>
-          </div>
-
-          <Button
+        <div className="w-full pt-1">
+          <button
             type="button"
-            variant="ghost"
-            className="mt-3 w-full text-[#F26722] hover:text-[#d4551a] hover:bg-[#F26722]/5 dark:hover:bg-slate-700 font-medium transition-all duration-200 h-10 sm:h-11 rounded-xl text-sm"
+            className="w-full h-11 skeuo-btn text-[#F26722] hover:text-[#d4551a] font-black flex items-center justify-center text-xs sm:text-sm tracking-tight"
             onClick={() =>
               setAuthMode(authMode === "signin" ? "inquiry" : "signin")
             }
           >
-            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
+            <Sparkles className="w-3.5 h-3.5 mr-2" />
             {authMode === "signin"
               ? "Register your business"
               : "Sign in to existing account"}
-          </Button>
+          </button>
         </div>
 
         {authMode === "signin" && (

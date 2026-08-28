@@ -68,9 +68,9 @@
     <!-- Removed: gptengineer.js (untrusted third-party script — XSS vector) -->
     <script type="module" src="/src/main.tsx"></script>
 
-    <!-- Service Worker Registration -->
+    <!-- Service Worker Registration (Web Only) -->
     <script>
-      if ("serviceWorker" in navigator) {
+      if ("serviceWorker" in navigator && !window.Capacitor?.isNativePlatform?.()) {
         window.addEventListener("load", () => {
           navigator.serviceWorker
             .register("/sw.js")

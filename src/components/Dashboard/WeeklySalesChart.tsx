@@ -1,18 +1,14 @@
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfWeek, addDays, format, endOfDay } from "date-fns";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
-import { useTheme } from "@/hooks/useTheme";
+import { formatIndianCurrency } from "@/utils/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
-import { HighchartComponent } from "@/components/ui/highcharts";
-import { Options } from "highcharts";
-import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { SkeuomorphicBarChart, BarChartDataPoint } from "@/components/ui/skeuomorphic";
+import { BarChart3 } from "lucide-react";
 
-const WeeklySalesChart = () => {
-  const { theme } = useTheme();
-  const isDarkMode = theme === "dark";
-  const { symbol } = useCurrencyContext();
-
+export const WeeklySalesChart: React.FC = () => {
   // Setup real-time subscriptions for live chart updates
   useRealtimeSubscription({
     table: "orders",
@@ -49,7 +45,7 @@ const WeeklySalesChart = () => {
     queryKey: ["weekly-sales", profile?.restaurant_id],
     enabled: !!profile?.restaurant_id,
     queryFn: async () => {
-      const startDate = startOfWeek(new Date());
+      const startDate = startOfWeek(new Date(), { weekStartsOn: 1 }); // Start on Monday
       const endDate = addDays(startDate, 6);
       const days = [...Array(7)].map((_, i) =>
         format(addDays(startDate, i), "EEE d MMM")
@@ -64,8 +60,8 @@ const WeeklySalesChart = () => {
         .gte("created_at", startDate.toISOString())
         .lte("created_at", endOfDay(endDate).toISOString());
 
-      // Fetch room billings revenue (use checkout_date instead of billing_date)
-      const { data: roomBillings, error: roomBillingsError } = await supabase
+      // Fetch room billings revenue
+      const { data: roomBillings } = await supabase
         .from("room_billings")
         .select("checkout_date, total_amount, payment_status")
         .eq("restaurant_id", profile?.restaurant_id)
@@ -73,21 +69,18 @@ const WeeklySalesChart = () => {
         .gte("checkout_date", startDate.toISOString())
         .lte("checkout_date", endOfDay(endDate).toISOString());
 
-      if (roomBillingsError) {
-      }
-
       // Calculate revenue per day
-      const dailyRevenue: { [key: string]: number } = {};
+      const dailyRevenue: Record<string, number> = {};
 
       orders?.forEach((order) => {
         const day = format(new Date(order.created_at), "EEE d MMM");
-        dailyRevenue[day] = (dailyRevenue[day] || 0) + (order.total || 0);
+        dailyRevenue[day] = (dailyRevenue[day] || 0) + (Number(order.total) || 0);
       });
 
       roomBillings?.forEach((billing) => {
         const day = format(new Date(billing.checkout_date), "EEE d MMM");
         dailyRevenue[day] =
-          (dailyRevenue[day] || 0) + (billing.total_amount || 0);
+          (dailyRevenue[day] || 0) + (Number(billing.total_amount) || 0);
       });
 
       return days.map((day) => ({
@@ -95,113 +88,38 @@ const WeeklySalesChart = () => {
         amount: dailyRevenue[day] || 0,
       }));
     },
+    staleTime: 60 * 1000,
   });
 
-  // Return a loading state while data is being fetched
   if (isLoading || !weeklyData) {
-    return <Skeleton className="w-full h-[300px] rounded-lg bg-secondary/20" />;
+    return (
+      <div className="flex flex-col space-y-4">
+        <Skeleton className="h-6 w-32 rounded-lg" />
+        <Skeleton className="h-[220px] w-full rounded-2xl" />
+      </div>
+    );
   }
 
-  // Theme-aware colors
-  const backgroundColor = "transparent";
-  const textColor = isDarkMode ? "#F7FAFC" : "#64748B"; // Slate-500 for better contrast on glass
-  const gridColor = isDarkMode ? "#334155" : "#E2E8F0";
-  const barColor = isDarkMode ? "#48BB78" : "#3B82F6"; // Blue-500 for premium look
-
-  const chartOptions: Options = {
-    chart: {
-      type: "column" as const,
-      backgroundColor: backgroundColor,
-      style: {
-        fontFamily: "Inter, sans-serif",
-      },
-      height: 300,
-    },
-    title: {
-      text: undefined,
-    },
-    xAxis: {
-      categories: weeklyData.map((item) => item.day),
-      labels: {
-        style: {
-          color: textColor,
-          fontWeight: "500",
-        },
-      },
-      lineColor: gridColor,
-      tickColor: gridColor,
-    },
-    yAxis: {
-      title: {
-        text: `Revenue (${symbol})`,
-        style: {
-          color: textColor,
-        },
-      },
-      labels: {
-        style: {
-          color: textColor,
-        },
-        formatter: function () {
-          return symbol + this.value;
-        },
-      },
-      gridLineColor: gridColor,
-    },
-    legend: {
-      enabled: false,
-    },
-    credits: {
-      enabled: false,
-    },
-    tooltip: {
-      headerFormat: '<span style="font-size:10px">{point.key}</span><table>',
-      pointFormat:
-        '<tr><td style="color:{series.color};padding:0">Revenue: </td>' +
-        `<td style="padding:0"><b>${symbol}{point.y:.0f}</b></td></tr>`,
-      footerFormat: "</table>",
-      shared: true,
-      useHTML: true,
-      backgroundColor: isDarkMode
-        ? "rgba(30, 41, 59, 0.9)"
-        : "rgba(255, 255, 255, 0.9)",
-      borderColor: isDarkMode ? "#475569" : "#E2E8F0",
-      borderRadius: 12,
-      style: {
-        color: textColor,
-      },
-      shadow: true,
-    },
-    plotOptions: {
-      column: {
-        borderRadius: 8,
-        color: {
-          linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
-          stops: [
-            [0, "#6366f1"], // Indigo 500
-            [1, "#3b82f6"], // Blue 500
-          ],
-        },
-        pointWidth: 20,
-        animation: {
-          duration: 1000,
-        },
-      },
-    },
-    series: [
-      {
-        type: "column" as const,
-        name: "Revenue",
-        data: weeklyData.map((item) => item.amount),
-        colorByPoint: false,
-      },
-    ],
-  };
+  // Transform data points for 3D Skeuomorphic Bar Chart
+  const chartPoints: BarChartDataPoint[] = weeklyData.map((item) => {
+    const parts = item.day.split(" ");
+    return {
+      label: parts[0], // e.g. Mon, Tue, Wed
+      subLabel: `${parts[1]} ${parts[2] || ""}`, // e.g. 24 Aug
+      value: item.amount,
+    };
+  });
 
   return (
-    <div className="relative z-10">
-      <HighchartComponent options={chartOptions} />
-    </div>
+    <SkeuomorphicBarChart
+      title="Weekly Sales"
+      subtitle="7-day revenue performance"
+      icon={<BarChart3 className="h-4 w-4 text-[#3b82f6] dark:text-blue-400" />}
+      data={chartPoints}
+      formatValue={(val) => formatIndianCurrency(val).formatted}
+      barGradient="from-[#3b82f6] to-[#60a5fa]"
+      height={220}
+    />
   );
 };
 

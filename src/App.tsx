@@ -38,13 +38,22 @@ const queryClient = new QueryClient({
   },
 });
 
+import { useAndroidBackButton } from "@/hooks/useAndroidBackButton";
+import { SetPinDialog } from "@/components/Auth/SetPinDialog";
+import { useAuth } from "@/hooks/useAuth";
+import { hasQuickPin } from "@/utils/pinAuth";
+
 // Real-time analytics wrapper component
 function AppWithRealtime() {
   useRealtimeAnalytics(); // Initialize real-time subscriptions
   useOfflineCache(); // Pre-populate IDB for offline use
   usePermissions(); // Request system permissions on startup
   usePushNotifications(); // Register for Push Notifications and upload token to Supabase
+  useAndroidBackButton(); // Handle hardware and gesture back button on Android
+  
+  const { user } = useAuth();
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [showPinPrompt, setShowPinPrompt] = useState(false);
 
   useEffect(() => {
     // Only register service worker in web browser — native Capacitor handles asset caching
@@ -56,6 +65,19 @@ function AppWithRealtime() {
       });
     }
   }, []);
+
+  // Check if we should prompt the user to set up a Quick PIN
+  useEffect(() => {
+    if (user && !hasQuickPin()) {
+      const alreadyPrompted = localStorage.getItem("swadeshi_pin_prompt_done") === "true";
+      if (!alreadyPrompted) {
+        const timer = setTimeout(() => {
+          setShowPinPrompt(true);
+        }, 3000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     if (isNativeApp()) {
@@ -80,6 +102,10 @@ function AppWithRealtime() {
         {updateAvailable && (
           <UpdateNotification onDismiss={() => setUpdateAvailable(false)} />
         )}
+        <SetPinDialog
+          isOpen={showPinPrompt}
+          onClose={() => setShowPinPrompt(false)}
+        />
       </AppUpdateChecker>
     </div>
   );
