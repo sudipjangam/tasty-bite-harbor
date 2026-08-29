@@ -11,6 +11,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useKitchenThrottle } from "@/hooks/useKitchenThrottle";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
 
 interface KitchenLoadGaugeProps {
   compact?: boolean;
@@ -20,6 +21,9 @@ interface KitchenLoadGaugeProps {
 export const KitchenLoadGauge: React.FC<KitchenLoadGaugeProps> = ({
   compact = false,
 }) => {
+  const { isLocked: isThrottleLocked } = useFeatureGate("aggregators.surge_throttle");
+  const { isLocked: isAggregatorsLocked } = useFeatureGate("aggregators.view");
+
   const {
     totalPendingItems,
     totalActiveTickets,
@@ -30,6 +34,11 @@ export const KitchenLoadGauge: React.FC<KitchenLoadGaugeProps> = ({
     pauseStoresForMinutes,
     resumeStores,
   } = useKitchenThrottle();
+
+  // If online aggregators or kitchen throttle feature is not subscribed/enabled, do not render
+  if (isThrottleLocked && isAggregatorsLocked) {
+    return null;
+  }
 
   const tierColors = {
     normal: {
@@ -58,6 +67,10 @@ export const KitchenLoadGauge: React.FC<KitchenLoadGaugeProps> = ({
   const currentTier = tierColors[tier];
 
   if (compact) {
+    // In compact mode, if there are no items in kitchen and not paused, do not render empty badge
+    if (!isPaused && totalPendingItems === 0) {
+      return null;
+    }
     return (
       <div className="flex items-center gap-2">
         <Badge

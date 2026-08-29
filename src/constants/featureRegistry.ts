@@ -108,11 +108,18 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     icon: 'Bike',
     color: 'from-orange-500 to-rose-600',
     features: [
-      { key: 'aggregators.hub', label: 'Aggregator Hub', description: 'Central dashboard for live Swiggy, Zomato, and online delivery orders' },
-      { key: 'aggregators.auto_accept', label: 'Auto-Accept & Surge Throttle', description: 'Automatic order accept rules and dynamic kitchen prep buffer adjustments' },
-      { key: 'aggregators.rider_tracking', label: 'Live Rider Tracking', description: 'Track rider assignment, transit, distance, ETA and live handover' },
-      { key: 'aggregators.menu_sync', label: 'Menu & 86 Item Toggle', description: 'Push menu pricing and 1-click out-of-stock toggle directly to Swiggy/Zomato' },
+      { key: 'aggregators.view', label: 'Aggregators Hub', description: 'Central dashboard and access to Online Delivery & Aggregators Hub' },
+      { key: 'aggregators.rider_tracking', label: 'Live Rider Tracking', description: 'Real-time GPS delivery partner and rider tracking in POS & Delivery Hub' },
+      { key: 'aggregators.swiggy', label: 'Swiggy Integration', description: 'Two-way order relay and menu sync with Swiggy' },
+      { key: 'aggregators.zomato', label: 'Zomato Integration', description: 'Two-way order relay and menu sync with Zomato' },
+      { key: 'aggregators.magicpin', label: 'magicpin Integration', description: 'Direct order ingestion & offers with magicpin' },
+      { key: 'aggregators.urbanpiper', label: 'UrbanPiper Gateway', description: 'Unified multi-channel gateway & Atlas sync' },
+      { key: 'aggregators.price_markup', label: 'Channel Price Markups', description: 'Configure automated percentage markups per delivery platform' },
+      { key: 'aggregators.live_86', label: 'Universal 86 (Out-of-Stock)', description: 'Instant one-click out of stock toggle across all delivery apps' },
+      { key: 'aggregators.menu_sync', label: 'Menu & 86 Item Sync', description: 'Push menu pricing and 1-click out-of-stock toggle directly to Swiggy/Zomato' },
+      { key: 'aggregators.surge_throttle', label: 'Kitchen Surge & Auto Throttle', description: 'Dynamic prep buffer injection (+10m/+20m) & 1-click emergency store pause' },
       { key: 'aggregators.margin_analytics', label: 'Channel Margin & Bleed Analysis', description: 'Real-time dish-level aggregator commission, GST, and net profit analytics' },
+      { key: 'aggregators.pnl_reconciliation', label: 'Aggregator P&L & Commission', description: 'Commission tracking, cancellation loss, and net payout audit' },
       { key: 'aggregators.channel_settings', label: 'Channel & Webhook Config', description: 'Configure store open/close status, commission rates, and API keys' },
     ],
   },
@@ -410,25 +417,6 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     ],
   },
 
-  // ─── Online Aggregators (Swiggy / Zomato / magicpin) ───────────────
-  {
-    id: 'aggregators',
-    label: 'Online Aggregators',
-    icon: 'Store',
-    color: 'from-orange-500 to-red-600',
-    features: [
-      { key: 'aggregators.view', label: 'Aggregators Hub', description: 'Access to Online Delivery & Aggregators Hub' },
-      { key: 'aggregators.rider_tracking', label: 'Live Rider Tracking', description: 'Real-time GPS delivery partner and rider tracking in POS & Delivery Hub' },
-      { key: 'aggregators.swiggy', label: 'Swiggy Integration', description: 'Two-way order relay and menu sync with Swiggy' },
-      { key: 'aggregators.zomato', label: 'Zomato Integration', description: 'Two-way order relay and menu sync with Zomato' },
-      { key: 'aggregators.magicpin', label: 'magicpin Integration', description: 'Direct order ingestion & offers with magicpin' },
-      { key: 'aggregators.urbanpiper', label: 'UrbanPiper Gateway', description: 'Unified multi-channel gateway & Atlas sync' },
-      { key: 'aggregators.price_markup', label: 'Channel Price Markups', description: 'Configure automated percentage markups per delivery platform' },
-      { key: 'aggregators.live_86', label: 'Universal 86 (Out-of-Stock)', description: 'Instant one-click out of stock toggle across all delivery apps' },
-      { key: 'aggregators.surge_throttle', label: 'Kitchen Surge & Auto Throttle', description: 'Dynamic prep buffer injection (+10m/+20m) & 1-click emergency store pause' },
-      { key: 'aggregators.pnl_reconciliation', label: 'Aggregator P&L & Commission', description: 'Commission tracking, cancellation loss, and net payout audit' },
-    ],
-  },
 
   // ─── Franchise Management ─────────────────────────────────────────────
   {
