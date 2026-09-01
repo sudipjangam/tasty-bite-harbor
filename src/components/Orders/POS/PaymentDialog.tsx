@@ -1083,8 +1083,8 @@ const PaymentDialog = ({
           });
         }
 
-        // 6. Auto-print bill
-        handlePrint().catch(console.warn);
+        // 6. Auto-print bill (forceBrowser: true ensures browser print dialog fires when no thermal printer is connected)
+        handlePrint({ forceBrowser: true }).catch(console.warn);
 
         // 7. Auto-send WhatsApp if checkbox enabled
         if (sendBillToWhatsApp && customerMobile.trim()) {

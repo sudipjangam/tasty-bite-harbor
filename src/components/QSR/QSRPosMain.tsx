@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Capacitor } from "@capacitor/core";
 import { thermalPrinterService } from "@/services/thermalPrinterService";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useQSRMenuItems, QSRMenuItem } from "@/hooks/useQSRMenuItems";
@@ -839,7 +840,8 @@ export const QSRPosMain: React.FC = () => {
             isAddition: currentRound > 1,
             roundNumber: currentRound,
             orderType: orderMode,
-          });
+          // On web (non-native): always fallback to browser print dialog since Bluetooth not available by default
+          }, { forceBrowser: !Capacitor.isNativePlatform() });
         } catch (printErr: any) {
           console.error("[QSR POS] KOT print failed:", printErr);
           toast({
