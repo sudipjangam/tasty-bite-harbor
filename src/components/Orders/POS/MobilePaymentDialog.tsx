@@ -953,19 +953,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     await processPayment("split", splitData);
   }, [splitCash, splitUpi, splitCard, finalTotal, currencySymbol, processPayment, toast]);
 
-  // ── Collect Payment click — prints bill once then moves to payment method ──
+  // ── Collect Payment click — moves to payment method selection (no auto-print) ──
   const handleCollectPayment = useCallback(() => {
-    // Print bill when clicking Collect Payment button (skip NC and already printed)
-    if (!isNonChargeable && !hasPrintedRef.current) {
-      const printerConnected = nativePrinterBridge.getStatus().connected || thermalPrinterService.isConnected();
-      if (printerConnected) {
-        handlePrint().catch((printErr) => {
-          console.warn("[MobilePaymentDialog] Auto-print on collect payment failed:", printErr);
-        });
-      }
-    }
     setStep("method");
-  }, [isNonChargeable, handlePrint]);
+  }, []);
 
   if (!isOpen) return null;
 
