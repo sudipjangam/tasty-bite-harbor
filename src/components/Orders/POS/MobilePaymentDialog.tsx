@@ -281,6 +281,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   const [showPrinterModal, setShowPrinterModal] = useState(false);
   const [pendingPrintAfterConnect, setPendingPrintAfterConnect] = useState(false);
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasPrintedRef = useRef(false);
 
   const { symbol: currencySymbol } = useCurrencyContext();
   const { toast } = useToast();
@@ -489,6 +490,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       setLoyaltyPointsAwarded(null);
       setShowPrinterModal(false);
       setPendingPrintAfterConnect(false);
+      hasPrintedRef.current = false;
     }
   }, [isOpen]);
 
@@ -606,6 +608,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     }
     
     isPrintingRef.current = true;
+    hasPrintedRef.current = true;
     setIsPrinting(true);
     try {
       // Resolve restaurant name: live query > localStorage cache > fallback
@@ -898,18 +901,6 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
       invalidateQueries();
 
-      // Auto-print bill after successful payment (skip NC and Pay Later).
-      // Only attempt if printer is already connected — avoids opening the printer
-      // modal over the success screen.
-      if (!isNonChargeable && paymentMethod !== "pay_later") {
-        const printerConnected = nativePrinterBridge.getStatus().connected || thermalPrinterService.isConnected();
-        if (printerConnected) {
-          handlePrint().catch((printErr) => {
-            console.warn("[MobilePaymentDialog] Auto-print after payment failed:", printErr);
-          });
-        }
-      }
-
       setStep("success");
 
       // Auto-close after 5s — stored in ref so it can be cancelled on unmount / early close
@@ -935,7 +926,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     restaurantInfo, orderId, isNonChargeable, customerName, customerMobile, customerRecord,
     subtotal, totalDiscount, finalTotal, manualDiscountPct, manualCash,
     appliedPromo, promoDiscountAmt, ncReason, tableNumber, pointsToRedeem, loyaltyDiscount,
-    currencySymbol, syncCustomerToCRM, invalidateQueries, onSuccess, onClose, toast, handlePrint,
+    currencySymbol, syncCustomerToCRM, invalidateQueries, onSuccess, onClose, toast,
   ]);
 
   // ── Split payment ─────────────────────────────────────────────────────────
@@ -961,6 +952,20 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     ];
     await processPayment("split", splitData);
   }, [splitCash, splitUpi, splitCard, finalTotal, currencySymbol, processPayment, toast]);
+
+  // ── Collect Payment click — prints bill once then moves to payment method ──
+  const handleCollectPayment = useCallback(() => {
+    // Print bill when clicking Collect Payment button (skip NC and already printed)
+    if (!isNonChargeable && !hasPrintedRef.current) {
+      const printerConnected = nativePrinterBridge.getStatus().connected || thermalPrinterService.isConnected();
+      if (printerConnected) {
+        handlePrint().catch((printErr) => {
+          console.warn("[MobilePaymentDialog] Auto-print on collect payment failed:", printErr);
+        });
+      }
+    }
+    setStep("method");
+  }, [isNonChargeable, handlePrint]);
 
   if (!isOpen) return null;
 
@@ -1252,7 +1257,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
               </div>
 
               <button
-                onClick={() => setStep("method")}
+                onClick={handleCollectPayment}
                 className="w-full flex items-center justify-center gap-1.5 py-4 rounded-xl bg-indigo-600 text-white text-sm font-medium shadow-md hover:bg-indigo-700 transition-all active:scale-[0.99]"
               >
                 Collect Payment <ChevronRight className="h-4 w-4" />
