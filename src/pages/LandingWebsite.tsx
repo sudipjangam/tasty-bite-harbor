@@ -22,12 +22,12 @@ import "@/styles/landing-animations.css";
 
 const LandingWebsite = () => {
   return (
-    <div className="landing-page-wrapper bg-white dark:bg-[#1A1A2E]">
+    <div className="landing-page-wrapper bg-white dark:bg-[#1A1A2E] overflow-x-hidden w-full max-w-full">
       {/* Navigation - Fixed at top */}
       <NavigationHeader />
       
       {/* Main Content */}
-      <main>
+      <main className="overflow-x-hidden w-full max-w-full">
         {/* Hero Section */}
         <HeroSection />
 

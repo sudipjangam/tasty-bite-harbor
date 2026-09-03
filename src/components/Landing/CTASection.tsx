@@ -72,19 +72,19 @@ export const CTASection: React.FC = () => {
           </div>
 
           {/* Headline — Endowment Effect */}
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
             Your Free Trial is Waiting —
             <br />
             <span className="text-[#FFD93D]">Claim It Now</span>
           </h2>
 
-          <p className="text-xl text-white/80 mb-6 max-w-2xl mx-auto">
-            Experience the full platform free for 14 days. No credit card. No
+          <p className="text-base sm:text-xl text-white/80 mb-6 max-w-2xl mx-auto">
+            Experience the full platform free for 30 days. No credit card. No
             commitment. You’ll love it — or simply walk away.
           </p>
 
           {/* Power of Free — Bonus Stack */}
-          <div className="flex flex-wrap justify-center gap-3 mb-8">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-8">
             {[
               {
                 icon: <Gift className="w-4 h-4" />,
@@ -105,7 +105,7 @@ export const CTASection: React.FC = () => {
             ].map((item, index) => (
               <span
                 key={index}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white/15 backdrop-blur-sm rounded-full text-white text-sm font-medium border border-white/10"
+                className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/15 backdrop-blur-sm rounded-full text-white text-xs sm:text-sm font-medium border border-white/10"
               >
                 {item.icon}
                 {item.text}
@@ -116,7 +116,7 @@ export const CTASection: React.FC = () => {
           {/* Email Capture Form */}
           <form
             onSubmit={handleSubmit}
-            className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto mb-8"
+            className="flex flex-col sm:flex-row gap-3 sm:gap-4 max-w-xl mx-auto mb-8"
           >
             <div className="relative flex-1">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -125,14 +125,14 @@ export const CTASection: React.FC = () => {
                 placeholder="Enter your email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white text-[#2D3A5F] placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-white/30 transition-all"
+                className="w-full pl-12 pr-4 py-3.5 sm:py-4 rounded-2xl bg-white text-[#2D3A5F] placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-white/30 transition-all text-sm sm:text-base"
                 required
               />
             </div>
             <Button
               type="submit"
               size="lg"
-              className="px-8 py-4 bg-[#2D3A5F] hover:bg-[#3d4d7a] text-white rounded-2xl font-semibold group whitespace-nowrap"
+              className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 bg-[#2D3A5F] hover:bg-[#3d4d7a] text-white rounded-2xl font-semibold group justify-center"
             >
               Claim Your Free Trial
               <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -140,19 +140,19 @@ export const CTASection: React.FC = () => {
           </form>
 
           {/* Trust indicators */}
-          <div className="flex flex-wrap justify-center gap-6 text-white/70 text-sm">
-            <span className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-6 text-white/80 text-xs sm:text-sm">
+            <span className="flex items-center gap-1.5 sm:gap-2">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
                   d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                   clipRule="evenodd"
                 />
               </svg>
-              Free 14-day trial
+              Free 30-day trial
             </span>
-            <span className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <span className="flex items-center gap-1.5 sm:gap-2">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
                   d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -161,8 +161,8 @@ export const CTASection: React.FC = () => {
               </svg>
               No credit card required
             </span>
-            <span className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <span className="flex items-center gap-1.5 sm:gap-2">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
                   d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -171,8 +171,8 @@ export const CTASection: React.FC = () => {
               </svg>
               Cancel anytime
             </span>
-            <span className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <span className="flex items-center gap-1.5 sm:gap-2">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
                   d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
