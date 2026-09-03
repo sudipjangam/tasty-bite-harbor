@@ -84,7 +84,7 @@ export const HeroSection: React.FC = () => {
 
             {/* Headline */}
             <div className="space-y-4">
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight">
+              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold leading-tight tracking-tight">
                 <span className="text-[#2D3A5F] dark:text-white">Run Your</span>
                 <br />
                 <span className="landing-gradient-text">Restaurant</span>
@@ -93,7 +93,7 @@ export const HeroSection: React.FC = () => {
                   Like a Pro
                 </span>
               </h1>
-              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-lg leading-relaxed">
+              <p className="text-base sm:text-xl text-gray-600 dark:text-gray-300 max-w-lg leading-relaxed">
                 All-in-one platform to manage orders, inventory, staff, and
                 analytics. Trusted by{" "}
                 <span className="font-semibold text-[#FF6B6B]">
@@ -103,30 +103,30 @@ export const HeroSection: React.FC = () => {
               </p>
 
               {/* Anchoring Bias — Value Proposition */}
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6BCB77]/10 to-[#FFD93D]/10 rounded-xl border border-[#6BCB77]/20">
-                <span className="text-sm font-bold text-[#2D3A5F] dark:text-white">
+              <div className="inline-flex flex-wrap items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#6BCB77]/10 to-[#FFD93D]/10 rounded-xl border border-[#6BCB77]/20">
+                <span className="text-xs sm:text-sm font-bold text-[#2D3A5F] dark:text-white">
                   Worth ₹50,000+ in features.
                 </span>
-                <span className="text-sm font-bold text-[#FF6B6B]">
-                  Starts at just ₹22/day.
+                <span className="text-xs sm:text-sm font-bold text-[#FF6B6B]">
+                  Starts at just ₹7/day (₹208/mo).
                 </span>
               </div>
             </div>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <Button
                 size="lg"
-                className="landing-btn-primary text-lg px-8 py-6 rounded-2xl font-semibold group"
+                className="landing-btn-primary w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 rounded-2xl font-semibold group justify-center"
                 onClick={() => navigate("/auth")}
               >
-                Start Your Free 14-Day Trial
+                Start Your Free 30-Day Trial
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="text-lg px-8 py-6 rounded-2xl font-semibold border-2 border-[#2D3A5F] text-[#2D3A5F] hover:bg-[#2D3A5F] hover:text-white dark:border-gray-300 dark:text-gray-200 dark:hover:bg-gray-200 dark:hover:text-[#2D3A5F] group"
+                className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 rounded-2xl font-semibold border-2 border-[#2D3A5F] text-[#2D3A5F] hover:bg-[#2D3A5F] hover:text-white dark:border-gray-300 dark:text-gray-200 dark:hover:bg-gray-200 dark:hover:text-[#2D3A5F] group justify-center"
                 onClick={() => navigate("/live-experience")}
               >
                 <Sparkles className="mr-2 w-5 h-5 text-[#F26722] group-hover:scale-110 transition-transform" />
@@ -134,14 +134,14 @@ export const HeroSection: React.FC = () => {
               </Button>
             </div>
 
-            {/* Trust Badges — Endowment Effect micro-copy */}
-            <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+            {/* Trust Badges */}
+            <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1 sm:-mt-2">
               No credit card. No commitment. Just results.
             </p>
-            <div className="flex flex-wrap gap-6 pt-2">
+            <div className="flex flex-wrap gap-4 sm:gap-6 pt-1 sm:pt-2 text-xs sm:text-sm">
               {[
                 "No credit card required",
-                "14-day free trial",
+                "30-day free trial",
                 "Cancel anytime",
               ].map((item, index) => (
                 <div

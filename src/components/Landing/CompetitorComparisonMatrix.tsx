@@ -97,24 +97,24 @@ export const CompetitorComparisonMatrix: React.FC = () => {
           </div>
 
           {/* Cost Bar Visualization */}
-          <div className="grid grid-cols-3 gap-4 mt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-6">
             <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-700 p-4 text-center">
               <p className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider mb-1">Swadeshi Solutions</p>
-              <p className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-400">
+              <p className="text-xl sm:text-2xl font-extrabold text-emerald-700 dark:text-emerald-400">
                 ₹{swadeshiCost.toLocaleString("en-IN")}
               </p>
               <p className="text-[10px] text-emerald-600/80 mt-0.5">₹4,499/yr (Professional Plan) • Zero AMC</p>
             </div>
             <div className="rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 p-4 text-center">
               <p className="text-[10px] uppercase font-bold text-orange-600 tracking-wider mb-1">PetPooja</p>
-              <p className="text-2xl font-extrabold text-orange-700 dark:text-orange-400">
+              <p className="text-xl sm:text-2xl font-extrabold text-orange-700 dark:text-orange-400">
                 ₹{petpoojaCost.toLocaleString("en-IN")}
               </p>
               <p className="text-[10px] text-red-500 font-semibold mt-0.5">+₹{savingsVsPetpooja.toLocaleString("en-IN")} more</p>
             </div>
             <div className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-4 text-center">
               <p className="text-[10px] uppercase font-bold text-red-600 tracking-wider mb-1">Posist / Restroworks</p>
-              <p className="text-2xl font-extrabold text-red-700 dark:text-red-400">
+              <p className="text-xl sm:text-2xl font-extrabold text-red-700 dark:text-red-400">
                 ₹{posistCost.toLocaleString("en-IN")}
               </p>
               <p className="text-[10px] text-red-500 font-semibold mt-0.5">+₹{savingsVsPosist.toLocaleString("en-IN")} more</p>
@@ -123,40 +123,43 @@ export const CompetitorComparisonMatrix: React.FC = () => {
         </div>
 
         {/* Feature Matrix Table */}
-        <div className="max-w-4xl mx-auto rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-lg">
-          {/* Table Header */}
-          <div className="grid grid-cols-4 bg-gray-100 dark:bg-[#161628] text-xs font-bold">
-            <div className="p-3 sm:p-4 text-gray-700 dark:text-gray-300">Feature</div>
-            <div className="p-3 sm:p-4 text-center text-[#2E3192] dark:text-[#F26722]">Swadeshi</div>
-            <div className="p-3 sm:p-4 text-center text-gray-500">PetPooja</div>
-            <div className="p-3 sm:p-4 text-center text-gray-500">Posist</div>
-          </div>
+        <p className="text-center text-xs text-gray-400 sm:hidden mb-2">👉 Swipe left to compare all features</p>
+        <div className="max-w-4xl mx-auto rounded-2xl border border-gray-200 dark:border-gray-800 overflow-x-auto shadow-lg">
+          <div className="min-w-[500px]">
+            {/* Table Header */}
+            <div className="grid grid-cols-4 bg-gray-100 dark:bg-[#161628] text-xs font-bold">
+              <div className="p-3 sm:p-4 text-gray-700 dark:text-gray-300">Feature</div>
+              <div className="p-3 sm:p-4 text-center text-[#2E3192] dark:text-[#F26722]">Swadeshi</div>
+              <div className="p-3 sm:p-4 text-center text-gray-500">PetPooja</div>
+              <div className="p-3 sm:p-4 text-center text-gray-500">Posist</div>
+            </div>
 
-          {/* Table Rows */}
-          <div className="divide-y divide-gray-100 dark:divide-gray-800">
-            {features.map((f, i) => (
-              <div
-                key={i}
-                className={`grid grid-cols-4 text-xs sm:text-sm items-center ${
-                  i % 2 === 0
-                    ? "bg-white dark:bg-[#1E1E34]"
-                    : "bg-gray-50/50 dark:bg-[#1A1A2E]"
-                }`}
-              >
-                <div className="p-3 sm:p-4 font-medium text-gray-800 dark:text-gray-200">
-                  {f.name}
+            {/* Table Rows */}
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {features.map((f, i) => (
+                <div
+                  key={i}
+                  className={`grid grid-cols-4 text-xs sm:text-sm items-center ${
+                    i % 2 === 0
+                      ? "bg-white dark:bg-[#1E1E34]"
+                      : "bg-gray-50/50 dark:bg-[#1A1A2E]"
+                  }`}
+                >
+                  <div className="p-3 sm:p-4 font-medium text-gray-800 dark:text-gray-200">
+                    {f.name}
+                  </div>
+                  <div className="p-3 sm:p-4 text-center">
+                    {renderCell(f.swadeshi)}
+                  </div>
+                  <div className="p-3 sm:p-4 text-center">
+                    {renderCell(f.petpooja)}
+                  </div>
+                  <div className="p-3 sm:p-4 text-center">
+                    {renderCell(f.posist)}
+                  </div>
                 </div>
-                <div className="p-3 sm:p-4 text-center">
-                  {renderCell(f.swadeshi)}
-                </div>
-                <div className="p-3 sm:p-4 text-center">
-                  {renderCell(f.petpooja)}
-                </div>
-                <div className="p-3 sm:p-4 text-center">
-                  {renderCell(f.posist)}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 

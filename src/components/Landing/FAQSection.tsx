@@ -38,7 +38,7 @@ export const FAQSection: React.FC = () => {
     {
       category: 'Pricing',
       question: 'Is there a free trial available?',
-      answer: 'Yes! We offer a 14-day free trial with full access to all features. No credit card is required to start. You can explore everything and decide which plan works best for your business.',
+      answer: 'Yes! We offer a 30-day full free trial with complete access to all features. No credit card is required to start. You can explore everything risk-free and decide which plan works best for your restaurant.',
     },
     {
       category: 'Pricing',
@@ -121,11 +121,11 @@ export const FAQSection: React.FC = () => {
               >
                 <button
                   onClick={() => setOpenIndex(openIndex === index ? null : index)}
-                  className="w-full px-6 py-5 flex items-center justify-between text-left"
+                  className="w-full px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between text-left gap-3"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center items-start gap-2 sm:gap-4 flex-1">
                     <span 
-                      className="px-3 py-1 text-xs font-medium rounded-full"
+                      className="px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-semibold rounded-full shrink-0"
                       style={{ 
                         backgroundColor: faq.category === 'Getting Started' ? '#FF6B6B20' : 
                                         faq.category === 'Pricing' ? '#6BCB7720' :
@@ -139,7 +139,7 @@ export const FAQSection: React.FC = () => {
                     >
                       {faq.category}
                     </span>
-                    <span className="font-semibold text-[#2D3A5F] dark:text-white">
+                    <span className="font-semibold text-sm sm:text-base text-[#2D3A5F] dark:text-white leading-snug">
                       {faq.question}
                     </span>
                   </div>
@@ -154,7 +154,7 @@ export const FAQSection: React.FC = () => {
                     openIndex === index ? 'max-h-96' : 'max-h-0'
                   }`}
                 >
-                  <div className="px-6 pb-5 text-gray-600 dark:text-gray-400 leading-relaxed border-t border-gray-100 dark:border-gray-700 pt-4">
+                  <div className="px-4 sm:px-6 pb-4 sm:pb-5 text-xs sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed border-t border-gray-100 dark:border-gray-700 pt-3 sm:pt-4">
                     {faq.answer}
                   </div>
                 </div>

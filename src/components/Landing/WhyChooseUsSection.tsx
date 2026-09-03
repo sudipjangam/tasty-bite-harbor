@@ -268,12 +268,13 @@ export const WhyChooseUsSection: React.FC = () => {
         <div
           className={`${isVisible ? "animate-fade-in-up animation-delay-500" : "opacity-0"}`}
         >
-          <h3 className="text-2xl font-bold text-center text-[#2D3A5F] dark:text-white mb-8">
+          <h3 className="text-2xl font-bold text-center text-[#2D3A5F] dark:text-white mb-6">
             See How We Compare
           </h3>
+          <p className="text-center text-xs text-gray-400 sm:hidden mb-3">👉 Swipe left to see all competitor comparisons</p>
 
-          <div className="overflow-x-auto">
-            <table className="w-full max-w-5xl mx-auto bg-white dark:bg-[#2D3A5F]/30 rounded-2xl shadow-xl overflow-hidden">
+          <div className="overflow-x-auto pb-2">
+            <table className="min-w-[640px] w-full max-w-5xl mx-auto bg-white dark:bg-[#2D3A5F]/30 rounded-2xl shadow-xl overflow-hidden">
               <thead>
                 <tr className="bg-[#2D3A5F] text-white">
                   <th className="px-6 py-4 text-left font-semibold">Feature</th>

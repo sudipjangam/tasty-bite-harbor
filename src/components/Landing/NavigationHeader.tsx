@@ -62,22 +62,21 @@ export const NavigationHeader: React.FC = () => {
           <div className="flex items-center justify-between">
             {/* Logo */}
             <div
-              className="flex items-center gap-3 group cursor-pointer"
+              className="flex items-center gap-2 sm:gap-3 group cursor-pointer"
               onClick={() => scrollToSection("#hero")}
             >
               <div className="relative flex items-center justify-center group-hover:scale-105">
                 <img
                   src="/swadeshi-logo2.png"
                   alt="Swadeshi Solutions"
-                  className="w-12 h-12   md:w-12 md:h-12 object-contain"
-                  style={{ height: "7rem", width: "7rem" }}
+                  className="w-10 h-10 sm:w-12 sm:h-12 object-contain"
                 />
               </div>
               <div className="flex flex-row items-center pt-0.5">
-                <span className="text-2xl md:text-[1.65rem] font-extrabold tracking-tight text-[#2E3192] dark:text-white">
+                <span className="text-xl sm:text-2xl md:text-[1.65rem] font-extrabold tracking-tight text-[#2E3192] dark:text-white">
                   Swadeshi
                 </span>
-                <span className="text-2xl md:text-[1.65rem] font-extrabold tracking-tight text-[#F26722] ml-1.5">
+                <span className="text-xl sm:text-2xl md:text-[1.65rem] font-extrabold tracking-tight text-[#F26722] ml-1 sm:ml-1.5">
                   Solutions
                 </span>
               </div>

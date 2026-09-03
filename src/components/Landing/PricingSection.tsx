@@ -354,78 +354,78 @@ export const PricingSection: React.FC = () => {
 
         {/* Category Toggle: Restaurant vs Hotel */}
         <div
-          className={`flex justify-center mb-6 ${isVisible ? "animate-fade-in-up animation-delay-200" : "opacity-0"}`}
+          className={`flex justify-center mb-6 px-2 ${isVisible ? "animate-fade-in-up animation-delay-200" : "opacity-0"}`}
         >
-          <div className="inline-flex items-center bg-white dark:bg-[#2D3A5F]/50 rounded-full p-1.5 shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-2 p-1 rounded-2xl sm:rounded-full bg-white dark:bg-[#2D3A5F]/50 shadow-md border border-gray-200 dark:border-gray-700 max-w-sm w-full mx-auto">
             <button
-              className={`px-6 py-2.5 rounded-full font-medium transition-all duration-300 flex items-center gap-2 ${
+              className={`py-2 sm:py-2.5 px-2 sm:px-5 rounded-xl sm:rounded-full font-medium text-xs sm:text-sm transition-all duration-300 flex items-center justify-center gap-1.5 ${
                 planType === "restaurant"
-                  ? "bg-[#2D3A5F] text-white shadow-md"
+                  ? "bg-[#2D3A5F] text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-300 hover:text-[#2D3A5F]"
               }`}
               onClick={() => setPlanType("restaurant")}
             >
-              <Zap className="w-4 h-4" />
-              Restaurant Plans
+              <Zap className="w-3.5 h-3.5" />
+              <span>Restaurant Plans</span>
             </button>
             <button
-              className={`px-6 py-2.5 rounded-full font-medium transition-all duration-300 flex items-center gap-2 ${
+              className={`py-2 sm:py-2.5 px-2 sm:px-5 rounded-xl sm:rounded-full font-medium text-xs sm:text-sm transition-all duration-300 flex items-center justify-center gap-1.5 ${
                 planType === "hotel"
-                  ? "bg-[#2D3A5F] text-white shadow-md"
+                  ? "bg-[#2D3A5F] text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-300 hover:text-[#2D3A5F]"
               }`}
               onClick={() => setPlanType("hotel")}
             >
-              <Hotel className="w-4 h-4" />
-              Restaurant + Hotel PMS
+              <Hotel className="w-3.5 h-3.5" />
+              <span>Restaurant + Hotel</span>
             </button>
           </div>
         </div>
 
         {/* Commitment Term Toggle (3M / 6M / 12M) */}
         <div
-          className={`flex flex-col items-center mb-12 ${isVisible ? "animate-fade-in-up animation-delay-300" : "opacity-0"}`}
+          className={`flex flex-col items-center mb-12 px-2 ${isVisible ? "animate-fade-in-up animation-delay-300" : "opacity-0"}`}
         >
-          <div className="inline-flex items-center gap-2 bg-white dark:bg-[#2D3A5F]/50 rounded-full p-1.5 shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-3 p-1 rounded-2xl bg-white dark:bg-[#2D3A5F]/50 shadow-md border border-gray-200 dark:border-gray-700 max-w-lg w-full mx-auto gap-1">
             <button
-              className={`px-5 py-2 rounded-full font-medium text-sm transition-all duration-300 ${
+              className={`py-2 px-1 sm:px-3 rounded-xl font-medium text-xs sm:text-sm transition-all duration-300 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 ${
                 selectedTerm === "3m"
-                  ? "bg-[#2D3A5F] text-white shadow-md"
+                  ? "bg-[#2D3A5F] text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-300 hover:text-[#2D3A5F]"
               }`}
               onClick={() => setSelectedTerm("3m")}
             >
-              3 Months
+              <span>3 Months</span>
             </button>
             <button
-              className={`px-5 py-2 rounded-full font-medium text-sm transition-all duration-300 flex items-center gap-1.5 ${
+              className={`py-2 px-1 sm:px-3 rounded-xl font-medium text-xs sm:text-sm transition-all duration-300 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 ${
                 selectedTerm === "6m"
-                  ? "bg-[#2D3A5F] text-white shadow-md"
+                  ? "bg-[#2D3A5F] text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-300 hover:text-[#2D3A5F]"
               }`}
               onClick={() => setSelectedTerm("6m")}
             >
-              6 Months
-              <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold">
-                Save ~16%
+              <span>6 Months</span>
+              <span className="text-[9px] sm:text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 px-1.5 py-0.5 rounded-full font-bold leading-none">
+                16% off
               </span>
             </button>
             <button
-              className={`px-5 py-2 rounded-full font-medium text-sm transition-all duration-300 flex items-center gap-1.5 ${
+              className={`py-2 px-1 sm:px-3 rounded-xl font-medium text-xs sm:text-sm transition-all duration-300 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 ${
                 selectedTerm === "12m"
-                  ? "bg-[#FF6B6B] text-white shadow-md"
+                  ? "bg-[#FF6B6B] text-white shadow-sm"
                   : "text-gray-600 dark:text-gray-300 hover:text-[#FF6B6B]"
               }`}
               onClick={() => setSelectedTerm("12m")}
             >
-              Annual (12 Months)
-              <span className="landing-savings-badge">
-                Save up to 30% ⭐
+              <span>Annual</span>
+              <span className="landing-savings-badge text-[9px] sm:text-[10px] px-1.5 py-0.5 leading-none">
+                30% off ⭐
               </span>
             </button>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2.5">
-            💡 Choose your term after 30-day free trial • Minimum paid commitment 3 months • Zero AMC lock-in
+          <p className="text-[11px] sm:text-xs text-center text-gray-500 dark:text-gray-400 mt-2.5">
+            💡 Choose your term after 30-day free trial • Minimum commitment 3 months • Zero AMC
           </p>
         </div>
 
