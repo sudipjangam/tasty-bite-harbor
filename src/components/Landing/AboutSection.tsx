@@ -1,10 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Linkedin,
-  Twitter,
-  Mail,
   Heart,
-  Users,
   Target,
   Lightbulb,
 } from "lucide-react";
@@ -29,27 +25,6 @@ export const AboutSection: React.FC = () => {
 
     return () => observer.disconnect();
   }, []);
-
-  const founders = [
-    {
-      name: "Rohan Jadhav",
-      role: "Founder",
-      bio: "Visionary entrepreneur with a passion for transforming the Indian hospitality industry through technology. Leading Swadeshi Solutions towards becoming India's #1 restaurant tech platform.",
-      avatar: "RJ",
-      color: "#FF6B6B",
-      linkedin: "https://www.linkedin.com/in/rohan-jadhav-8806957143/",
-      twitter: "#",
-    },
-    {
-      name: "Sudip Jangam",
-      role: "Co-Founder",
-      bio: "Tech innovator driving the cutting-edge development of RMS Pro. Expert in scalable cloud architectures and AI-driven solutions for the hospitality sector.",
-      avatar: "SJ",
-      color: "#2D3A5F",
-      linkedin: "https://www.linkedin.com/in/sudipjangam/",
-      twitter: "#",
-    },
-  ];
 
   const values = [
     {
@@ -102,83 +77,6 @@ export const AboutSection: React.FC = () => {
             industry. Our homegrown technology empowers restaurants and hotels
             to compete in the digital age.
           </p>
-        </div>
-
-        {/* Founders Section */}
-        <div
-          className={`mb-20 ${isVisible ? "animate-fade-in-up animation-delay-200" : "opacity-0"}`}
-        >
-          <h3 className="text-2xl font-bold text-center text-[#2D3A5F] dark:text-white mb-12">
-            <Users className="inline-block w-8 h-8 mr-2 text-[#FF6B6B]" />
-            Leadership Team
-          </h3>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {founders.map((founder, index) => (
-              <div
-                key={index}
-                className="group bg-white dark:bg-[#2D3A5F]/50 rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border border-gray-100 dark:border-gray-700 relative overflow-hidden"
-              >
-                {/* Decorative gradient */}
-                <div
-                  className="absolute top-0 left-0 w-full h-1.5"
-                  style={{
-                    background: `linear-gradient(90deg, ${founder.color}, ${founder.color}80)`,
-                  }}
-                />
-
-                <div className="flex flex-col items-center text-center">
-                  {/* Avatar */}
-                  <div
-                    className="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300"
-                    style={{
-                      background: `linear-gradient(135deg, ${founder.color}, ${founder.color}cc)`,
-                    }}
-                  >
-                    {founder.avatar}
-                  </div>
-
-                  {/* Name & Role */}
-                  <h4 className="text-2xl font-bold text-[#2D3A5F] dark:text-white mb-1">
-                    {founder.name}
-                  </h4>
-                  <p
-                    className="text-sm font-semibold mb-4"
-                    style={{ color: founder.color }}
-                  >
-                    {founder.role}
-                  </p>
-
-                  {/* Bio */}
-                  <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
-                    {founder.bio}
-                  </p>
-
-                  {/* Social Links */}
-                  <div className="flex gap-3">
-                    <a
-                      href={founder.linkedin}
-                      className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-[#0077B5] hover:text-white text-gray-600 dark:text-gray-400 transition-all duration-300"
-                    >
-                      <Linkedin className="w-5 h-5" />
-                    </a>
-                    <a
-                      href={founder.twitter}
-                      className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-[#1DA1F2] hover:text-white text-gray-600 dark:text-gray-400 transition-all duration-300"
-                    >
-                      <Twitter className="w-5 h-5" />
-                    </a>
-                    {/* <a
-                      href={`mailto:${founder.name.toLowerCase().replace(" ", ".")}@swadeshisolutions.com`}
-                      className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-[#FF6B6B] hover:text-white text-gray-600 dark:text-gray-400 transition-all duration-300"
-                    >
-                      <Mail className="w-5 h-5" />
-                    </a> */}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Our Values */}

@@ -9,7 +9,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 const features = [
-  { name: "Payment Model", swadeshi: "Flexible Plans", petpooja: "₹25K/yr subscription", posist: "₹35K/yr subscription" },
+  { name: "Payment Model", swadeshi: "From ₹208/mo (₹2,499/yr)", petpooja: "₹10K-25K/yr + AMC", posist: "₹25K-35K/yr + AMC" },
   { name: "Own Branded Website (Free)", swadeshi: true, petpooja: false, posist: false },
   { name: "Direct Ordering (0% Commission)", swadeshi: true, petpooja: false, posist: false },
   { name: "Unified KDS (Swiggy + Zomato + Dine-in)", swadeshi: true, petpooja: "Add-on ₹6K/yr", posist: "Add-on" },
@@ -32,10 +32,12 @@ const renderCell = (value: boolean | string) => {
 export const CompetitorComparisonMatrix: React.FC = () => {
   const [yearsHorizon, setYearsHorizon] = useState(5);
 
-  // Cost calculation with 7% annual inflation for competitors
-  const swadeshiCost = 49990; // one-time flat (example)
+  // Cost calculation: Swadeshi Professional Plan (₹4,499/yr) vs Competitors with 7% annual inflation
+  const swadeshiAnnualBase = 4499; // Hero Plan: Professional (₹4,499/yr)
   const petpoojaBase = 25000;
   const posistBase = 35000;
+
+  const swadeshiCost = swadeshiAnnualBase * yearsHorizon;
 
   const calcCumulativeCost = (base: number, years: number) => {
     let total = 0;
@@ -101,7 +103,7 @@ export const CompetitorComparisonMatrix: React.FC = () => {
               <p className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-400">
                 ₹{swadeshiCost.toLocaleString("en-IN")}
               </p>
-              <p className="text-[10px] text-emerald-600/80 mt-0.5">One-time. Flat. Forever.</p>
+              <p className="text-[10px] text-emerald-600/80 mt-0.5">₹4,499/yr (Professional Plan) • Zero AMC</p>
             </div>
             <div className="rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 p-4 text-center">
               <p className="text-[10px] uppercase font-bold text-orange-600 tracking-wider mb-1">PetPooja</p>
@@ -159,7 +161,7 @@ export const CompetitorComparisonMatrix: React.FC = () => {
         </div>
 
         <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4 italic">
-          In the same time PetPooja takes {yearsHorizon} year{yearsHorizon > 1 ? "s" : ""} of fees from you — you could have owned Swadeshi completely.
+          In the same time PetPooja takes {yearsHorizon} year{yearsHorizon > 1 ? "s" : ""} of compounding fees from you — you save over ₹{savingsVsPetpooja.toLocaleString("en-IN")} with Swadeshi Solutions.
         </p>
       </div>
     </section>

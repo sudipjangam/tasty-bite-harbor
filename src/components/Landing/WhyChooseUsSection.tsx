@@ -55,9 +55,9 @@ export const WhyChooseUsSection: React.FC = () => {
     },
     {
       icon: <IndianRupee className="w-8 h-8" />,
-      title: "50% Lower Cost",
+      title: "Up to 75% Lower Cost",
       description:
-        "Premium features at half the price of Petpooja, Restroworks, and Square. No hidden fees, ever.",
+        "Full cloud POS & inventory starting at just ₹208/mo (₹2,499/yr). No hidden AMC, no device license lock-in, ever.",
       highlight: "Best Value",
       color: "#6BCB77",
     },
@@ -138,7 +138,7 @@ export const WhyChooseUsSection: React.FC = () => {
   const competitorComparison = [
     {
       feature: "Annual Cost (Starter)",
-      us: "₹7,999",
+      us: "₹2,499",
       petpooja: "₹10,000+",
       restroworks: "₹25,000+",
       square: "₹48,000+",
@@ -186,7 +186,7 @@ export const WhyChooseUsSection: React.FC = () => {
     },
     {
       feature: "Multi-location",
-      us: "✓ From Growth",
+      us: "✓ From Business (3 Outlets)",
       petpooja: "Extra cost",
       restroworks: "✓",
       square: "✓",
@@ -373,17 +373,17 @@ export const WhyChooseUsSection: React.FC = () => {
             <div className="flex flex-wrap justify-center gap-4 mt-6">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#6BCB77]/10 rounded-full border border-[#6BCB77]/20">
                 <span className="text-sm font-bold text-[#6BCB77]">
-                  Save ₹2,000+ vs Petpooja
+                  Save ₹7,500+ vs Petpooja
                 </span>
               </div>
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#6BCB77]/10 rounded-full border border-[#6BCB77]/20">
                 <span className="text-sm font-bold text-[#6BCB77]">
-                  Save ₹17,000+ vs Restroworks
+                  Save ₹22,500+ vs Restroworks
                 </span>
               </div>
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#6BCB77]/10 rounded-full border border-[#6BCB77]/20">
                 <span className="text-sm font-bold text-[#6BCB77]">
-                  Save ₹40,000+ vs Square
+                  Save ₹45,500+ vs Square
                 </span>
               </div>
             </div>

@@ -25,8 +25,8 @@ export const PainPointsComparisonSection: React.FC = () => {
     },
     {
       icon: CreditCard,
-      pain: "Renting billing software forever (₹15K-35K/year, locked-in)",
-      fix: "One-time ownership — no renewal, no lock-in ever",
+      pain: "Paying ₹15K-35K/year for legacy billing software + heavy AMC",
+      fix: "Transparent cloud POS from ₹208/mo (₹2,499/yr) with zero AMC surprises",
       painIcon: XCircle,
       fixIcon: CheckCircle2,
     },
