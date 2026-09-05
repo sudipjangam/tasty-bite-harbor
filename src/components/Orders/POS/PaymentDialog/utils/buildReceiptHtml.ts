@@ -78,10 +78,10 @@ export function buildReceiptHtml({
       const amt = price * item.quantity;
       return `
       <tr>
-        <td style="padding:2px 0;font-size:11px;">${item.name}</td>
-        <td style="padding:2px 0;font-size:11px;text-align:right;">${item.quantity}</td>
-        <td style="padding:2px 0;font-size:11px;text-align:right;">${price.toFixed(0)}</td>
-        <td style="padding:2px 0;font-size:11px;text-align:right;">${amt.toFixed(0)}</td>
+        <td style="padding:1px 0;font-size:11px;">${item.name}</td>
+        <td style="padding:1px 0;font-size:11px;text-align:right;">${item.quantity}</td>
+        <td style="padding:1px 0;font-size:11px;text-align:right;">${price.toFixed(0)}</td>
+        <td style="padding:1px 0;font-size:11px;text-align:right;">${amt.toFixed(0)}</td>
       </tr>
     `;
     })
@@ -143,56 +143,67 @@ export function buildReceiptHtml({
 <meta charset="utf-8"/>
 <title>Bill ${billNumber}</title>
 <style>
-  @page { size: 58mm auto; margin: 4mm 2mm; }
-  * { box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; width: 54mm; margin: 0; padding: 0; color: #000; }
+  @page { size: 58mm auto; margin: 0 !important; }
+  @media print {
+    html, body { margin: 0 !important; padding: 0 !important; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: Arial, sans-serif; width: 54mm; margin: 0 !important; padding: 0 !important; color: #000; line-height: 1.18; }
   .center { text-align: center; }
   .bold { font-weight: bold; }
-  .dash { border-top: 1px dashed #000; margin: 4px 0; }
+  .dash { border-top: 1px dashed #000; margin: 2px 0; }
+  .row { display: flex; justify-content: space-between; margin-bottom: 1px; }
   table { width: 100%; border-collapse: collapse; }
   td { vertical-align: top; }
 </style>
 </head>
 <body>
-  ${savedLogo ? `<div class="center"><img src="${savedLogo}" crossorigin="anonymous" style="max-width:36px;max-height:36px;margin-bottom:2px;" /></div>` : ""}
-  <div class="center bold" style="font-size:15px;">${rName}</div>
+  ${savedLogo ? `<div class="center"><img src="${savedLogo}" crossorigin="anonymous" style="max-width:32px;max-height:32px;margin-bottom:1px;" /></div>` : ""}
+  <div class="center bold" style="font-size:14px; margin:0; padding:0;">${rName}</div>
   ${restaurantInfo?.address ? `<div class="center" style="font-size:9px;">${restaurantInfo.address}</div>` : ""}
   ${restaurantInfo?.phone ? `<div class="center" style="font-size:9px;">Ph: ${restaurantInfo.phone}</div>` : ""}
   ${restaurantInfo?.gstin && restaurantInfo.gstin.trim() !== "" && restaurantInfo.gstin.toLowerCase() !== "not set" ? `<div class="center" style="font-size:9px;">GSTIN: ${restaurantInfo.gstin}</div>` : ""}
   <div class="dash"></div>
-  <div style="font-size:10px;">Bill#: ${billNumber}</div>
-  <div style="font-size:10px;">${toLine}</div>
-  <div style="font-size:10px;">Date: ${currentDate}&nbsp;&nbsp;Time: ${currentTime}</div>
+  <div class="row" style="font-size:10px;">
+    <span>Bill#: ${billNumber}</span>
+    <span>${toLine}</span>
+  </div>
+  <div class="row" style="font-size:10px;">
+    <span>Date: ${currentDate}</span>
+    <span>Time: ${currentTime}</span>
+  </div>
+  ${(serverName || customerMobile) ? `
+  <div class="row" style="font-size:10px;">
+    ${serverName ? `<span>Server: ${serverName}</span>` : `<span></span>`}
+    ${customerMobile ? `<span>Ph: ${customerMobile}</span>` : `<span></span>`}
+  </div>` : ""}
   ${customerName && tableNumber && customerName !== tableNumber ? `<div style="font-size:10px;">Guest: ${customerName}</div>` : ""}
-  ${customerMobile ? `<div style="font-size:10px;">Phone: ${customerMobile}</div>` : ""}
-  ${serverName ? `<div style="font-size:10px;">Server: ${serverName}</div>` : ""}
   <div class="dash"></div>
-  <div class="center bold" style="font-size:11px;">Particulars</div>
   <table>
     <tr>
-      <th style="font-size:10px;text-align:left;">Item</th>
-      <th style="font-size:10px;text-align:right;">Qty</th>
-      <th style="font-size:10px;text-align:right;">Rate</th>
-      <th style="font-size:10px;text-align:right;">Amt</th>
+      <th style="font-size:10px;text-align:left;padding:1px 0;">Item</th>
+      <th style="font-size:10px;text-align:right;padding:1px 0;">Qty</th>
+      <th style="font-size:10px;text-align:right;padding:1px 0;">Rate</th>
+      <th style="font-size:10px;text-align:right;padding:1px 0;">Amt</th>
     </tr>
-    <tr><td colspan="4"><div style="border-top:1px solid #000;margin:2px 0;"></div></td></tr>
+    <tr><td colspan="4"><div style="border-top:1px solid #000;margin:1px 0;"></div></td></tr>
     ${itemRowsHtml}
     <tr><td colspan="4"><div class="dash"></div></td></tr>
     <tr>
-      <td colspan="3" style="font-size:11px;">Sub Total:</td>
-      <td style="font-size:11px;text-align:right;">${subtotal.toFixed(2)}</td>
+      <td colspan="3" style="font-size:11px;padding:1px 0;">Sub Total:</td>
+      <td style="font-size:11px;text-align:right;padding:1px 0;">${subtotal.toFixed(2)}</td>
     </tr>
     ${breakdownRowsHtml}
     <tr><td colspan="4"><div class="dash"></div></td></tr>
     <tr>
-      <td colspan="2" style="font-size:14px;font-weight:bold;">Net Amount:</td>
-      <td colspan="2" style="font-size:14px;font-weight:bold;text-align:right;">${printSymbol}${total.toFixed(2)}</td>
+      <td colspan="2" style="font-size:13px;font-weight:bold;padding:1px 0;">Net Amount:</td>
+      <td colspan="2" style="font-size:13px;font-weight:bold;text-align:right;padding:1px 0;">${printSymbol}${total.toFixed(2)}</td>
     </tr>
     ${upiHtml}
     <tr><td colspan="4"><div class="dash"></div></td></tr>
-    <tr><td colspan="4" style="text-align:center;font-size:13px;font-weight:bold;padding-top:4px;">Thank You!</td></tr>
-    <tr><td colspan="4" style="text-align:center;font-size:10px;color:#c00;">Please visit again</td></tr>
+    <tr><td colspan="4" style="text-align:center;font-size:11px;font-weight:bold;padding-top:2px;">Thank You! Please visit again</td></tr>
   </table>
+  <div style="height: 2mm;"></div>
 </body>
 </html>`;
 }

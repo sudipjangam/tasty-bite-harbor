@@ -461,30 +461,30 @@ class ThermalPrinterService {
 <style>
   @page {
     size: ${paperMm}mm auto;
-    margin: 2mm 1mm;
+    margin: 0 !important;
   }
   @media print {
-    body {
+    html, body {
       width: ${bodyWidthMm}mm;
-      margin: 0;
-      padding: 0;
+      margin: 0 !important;
+      padding: 0 !important;
       -webkit-print-color-adjust: exact;
     }
   }
-  * { box-sizing: border-box; }
-  body {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
     font-family: 'Courier New', Courier, monospace, Arial, sans-serif;
     width: ${bodyWidthMm}mm;
-    margin: 0 auto;
-    padding: 0;
+    margin: 0 auto !important;
+    padding: 0 !important;
     color: #000;
-    line-height: 1.25;
+    line-height: 1.2;
   }
   .center { text-align: center; }
   .bold { font-weight: bold; }
-  .dash { border-top: 1px dashed #000; margin: 4px 0; }
+  .dash { border-top: 1px dashed #000; margin: 3px 0; }
   .row { display: flex; justify-content: space-between; font-size: ${is58 ? "11px" : "12px"}; margin-bottom: 2px; }
-  .title { font-size: ${is58 ? "15px" : "17px"}; font-weight: bold; }
+  .title { font-size: ${is58 ? "15px" : "17px"}; font-weight: bold; margin: 0 !important; padding: 0 !important; line-height: 1.1; }
 </style>
 </head>
 <body>
@@ -503,7 +503,7 @@ class ThermalPrinterService {
     <span>${timeStr}</span>
   </div>
   <div class="dash"></div>
-  <div style="margin: 4px 0;">
+  <div style="margin: 2px 0;">
     ${itemsHtml}
   </div>
   <div class="dash"></div>
@@ -511,8 +511,8 @@ class ThermalPrinterService {
     <span>Total Items:</span>
     <span>${totalItems}</span>
   </div>
-  ${data.isAddition ? '<div class="center bold" style="margin-top:4px; font-size:12px;">** ADDITION ONLY **</div>' : ""}
-  <div style="height: 10mm;"></div>
+  ${data.isAddition ? '<div class="center bold" style="margin-top:2px; font-size:12px;">** ADDITION ONLY **</div>' : ""}
+  <div style="height: 2mm;"></div>
 </body>
 </html>`;
 
@@ -559,10 +559,10 @@ class ThermalPrinterService {
 
     const itemRowsHtml = data.items.map(item => `
       <tr>
-        <td style="padding:2px 0;font-size:${is58 ? "10px" : "11px"};">${item.name}</td>
-        <td style="padding:2px 0;font-size:${is58 ? "10px" : "11px"};text-align:right;">${item.quantity}</td>
-        <td style="padding:2px 0;font-size:${is58 ? "10px" : "11px"};text-align:right;">${item.price.toFixed(0)}</td>
-        <td style="padding:2px 0;font-size:${is58 ? "10px" : "11px"};text-align:right;">${(item.price * item.quantity).toFixed(0)}</td>
+        <td style="padding:1px 0;font-size:${is58 ? "10px" : "11px"};">${item.name}</td>
+        <td style="padding:1px 0;font-size:${is58 ? "10px" : "11px"};text-align:right;">${item.quantity}</td>
+        <td style="padding:1px 0;font-size:${is58 ? "10px" : "11px"};text-align:right;">${item.price.toFixed(0)}</td>
+        <td style="padding:1px 0;font-size:${is58 ? "10px" : "11px"};text-align:right;">${(item.price * item.quantity).toFixed(0)}</td>
       </tr>
     `).join("");
 
@@ -572,60 +572,67 @@ class ThermalPrinterService {
 <meta charset="utf-8"/>
 <title>Bill ${data.billNumber}</title>
 <style>
-  @page { size: ${paperMm}mm auto; margin: 2mm 1mm; }
+  @page { size: ${paperMm}mm auto; margin: 0 !important; }
   @media print {
-    body { width: ${bodyWidthMm}mm; margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
+    html, body { width: ${bodyWidthMm}mm; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact; }
   }
-  * { box-sizing: border-box; }
-  body { font-family: 'Courier New', Courier, monospace, Arial, sans-serif; width: ${bodyWidthMm}mm; margin: 0 auto; padding: 0; color: #000; line-height: 1.25; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: 'Courier New', Courier, monospace, Arial, sans-serif; width: ${bodyWidthMm}mm; margin: 0 auto !important; padding: 0 !important; color: #000; line-height: 1.18; }
   .center { text-align: center; }
   .bold { font-weight: bold; }
-  .dash { border-top: 1px dashed #000; margin: 4px 0; }
+  .dash { border-top: 1px dashed #000; margin: 2px 0; }
+  .row { display: flex; justify-content: space-between; margin-bottom: 1px; }
   table { width: 100%; border-collapse: collapse; }
   td, th { vertical-align: top; }
 </style>
 </head>
 <body>
-  <div class="center bold" style="font-size:15px;">${data.restaurantName}</div>
+  <div class="center bold" style="font-size:14px; margin:0; padding:0;">${data.restaurantName}</div>
   ${data.address ? `<div class="center" style="font-size:9px;">${data.address}</div>` : ""}
   ${data.phone ? `<div class="center" style="font-size:9px;">Ph: ${data.phone}</div>` : ""}
   ${data.gstin ? `<div class="center" style="font-size:9px;">GSTIN: ${data.gstin}</div>` : ""}
   <div class="dash"></div>
-  <div style="font-size:10px;">Bill#: ${data.billNumber}</div>
-  <div style="font-size:10px;">${displayTable ? `To: ${displayTable}` : data.customerName ? `To: ${data.customerName}` : "To: POS"}</div>
-  <div style="font-size:10px;">Date: ${data.date}&nbsp;&nbsp;Time: ${data.time}</div>
-  ${data.serverName ? `<div style="font-size:10px;">Server: ${data.serverName}</div>` : ""}
+  <div class="row" style="font-size:10px;">
+    <span>Bill#: ${data.billNumber}</span>
+    <span>${displayTable ? `To: ${displayTable}` : data.customerName ? `To: ${data.customerName}` : "To: POS"}</span>
+  </div>
+  <div class="row" style="font-size:10px;">
+    <span>Date: ${data.date}</span>
+    <span>Time: ${data.time}</span>
+  </div>
+  ${(data.serverName || data.customerMobile) ? `
+  <div class="row" style="font-size:10px;">
+    ${data.serverName ? `<span>Server: ${data.serverName}</span>` : `<span></span>`}
+    ${data.customerMobile ? `<span>Ph: ${data.customerMobile}</span>` : `<span></span>`}
+  </div>` : ""}
   ${data.customerName && displayTable && data.customerName !== displayTable ? `<div style="font-size:10px;">Guest: ${data.customerName}</div>` : ""}
-  ${data.customerMobile ? `<div style="font-size:10px;">Phone: ${data.customerMobile}</div>` : ""}
   <div class="dash"></div>
-  <div class="center bold" style="font-size:11px;">Particulars</div>
   <table>
     <tr>
-      <th style="font-size:10px;text-align:left;">Item</th>
-      <th style="font-size:10px;text-align:right;">Qty</th>
-      <th style="font-size:10px;text-align:right;">Rate</th>
-      <th style="font-size:10px;text-align:right;">Amt</th>
+      <th style="font-size:10px;text-align:left;padding:1px 0;">Item</th>
+      <th style="font-size:10px;text-align:right;padding:1px 0;">Qty</th>
+      <th style="font-size:10px;text-align:right;padding:1px 0;">Rate</th>
+      <th style="font-size:10px;text-align:right;padding:1px 0;">Amt</th>
     </tr>
-    <tr><td colspan="4"><div style="border-top:1px solid #000;margin:2px 0;"></div></td></tr>
+    <tr><td colspan="4"><div style="border-top:1px solid #000;margin:1px 0;"></div></td></tr>
     ${itemRowsHtml}
     <tr><td colspan="4"><div class="dash"></div></td></tr>
     <tr>
-      <td colspan="3" style="font-size:11px;">Sub Total:</td>
-      <td style="font-size:11px;text-align:right;">${data.subtotal.toFixed(2)}</td>
+      <td colspan="3" style="font-size:11px;padding:1px 0;">Sub Total:</td>
+      <td style="font-size:11px;text-align:right;padding:1px 0;">${data.subtotal.toFixed(2)}</td>
     </tr>
-    ${data.discount > 0 ? `<tr><td colspan="3" style="font-size:10px;">Discount:</td><td style="font-size:10px;text-align:right;">-${data.discount.toFixed(2)}</td></tr>` : ""}
-    ${data.cgst > 0 ? `<tr><td colspan="3" style="font-size:10px;">CGST:</td><td style="font-size:10px;text-align:right;">${data.cgst.toFixed(2)}</td></tr>` : ""}
-    ${data.sgst > 0 ? `<tr><td colspan="3" style="font-size:10px;">SGST:</td><td style="font-size:10px;text-align:right;">${data.sgst.toFixed(2)}</td></tr>` : ""}
+    ${data.discount > 0 ? `<tr><td colspan="3" style="font-size:10px;padding:1px 0;">Discount:</td><td style="font-size:10px;text-align:right;padding:1px 0;">-${data.discount.toFixed(2)}</td></tr>` : ""}
+    ${data.cgst > 0 ? `<tr><td colspan="3" style="font-size:10px;padding:1px 0;">CGST:</td><td style="font-size:10px;text-align:right;padding:1px 0;">${data.cgst.toFixed(2)}</td></tr>` : ""}
+    ${data.sgst > 0 ? `<tr><td colspan="3" style="font-size:10px;padding:1px 0;">SGST:</td><td style="font-size:10px;text-align:right;padding:1px 0;">${data.sgst.toFixed(2)}</td></tr>` : ""}
     <tr><td colspan="4"><div class="dash"></div></td></tr>
     <tr>
-      <td colspan="2" style="font-size:14px;font-weight:bold;">Net Amount:</td>
-      <td colspan="2" style="font-size:14px;font-weight:bold;text-align:right;">${printSymbol}${data.netAmount.toFixed(2)}</td>
+      <td colspan="2" style="font-size:13px;font-weight:bold;padding:1px 0;">Net Amount:</td>
+      <td colspan="2" style="font-size:13px;font-weight:bold;text-align:right;padding:1px 0;">${printSymbol}${data.netAmount.toFixed(2)}</td>
     </tr>
     <tr><td colspan="4"><div class="dash"></div></td></tr>
-    <tr><td colspan="4" style="text-align:center;font-size:13px;font-weight:bold;padding-top:4px;">Thank You!</td></tr>
-    <tr><td colspan="4" style="text-align:center;font-size:10px;">Please visit again</td></tr>
+    <tr><td colspan="4" style="text-align:center;font-size:11px;font-weight:bold;padding-top:2px;">Thank You! Please visit again</td></tr>
   </table>
-  <div style="height: 10mm;"></div>
+  <div style="height: 2mm;"></div>
 </body>
 </html>`;
 
@@ -908,8 +915,7 @@ class ThermalPrinterService {
 
     // Footer
     receipt += this.ALIGN_CENTER;
-    receipt += "Thank You!\n";
-    receipt += "Please visit again\n\n\n";
+    receipt += "Thank You! Please visit again\n\n";
 
     receipt += this.CUT_PAPER;
 
