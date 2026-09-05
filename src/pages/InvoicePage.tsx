@@ -165,25 +165,34 @@ const InvoicePage = () => {
   return (
     <div className="min-h-screen bg-gray-100 py-6 px-4">
       {/* Download toolbar */}
-      <div className="max-w-[700px] mx-auto mb-4 flex justify-between items-center">
-        <h1 className="text-lg font-bold text-gray-700">Subscription Invoice</h1>
-        <Button
-          onClick={handleDownloadPDF}
-          disabled={downloading}
-          className="bg-blue-700 hover:bg-blue-800 text-white gap-2 px-6 rounded-xl shadow-lg"
-        >
-          {downloading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Generating PDF...
-            </>
-          ) : (
-            <>
-              <Download className="w-4 h-4" />
-              Download PDF
-            </>
-          )}
-        </Button>
+      <div className="max-w-[840px] mx-auto mb-4 flex justify-between items-center">
+        <h1 className="text-lg font-bold text-gray-700">Tax Invoice & Subscription Bill</h1>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => window.print()}
+            className="gap-2 px-4 rounded-xl border-gray-300"
+          >
+            Print
+          </Button>
+          <Button
+            onClick={handleDownloadPDF}
+            disabled={downloading}
+            className="bg-blue-700 hover:bg-blue-800 text-white gap-2 px-6 rounded-xl shadow-md"
+          >
+            {downloading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generating PDF...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                Download PDF
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Invoice content */}

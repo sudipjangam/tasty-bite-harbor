@@ -120,8 +120,8 @@ function generateInvoiceHTML(data: {
   restaurant: { name: string; address: string; phone: string; email: string; gstin: string; owner_name: string };
   plan: { name: string; price: string; interval: string; features: string[] };
   payment: {
-    razorpay_payment_id: string;
-    razorpay_order_id: string;
+    razorpay_payment_id?: string;
+    razorpay_order_id?: string;
     amount_paid: number;
     payment_method: string;
     period_start: string;
@@ -130,199 +130,259 @@ function generateInvoiceHTML(data: {
   };
 }): string {
   const { invoiceNumber, restaurant, plan, payment } = data;
-  const formattedAmount = `₹${payment.amount_paid.toLocaleString('en-IN')}`;
+  const totalAmount = Number(payment.amount_paid) || 0;
+  const subtotal = Math.round((totalAmount / 1.18) * 100) / 100;
+  const totalTax = Math.round((totalAmount - subtotal) * 100) / 100;
+  const cgst = Math.round((totalTax / 2) * 100) / 100;
+  const sgst = Math.round((totalTax - cgst) * 100) / 100;
+
+  const formattedAmount = `₹${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formattedSubtotal = `₹${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formattedCGST = `₹${cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formattedSGST = `₹${sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   const intervalLabel: Record<string, string> = {
     monthly: 'Monthly',
-    quarterly: 'Quarterly (3 months)',
-    half_yearly: 'Half-Yearly (6 months)',
-    yearly: 'Yearly (12 months)',
+    quarterly: 'Quarterly',
+    half_yearly: 'Half-Yearly',
+    yearly: 'Yearly',
   };
+
   const featuresHTML = (plan.features || [])
-    .slice(0, 8)
-    .map((f: string) => `<li style="padding:4px 0;color:#4a5568;font-size:13px">✓ ${f}</li>`)
+    .slice(0, 6)
+    .map((f: string) => `<li style="margin-bottom:3px;font-size:12px;color:#475569;">• ${f}</li>`)
     .join('');
+
+  const upiId = '8329540398@hdfcbank';
+  const upiPayLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(COMPANY_NAME)}&am=${totalAmount}&cu=INR&tn=${encodeURIComponent(`Invoice ${invoiceNumber}`)}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiPayLink)}&color=0f2b5c`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Subscription Invoice - ${invoiceNumber}</title>
+  <title>Tax Invoice - ${invoiceNumber}</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: #f1f5f9; color: #0f172a; padding: 24px 12px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .invoice-container { max-width: 820px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08); border: 1px solid #e2e8f0; }
+    .top-accent-bar { height: 6px; background: linear-gradient(90deg, #0f2b5c 0%, #2563eb 60%, #f97316 100%); }
+    .header-section { padding: 32px 36px 24px 36px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 1px solid #f1f5f9; }
+    .brand-group { display: flex; align-items: center; gap: 14px; }
+    .brand-logo { width: 54px; height: 54px; border-radius: 12px; object-fit: contain; background: #f8fafc; padding: 4px; border: 1px solid #e2e8f0; }
+    .brand-name { font-size: 24px; font-weight: 800; color: #0f2b5c; letter-spacing: -0.5px; }
+    .brand-sub { font-size: 13px; color: #64748b; font-weight: 500; margin-top: 2px; }
+    .meta-line { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .meta-line strong { color: #1e293b; }
+    .invoice-title-block { text-align: right; }
+    .invoice-title { font-size: 22px; font-weight: 800; color: #0f2b5c; letter-spacing: -0.3px; text-transform: uppercase; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; margin-top: 6px; background: #dcfce7; color: #16a34a; }
+    .info-grid { padding: 24px 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 32px; background: #fafafa; border-bottom: 1px solid #e2e8f0; }
+    .info-col-title { font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.8px; margin-bottom: 8px; }
+    .info-entity-name { font-size: 16px; font-weight: 700; color: #0f2b5c; margin-bottom: 4px; }
+    .info-text { font-size: 12.5px; color: #475569; line-height: 1.6; }
+    .table-section { padding: 28px 36px 12px 36px; }
+    .items-table { width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; }
+    .items-table thead tr { background: #0f2b5c; color: #ffffff; }
+    .items-table th { padding: 12px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; text-align: left; }
+    .items-table th.text-right, .items-table td.text-right { text-align: right; }
+    .items-table th.text-center, .items-table td.text-center { text-align: center; }
+    .items-table tbody tr { border-bottom: 1px solid #e2e8f0; }
+    .items-table td { padding: 14px; font-size: 13px; color: #1e293b; vertical-align: top; }
+    .item-desc-title { font-weight: 700; color: #0f2b5c; margin-bottom: 4px; }
+    .item-features-list { list-style: none; margin-top: 4px; padding-left: 0; }
+    .summary-wrapper { display: flex; justify-content: flex-end; padding: 12px 36px 24px 36px; }
+    .summary-table { width: 320px; border-collapse: collapse; }
+    .summary-table td { padding: 6px 10px; font-size: 12.5px; color: #475569; }
+    .summary-table td.num { text-align: right; font-weight: 600; color: #1e293b; }
+    .total-row td { background: #0f2b5c; color: #ffffff !important; padding: 10px 12px; font-size: 15px; font-weight: 800; border-radius: 6px; }
+    .total-row td.num { font-size: 18px; color: #ffffff !important; }
+    .payment-box { margin: 12px 36px 28px 36px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 20px 24px; }
+    .payment-heading { font-size: 14px; font-weight: 800; color: #0f2b5c; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+    .payment-columns { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; align-items: center; }
+    .bank-details-grid { display: grid; grid-template-columns: 110px 1fr; gap: 6px 12px; font-size: 12.5px; }
+    .bank-label { color: #64748b; font-weight: 500; }
+    .bank-val { color: #0f172a; font-weight: 700; font-family: monospace; font-size: 12.5px; }
+    .qr-container { display: flex; align-items: center; gap: 14px; background: #ffffff; padding: 12px 14px; border-radius: 10px; border: 1px solid #e2e8f0; }
+    .qr-code-img { width: 90px; height: 90px; object-fit: contain; border-radius: 6px; }
+    .qr-text-block { font-size: 11.5px; color: #475569; line-height: 1.4; }
+    .qr-text-block strong { color: #0f2b5c; font-size: 12.5px; display: block; margin-bottom: 2px; }
+    .upi-badge { background: #ffedd5; color: #c2410c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; margin-top: 4px; display: inline-block; }
+    .txn-info-row { margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b; display: flex; flex-wrap: wrap; gap: 16px; }
+    .txn-info-item strong { color: #0f172a; font-weight: 600; }
+    .terms-section { padding: 0 36px 24px 36px; font-size: 11.5px; color: #64748b; line-height: 1.5; }
+    .terms-title { font-weight: 700; color: #334155; margin-bottom: 4px; }
+    .terms-list { padding-left: 16px; }
+    .footer-bar { background: #0f2b5c; color: #94a3b8; padding: 14px 36px; display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; }
+    .footer-bar a { color: #60a5fa; text-decoration: none; font-weight: 600; }
     @media print {
-      body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      body { background: #ffffff; padding: 0; }
+      .invoice-container { box-shadow: none; border: none; max-width: 100%; border-radius: 0; }
       .no-print { display: none !important; }
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: #f0f2f5; color: #1a202c; }
-    .wrapper { max-width: 700px; margin: 0 auto; padding: 24px; }
-    .card { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
-    
-    .header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #f97316 100%); padding: 32px 40px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-    .header-logo-group { display: flex; align-items: center; gap: 16px; }
-    .header-text h1 { color: #fff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin: 0; }
-    .header-badge { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 8px 16px; display: inline-block; }
-    
-    .meta-row { padding: 28px 40px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; gap: 20px; }
-    .meta-col { flex: 1; }
-    .meta-col.center { text-align: center; }
-    .meta-col.right { text-align: right; }
-    
-    .address-row { padding: 28px 40px; display: flex; gap: 40px; border-bottom: 1px solid #e2e8f0; }
-    .address-col { flex: 1; }
-    
-    .section { padding: 28px 40px; }
-    .table-container { border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; overflow-x: auto; }
-    th { color: #fff; font-weight: 600; font-size: 12px; text-transform: uppercase; padding: 14px 20px; letter-spacing: 0.5px; white-space: nowrap; }
-    td { padding: 18px 20px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-    
-    .payment-grid { background: #f8fafc; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 20px; }
-    .payment-item { flex: 1; min-width: 120px; }
-    
-    .features-box { background: #f0fdf4; border-radius: 12px; padding: 16px 20px; border: 1px solid #bbf7d0; }
-    .features-list { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 20px; }
-    
-    @media (max-width: 600px) {
-      .wrapper { padding: 12px; }
-      .header { flex-direction: column; align-items: flex-start; padding: 24px 20px; }
-      .meta-row { flex-direction: column; padding: 20px; gap: 16px; }
-      .meta-col.center, .meta-col.right { text-align: left; }
-      .address-row { flex-direction: column; padding: 20px; gap: 24px; }
-      .section { padding: 20px; }
-      th, td { padding: 12px 14px; }
-      .features-list { columns: 1; }
-      .header-logo-group { flex-direction: column; align-items: flex-start; }
+    @media (max-width: 640px) {
+      .header-section { flex-direction: column; }
+      .invoice-title-block { text-align: left; margin-top: 12px; }
+      .info-grid { grid-template-columns: 1fr; gap: 16px; }
+      .payment-columns { grid-template-columns: 1fr; }
+      .summary-wrapper { justify-content: stretch; }
+      .summary-table { width: 100%; }
+      .footer-bar { flex-direction: column; gap: 6px; text-align: center; }
     }
   </style>
 </head>
 <body>
-  <div class="wrapper">
-    <div class="card">
-      <!-- ═══════ HEADER ═══════ -->
-      <div class="header">
-        <div class="header-logo-group">
-          <img src="${LOGO_URL}" alt="Swadeshi Solutions" style="width:72px;height:72px;border-radius:14px;background:#fff;padding:4px;object-fit:contain" />
-          <div class="header-text">
-            <h1>${COMPANY_NAME}</h1>
-            <p style="color:rgba(255,255,255,0.85);font-size:13px;margin:4px 0 0 0">Restaurant Management Platform</p>
+  <div class="invoice-container">
+    <div class="top-accent-bar"></div>
+    <div class="header-section">
+      <div class="brand-group">
+        <img src="${LOGO_URL}" alt="${COMPANY_NAME}" class="brand-logo" onerror="this.style.display='none'" />
+        <div>
+          <h1 class="brand-name">${COMPANY_NAME}</h1>
+          <p class="brand-sub">Restaurant & Hospitality Management Platform</p>
+          <p class="meta-line" style="margin-top:4px;">GSTIN: <strong>27AABCS1429B1Z2</strong> | PAN: <strong>AABCS1429B</strong></p>
+        </div>
+      </div>
+      <div class="invoice-title-block">
+        <div class="invoice-title">Tax Invoice / Bill</div>
+        <p class="meta-line">Invoice Number: <strong>${invoiceNumber}</strong></p>
+        <p class="meta-line">Invoice Date: <strong>${formatDate(payment.paid_at)}</strong></p>
+        <p class="meta-line">Payment Date: <strong>${formatDate(payment.paid_at)}</strong></p>
+        <span class="status-badge">✓ PAID</span>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div>
+        <div class="info-col-title">Bill To (Subscriber)</div>
+        <div class="info-entity-name">${restaurant.name}</div>
+        <div class="info-text">
+          ${restaurant.owner_name ? `Attention: <strong>${restaurant.owner_name}</strong><br>` : ''}
+          ${restaurant.address ? `${restaurant.address}<br>` : ''}
+          ${restaurant.phone ? `Phone: ${restaurant.phone}<br>` : ''}
+          ${restaurant.email ? `Email: ${restaurant.email}<br>` : ''}
+          ${restaurant.gstin ? `GSTIN: <strong>${restaurant.gstin}</strong>` : ''}
+        </div>
+      </div>
+      <div>
+        <div class="info-col-title">Service Details</div>
+        <div class="info-entity-name">${plan.name}</div>
+        <div class="info-text">
+          Billing Cycle: <strong>${(intervalLabel[plan.interval] || plan.interval).toUpperCase()}</strong><br>
+          Service Period: <strong>${formatShortDate(payment.period_start)}</strong> to <strong>${formatShortDate(payment.period_end)}</strong><br>
+          SAC Code: <strong>997331 (Software as a Service)</strong><br>
+          Supply Place: <strong>Maharashtra (27)</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-section">
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th style="width:48%;">Description</th>
+            <th class="text-center" style="width:10%;">Qty</th>
+            <th class="text-right" style="width:14%;">Unit Price</th>
+            <th class="text-right" style="width:14%;">Amount</th>
+            <th class="text-center" style="width:7%;">GST</th>
+            <th class="text-right" style="width:14%;">Tax</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="item-desc-title">${plan.name} License</div>
+              <ul class="item-features-list">
+                ${featuresHTML || '<li>• Full Restaurant POS & Cloud Sync</li>'}
+              </ul>
+            </td>
+            <td class="text-center">1</td>
+            <td class="text-right">${formattedSubtotal}</td>
+            <td class="text-right">${formattedSubtotal}</td>
+            <td class="text-center">18%</td>
+            <td class="text-right">₹${totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="summary-wrapper">
+      <table class="summary-table">
+        <tr>
+          <td>Sub Total</td>
+          <td class="num">${formattedSubtotal}</td>
+        </tr>
+        <tr>
+          <td>Central GST (CGST 9%)</td>
+          <td class="num">${formattedCGST}</td>
+        </tr>
+        <tr>
+          <td>State GST (SGST 9%)</td>
+          <td class="num">${formattedSGST}</td>
+        </tr>
+        <tr class="total-row">
+          <td>Total Amount Paid</td>
+          <td class="num">${formattedAmount}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="payment-box">
+      <div class="payment-heading">
+        <span>Payment Information</span>
+        <span style="font-size:11px;font-weight:600;color:#16a34a;">Status: Verified & Paid</span>
+      </div>
+      <div class="payment-columns">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:8px;">Bank Transfer (NEFT / RTGS / IMPS)</div>
+          <div class="bank-details-grid">
+            <span class="bank-label">Bank Name</span>
+            <span class="bank-val">HDFC Bank</span>
+            <span class="bank-label">Account Name</span>
+            <span class="bank-val">${COMPANY_NAME}</span>
+            <span class="bank-label">Account Number</span>
+            <span class="bank-val" style="color:#0f2b5c;font-size:13px;">50200084729103</span>
+            <span class="bank-label">IFSC Code</span>
+            <span class="bank-val">HDFC0000180</span>
+            <span class="bank-label">Branch & Type</span>
+            <span class="bank-val">Kothrud, Pune (Current)</span>
           </div>
         </div>
         <div>
-          <div class="header-badge">
-            <span style="color:#fff;font-size:18px;font-weight:700;letter-spacing:1px">INVOICE</span>
+          <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:8px;">Scan & Pay with UPI</div>
+          <div class="qr-container">
+            <img src="${qrCodeUrl}" alt="UPI QR Code" class="qr-code-img" />
+            <div class="qr-text-block">
+              <strong>Scan any UPI App</strong>
+              GPay, PhonePe, Paytm, BHIM<br>
+              <div class="upi-badge">UPI: ${upiId}</div>
+            </div>
           </div>
         </div>
       </div>
-      <!-- ═══════ INVOICE META ═══════ -->
-      <div class="meta-row">
-        <div class="meta-col">
-          <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:6px">Invoice Number</p>
-          <p style="color:#1e3a8a;font-size:16px;font-weight:700">${invoiceNumber}</p>
-        </div>
-        <div class="meta-col center">
-          <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:6px">Date of Issue</p>
-          <p style="color:#1a202c;font-size:16px;font-weight:600">${formatDate(payment.paid_at)}</p>
-        </div>
-        <div class="meta-col right">
-          <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:6px">Status</p>
-          <span style="background:#dcfce7;color:#166534;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700;display:inline-block">✓ PAID</span>
-        </div>
-      </div>
-      <!-- ═══════ FROM / BILL TO ═══════ -->
-      <div class="address-row">
-        <div class="address-col">
-          <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:10px">From</p>
-          <p style="font-weight:700;font-size:15px;color:#1a202c">${COMPANY_NAME}</p>
-          <p style="color:#64748b;font-size:13px;line-height:1.8;margin-top:4px">
-            ${COMPANY_EMAIL}<br>
-            ${COMPANY_PHONE}
-          </p>
-        </div>
-        <div class="address-col">
-          <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:10px">Bill To</p>
-          <p style="font-weight:700;font-size:15px;color:#1a202c">${restaurant.name}</p>
-          <p style="color:#64748b;font-size:13px;line-height:1.8;margin-top:4px;word-break:break-word">
-            ${restaurant.owner_name ? restaurant.owner_name + '<br>' : ''}
-            ${restaurant.address ? restaurant.address + '<br>' : ''}
-            ${restaurant.phone ? '📞 ' + restaurant.phone : ''}
-            ${restaurant.gstin ? '<br>GSTIN: ' + restaurant.gstin : ''}
-          </p>
-        </div>
-      </div>
-      <!-- ═══════ SUBSCRIPTION DETAILS TABLE ═══════ -->
-      <div class="section">
-        <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:16px">Subscription Details</p>
-        <div class="table-container">
-          <table style="width:100%;border-collapse:collapse;min-width:400px">
-            <thead>
-              <tr style="background:linear-gradient(135deg,#1e3a8a,#3b82f6)">
-                <th style="text-align:left">Description</th>
-                <th style="text-align:center">Period</th>
-                <th style="text-align:right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>
-                  <p style="font-weight:700;color:#1a202c;font-size:15px;margin-bottom:4px">${plan.name}</p>
-                  <p style="color:#64748b;font-size:12px">${intervalLabel[plan.interval] || plan.interval} billing</p>
-                </td>
-                <td style="text-align:center">
-                  <p style="color:#1a202c;font-size:14px;font-weight:500">${formatShortDate(payment.period_start)}</p>
-                  <p style="color:#64748b;font-size:11px">to</p>
-                  <p style="color:#1a202c;font-size:14px;font-weight:500">${formatShortDate(payment.period_end)}</p>
-                </td>
-                <td style="text-align:right">
-                  <p style="font-weight:800;color:#1e3a8a;font-size:20px">${formattedAmount}</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <!-- Total row -->
-          <div style="background:#f0f5ff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
-            <span style="font-weight:700;color:#1a202c;font-size:16px">Total Paid</span>
-            <span style="font-weight:800;color:#1e3a8a;font-size:22px">${formattedAmount}</span>
-          </div>
-        </div>
-      </div>
-      <!-- ═══════ PAYMENT INFORMATION ═══════ -->
-      <div class="section" style="padding-top:0">
-        <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:16px">Payment Information</p>
-        <div class="payment-grid">
-          <div class="payment-item">
-            <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;margin-bottom:4px">Payment ID</p>
-            <p style="color:#1a202c;font-size:13px;font-weight:600;font-family:monospace;word-break:break-all">${payment.razorpay_payment_id}</p>
-          </div>
-          <div class="payment-item">
-            <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;margin-bottom:4px">Order ID</p>
-            <p style="color:#1a202c;font-size:13px;font-weight:600;font-family:monospace;word-break:break-all">${payment.razorpay_order_id}</p>
-          </div>
-          <div class="payment-item">
-            <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;margin-bottom:4px">Method</p>
-            <p style="color:#1a202c;font-size:13px;font-weight:600;text-transform:capitalize">${payment.payment_method}</p>
-          </div>
-          <div class="payment-item">
-            <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;margin-bottom:4px">Paid On</p>
-            <p style="color:#1a202c;font-size:13px;font-weight:600">${formatDate(payment.paid_at)}</p>
-          </div>
-        </div>
-      </div>
-      <!-- ═══════ PLAN FEATURES ═══════ -->
-      ${featuresHTML ? `
-      <div class="section" style="padding-top:0">
-        <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:12px">What's Included</p>
-        <div class="features-box">
-          <ul class="features-list">${featuresHTML}</ul>
-        </div>
-      </div>` : ''}
-      <!-- ═══════ FOOTER ═══════ -->
-      <div style="background:#f8fafc;padding:24px 40px;border-top:1px solid #e2e8f0;text-align:center">
-        <p style="color:#64748b;font-size:13px;margin-bottom:6px">Thank you for choosing <strong style="color:#1e3a8a">${COMPANY_NAME}</strong>!</p>
-        <p style="color:#94a3b8;font-size:12px;margin-bottom:12px">Questions? Contact us at ${COMPANY_EMAIL} or ${COMPANY_PHONE}</p>
-        <p style="color:#cbd5e1;font-size:11px">This is a computer-generated invoice and does not require a signature.</p>
+      <div class="txn-info-row">
+        ${payment.razorpay_payment_id ? `<div class="txn-info-item">Razorpay Payment ID: <strong>${payment.razorpay_payment_id}</strong></div>` : ''}
+        ${payment.razorpay_order_id ? `<div class="txn-info-item">Order ID: <strong>${payment.razorpay_order_id}</strong></div>` : ''}
+        <div class="txn-info-item">Payment Method: <strong style="text-transform:capitalize;">${payment.payment_method || 'Online'}</strong></div>
+        <div class="txn-info-item">Payment Date: <strong>${formatDate(payment.paid_at)}</strong></div>
       </div>
     </div>
-    <!-- Copyright -->
-    <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px">© ${new Date().getFullYear()} ${COMPANY_NAME}. All rights reserved.</p>
+
+    <div class="terms-section">
+      <div class="terms-title">Terms & Conditions</div>
+      <ol class="terms-list">
+        <li>Software license is non-transferable and valid for the specified subscription duration.</li>
+        <li>Payments are non-refundable once the subscription period begins.</li>
+        <li>For invoice corrections or tax credits, notify support within 7 days of generation.</li>
+      </ol>
+      <p style="margin-top:8px;">For support or inquiries: <strong>${COMPANY_EMAIL}</strong> | <strong>${COMPANY_PHONE}</strong></p>
+    </div>
+
+    <div class="footer-bar">
+      <div>🌐 <a href="${SITE_URL}" target="_blank">${SITE_URL}</a></div>
+      <div>© ${new Date().getFullYear()} ${COMPANY_NAME}. All rights reserved.</div>
+    </div>
   </div>
 </body>
 </html>`;
