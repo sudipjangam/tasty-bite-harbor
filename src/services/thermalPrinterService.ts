@@ -532,8 +532,14 @@ class ThermalPrinterService {
 
     await new Promise((r) => setTimeout(r, 100));
 
-    iframe.contentWindow?.focus();
-    iframe.contentWindow?.print();
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch (e) {
+      // Fallback: if iframe print is blocked, use window.print() with dialog
+      console.warn("[ThermalPrinter] iframe.print() blocked, falling back to window.print()", e);
+      window.print();
+    }
   }
 
   /**
@@ -639,8 +645,14 @@ class ThermalPrinterService {
 
     await new Promise((r) => setTimeout(r, 100));
 
-    iframe.contentWindow?.focus();
-    iframe.contentWindow?.print();
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch (e) {
+      // Fallback: if iframe print is blocked, use window.print() with dialog
+      console.warn("[ThermalPrinter] iframe.print() blocked, falling back to window.print()", e);
+      window.print();
+    }
   }
 
   async printKOT(data: KOTData, options?: { forceBrowser?: boolean }) {
