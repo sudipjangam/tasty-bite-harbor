@@ -8,9 +8,14 @@ import {
   CheckCircle2,
   RefreshCw,
   Zap,
+  FileText,
 } from 'lucide-react';
 import { getDaysRemaining, isExpiringSoon, formatPrice, formatInterval } from '@/utils/razorpayUtils';
 import type { SubscriptionDetails } from '@/hooks/useSubscription';
+import { useRestaurantId } from '@/hooks/useRestaurantId';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { SubscriberInvoiceModal } from './SubscriberInvoiceModal';
 
 interface CurrentPlanBannerProps {
   subscription: SubscriptionDetails | null;
@@ -27,6 +32,22 @@ const CurrentPlanBanner: React.FC<CurrentPlanBannerProps> = ({
   isPending,
   onRenew,
 }) => {
+  const { restaurantId } = useRestaurantId();
+
+  const { data: restaurant } = useQuery({
+    queryKey: ['restaurant-invoice-profile', restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return null;
+      const { data } = await supabase
+        .from('restaurants')
+        .select('name, address, phone, email, gstin, owner_name, city, state, pincode')
+        .eq('id', restaurantId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!restaurantId,
+  });
+
   if (!subscription) {
     return (
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 p-6 md:p-8 text-white shadow-xl">
@@ -182,6 +203,40 @@ const CurrentPlanBanner: React.FC<CurrentPlanBannerProps> = ({
     );
   }
 
+  const invoiceRestaurant = {
+    name: restaurant?.name || 'Restaurant Subscriber',
+    address: restaurant?.address || '',
+    city: restaurant?.city || '',
+    state: restaurant?.state || 'Maharashtra',
+    pincode: restaurant?.pincode || '',
+    phone: restaurant?.phone || '',
+    email: restaurant?.email || '',
+    gstin: restaurant?.gstin || '',
+    owner_name: restaurant?.owner_name || '',
+  };
+
+  const invoicePlan = {
+    name: subscription?.plan_name || 'Standard Plan',
+    interval: subscription?.plan_interval || 'monthly',
+    price: subscription?.amount_paid || 0,
+    features: subscription?.plan_features || [],
+  };
+
+  const invoicePayment = {
+    invoice_number: subscription?.razorpay_order_id
+      ? `INV-${subscription.razorpay_order_id.replace(/^order_/, '').slice(-8).toUpperCase()}`
+      : `INV-SUB-${subscription?.id?.slice(0, 8).toUpperCase() || 'NEW'}`,
+    issue_date: subscription?.paid_at || subscription?.current_period_start || new Date().toISOString(),
+    due_date: subscription?.current_period_end || new Date().toISOString(),
+    status: (isActive ? 'PAID' : 'DUE') as 'PAID' | 'DUE',
+    payment_method: subscription?.payment_method || 'Online',
+    razorpay_payment_id: subscription?.razorpay_payment_id,
+    razorpay_order_id: subscription?.razorpay_order_id,
+    period_start: subscription?.current_period_start || new Date().toISOString(),
+    period_end: subscription?.current_period_end || new Date().toISOString(),
+    amount_paid: subscription?.amount_paid || 0,
+  };
+
   // Active — Healthy
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 p-6 md:p-8 text-white shadow-xl">
@@ -212,6 +267,23 @@ const CurrentPlanBanner: React.FC<CurrentPlanBannerProps> = ({
                 )}
               </p>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <SubscriberInvoiceModal
+              restaurant={invoiceRestaurant}
+              plan={invoicePlan}
+              payment={invoicePayment}
+              trigger={
+                <Button
+                  variant="secondary"
+                  className="bg-white text-emerald-800 hover:bg-white/90 font-semibold px-4 shadow-md gap-1.5"
+                >
+                  <FileText className="w-4 h-4 text-emerald-700" />
+                  Tax Invoice / Bill
+                </Button>
+              }
+            />
           </div>
         </div>
 

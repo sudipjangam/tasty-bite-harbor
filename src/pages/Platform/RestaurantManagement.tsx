@@ -88,6 +88,7 @@ import {
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DiscountDialog } from "@/components/Platform/DiscountDialog";
+import { SubscriberInvoiceModal } from "@/components/Subscription/SubscriberInvoiceModal";
 
 interface Restaurant {
   id: string;
@@ -160,6 +161,8 @@ const RestaurantManagement = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false);
   const [isDiscountOpen, setIsDiscountOpen] = useState(false);
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  const [invoiceTargetRestaurant, setInvoiceTargetRestaurant] = useState<Restaurant | null>(null);
   const [selectedRestaurant, setSelectedRestaurant] =
     useState<Restaurant | null>(null);
   const [isManageUsersOpen, setIsManageUsersOpen] = useState(false);
@@ -714,6 +717,11 @@ const RestaurantManagement = () => {
     setIsDiscountOpen(true);
   };
 
+  const openInvoice = (restaurant: Restaurant) => {
+    setInvoiceTargetRestaurant(restaurant);
+    setIsInvoiceOpen(true);
+  };
+
   const getStatusBadge = (status: string) => {
     const styles = {
       active:
@@ -986,6 +994,12 @@ const RestaurantManagement = () => {
                         >
                           <CreditCard className="h-4 w-4 mr-2 text-purple-500" /> Manage
                           Subscription
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => openInvoice(restaurant)}
+                          className="rounded-xl font-medium focus:bg-blue-50 dark:focus:bg-blue-950 text-blue-600 dark:text-blue-400"
+                        >
+                          <FileText className="h-4 w-4 mr-2 text-blue-500" /> Subscriber Invoice / Bill
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
@@ -2065,11 +2079,12 @@ const RestaurantManagement = () => {
           </DialogHeader>
 
           <Tabs defaultValue="basic" className="mt-4">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
               <TabsTrigger value="owner">Owner</TabsTrigger>
               <TabsTrigger value="bank">Bank/Payment</TabsTrigger>
               <TabsTrigger value="users">Users</TabsTrigger>
+              <TabsTrigger value="subscription" className="text-blue-600 dark:text-blue-400 font-semibold">Subscription</TabsTrigger>
             </TabsList>
 
             <ScrollArea className="h-[400px] mt-4">
@@ -2188,6 +2203,46 @@ const RestaurantManagement = () => {
                           Expires:{" "}
                           {new Date(sub.current_period_end).toLocaleDateString()}
                         </p>
+                        <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                          <SubscriberInvoiceModal
+                            restaurant={{
+                              name: selectedRestaurant?.name || 'Restaurant',
+                              address: selectedRestaurant?.address || '',
+                              city: selectedRestaurant?.location_type || '',
+                              state: 'Maharashtra',
+                              phone: selectedRestaurant?.phone || '',
+                              email: selectedRestaurant?.email || '',
+                              gstin: selectedRestaurant?.gstin || '',
+                              owner_name: selectedRestaurant?.owner_name || '',
+                            }}
+                            plan={{
+                              name: sub.subscription_plans?.name || 'Standard Plan',
+                              price: sub.subscription_plans?.price || 0,
+                              interval: sub.subscription_plans?.interval || 'monthly',
+                              features: sub.subscription_plans?.features || [],
+                            }}
+                            payment={{
+                              invoice_number: `INV-${sub.id ? sub.id.slice(0, 8).toUpperCase() : 'SUB'}`,
+                              issue_date: sub.current_period_start || new Date().toISOString(),
+                              due_date: sub.current_period_end || new Date().toISOString(),
+                              status: sub.status === 'active' ? 'PAID' : 'DUE',
+                              payment_method: sub.payment_method || 'direct',
+                              amount_paid: Number(sub.amount_paid || sub.subscription_plans?.price || 0),
+                              period_start: sub.current_period_start,
+                              period_end: sub.current_period_end,
+                            }}
+                            trigger={
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs gap-1.5 text-blue-700 dark:text-blue-400 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950"
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                Subscriber Invoice / Bill
+                              </Button>
+                            }
+                          />
+                        </div>
                       </div>
                     </div>
                   );
@@ -2397,6 +2452,58 @@ const RestaurantManagement = () => {
                   </div>
                 )}
               </TabsContent>
+
+              {/* Subscription Tab */}
+              <TabsContent value="subscription" className="space-y-4 px-1">
+                {(() => {
+                  const subArray = selectedRestaurant?.restaurant_subscriptions;
+                  const sub = Array.isArray(subArray) ? subArray[0] : subArray;
+                  return (
+                    <div className="space-y-4">
+                      <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-1">
+                            Current Subscription
+                          </p>
+                          <h4 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            {sub?.subscription_plans?.name || "No Active Plan"}
+                            {sub ? getStatusBadge(sub.status) : <Badge variant="outline" className="text-amber-600 bg-amber-50">Pending / New</Badge>}
+                          </h4>
+                          <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                            {sub ? `Expires: ${new Date(sub.current_period_end).toLocaleDateString()}` : "No active subscription recorded"}
+                          </p>
+                        </div>
+                        {sub && (
+                          <div className="text-right">
+                            <span className="text-2xl font-black text-blue-700 dark:text-blue-300">
+                              ₹{sub.subscription_plans?.price}
+                            </span>
+                            <span className="text-xs text-slate-500 font-medium"> / {sub.subscription_plans?.interval || 'month'}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between">
+                        <div>
+                          <h5 className="font-semibold text-sm text-slate-800 dark:text-slate-100">Tax Invoice & Payment Bill</h5>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Generate downloadable PDF or share via WhatsApp with Bank & UPI QR details
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            if (selectedRestaurant) openInvoice(selectedRestaurant);
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-2 shadow-sm text-xs"
+                        >
+                          <FileText className="h-4 w-4" />
+                          Subscriber Invoice / Bill
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </TabsContent>
             </ScrollArea>
           </Tabs>
 
@@ -2444,24 +2551,44 @@ const RestaurantManagement = () => {
             {(() => {
               const subArray = selectedRestaurant?.restaurant_subscriptions;
               const sub = Array.isArray(subArray) ? subArray[0] : subArray;
-              if (!sub) return null;
               return (
-                <div className="mt-6 p-4 rounded-2xl bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 border border-purple-200/50 dark:border-purple-500/30 shadow-inner flex items-center justify-between relative z-10">
+                <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 border border-purple-200/50 dark:border-purple-500/30 shadow-inner flex flex-col md:flex-row items-start md:items-center justify-between gap-3 relative z-10">
                    <div>
-                     <p className="text-xs text-purple-600 dark:text-purple-400 font-semibold uppercase tracking-wider mb-1">Current Active Plan</p>
+                     <p className="text-xs text-purple-600 dark:text-purple-400 font-semibold uppercase tracking-wider mb-1">
+                       {sub ? 'Current Subscription' : 'Subscription Status'}
+                     </p>
                      <h4 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                       {sub.subscription_plans?.name || "Free/None"}
-                       {getStatusBadge(sub.status)}
+                       {sub?.subscription_plans?.name || "No Active Plan"}
+                       {sub ? getStatusBadge(sub.status) : <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">Pending / New</Badge>}
                      </h4>
-                     <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 flex items-center gap-1">
-                       <Clock className="h-3 w-3" /> Expires: {new Date(sub.current_period_end).toLocaleDateString()}
+                     <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 flex items-center gap-1">
+                       {sub ? (
+                         <><Clock className="h-3 w-3" /> Expires: {new Date(sub.current_period_end).toLocaleDateString()}</>
+                       ) : (
+                         'Select a plan below to assign or generate a payment bill'
+                       )}
                      </p>
                    </div>
-                   <div className="text-right">
-                      <div className="text-2xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                        ₹{sub.subscription_plans?.price}
-                      </div>
-                      <p className="text-xs text-slate-500 font-medium">/ {sub.subscription_plans?.interval || 'month'}</p>
+                   <div className="flex items-center gap-3 self-end md:self-auto">
+                     {sub && (
+                       <div className="text-right mr-2 hidden sm:block">
+                          <div className="text-xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                            ₹{sub.subscription_plans?.price}
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-medium">/ {sub.subscription_plans?.interval || 'month'}</p>
+                       </div>
+                     )}
+                     <Button
+                       size="sm"
+                       variant="outline"
+                       onClick={() => {
+                         if (selectedRestaurant) openInvoice(selectedRestaurant);
+                       }}
+                       className="bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950 font-semibold gap-1.5 shadow-sm text-xs"
+                     >
+                       <FileText className="h-4 w-4 text-blue-600" />
+                       Generate / Share Bill
+                     </Button>
                    </div>
                 </div>
               );
@@ -2923,6 +3050,60 @@ const RestaurantManagement = () => {
           ownerPhone={selectedRestaurant.owner_phone || selectedRestaurant.phone || ""}
         />
       )}
+
+      {invoiceTargetRestaurant && (() => {
+        const subArray = invoiceTargetRestaurant.restaurant_subscriptions;
+        const currentSub = Array.isArray(subArray) ? subArray[0] : subArray;
+        const targetPlan =
+          currentSub?.subscription_plans ||
+          plans.find((p) => p.id === formData.planId) ||
+          plans[0] || {
+            name: "Pro Plan Subscription",
+            price: 2999,
+            interval: "monthly",
+            features: [
+              "Full POS & Kitchen System",
+              "Inventory & Menu Management",
+              "Reports & Cloud Sync",
+            ],
+          };
+
+        return (
+          <SubscriberInvoiceModal
+            isOpen={isInvoiceOpen}
+            onOpenChange={(open) => {
+              setIsInvoiceOpen(open);
+              if (!open) setInvoiceTargetRestaurant(null);
+            }}
+            restaurant={{
+              name: invoiceTargetRestaurant.name,
+              address: invoiceTargetRestaurant.address || "",
+              city: invoiceTargetRestaurant.location_type || "",
+              state: "Maharashtra",
+              phone: invoiceTargetRestaurant.owner_phone || invoiceTargetRestaurant.phone || "",
+              email: invoiceTargetRestaurant.owner_email || invoiceTargetRestaurant.email || "",
+              gstin: invoiceTargetRestaurant.gstin || "",
+              owner_name: invoiceTargetRestaurant.owner_name || "",
+            }}
+            plan={{
+              name: targetPlan.name || "Standard Plan",
+              price: targetPlan.price || 0,
+              interval: targetPlan.interval || "monthly",
+              features: targetPlan.features || [],
+            }}
+            payment={{
+              invoice_number: `INV-SUB-${invoiceTargetRestaurant.id.slice(0, 8).toUpperCase()}`,
+              issue_date: currentSub?.current_period_start || new Date().toISOString(),
+              due_date: currentSub?.current_period_end || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              status: currentSub?.status === "active" ? "PAID" : "DUE",
+              payment_method: currentSub?.payment_method || "direct",
+              amount_paid: Number(currentSub?.amount_paid || targetPlan.price || 0),
+              period_start: currentSub?.current_period_start || new Date().toISOString(),
+              period_end: currentSub?.current_period_end || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            }}
+          />
+        );
+      })()}
       </div>
     </div>
   );
