@@ -840,8 +840,7 @@ export const QSRPosMain: React.FC = () => {
             isAddition: currentRound > 1,
             roundNumber: currentRound,
             orderType: orderMode,
-          // On web (non-native): always fallback to browser print dialog since Bluetooth not available by default
-          }, { forceBrowser: !Capacitor.isNativePlatform() });
+          });
         } catch (printErr: any) {
           console.error("[QSR POS] KOT print failed:", printErr);
           toast({

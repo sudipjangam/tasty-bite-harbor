@@ -659,14 +659,13 @@ class ThermalPrinterService {
     const nativeConnected = Capacitor.isNativePlatform() && nativePrinterBridge.isConnected();
     const webConnected = !Capacitor.isNativePlatform() && this.isConnected();
 
-    // Browser print only when explicitly requested (e.g. from printer dialog test button)
-    if (options?.forceBrowser) {
-      await this.printKOTViaBrowser(data);
-      return;
-    }
-
-    // No printer connected — skip silently (do NOT open browser print dialog)
+    // If no direct thermal printer is connected, check if browser fallback requested
     if (!nativeConnected && !webConnected) {
+      if (options?.forceBrowser) {
+        await this.printKOTViaBrowser(data);
+        return;
+      }
+      // No printer connected — skip silently (do NOT open browser print dialog)
       console.log("[ThermalPrinter] No printer connected — KOT print skipped.");
       return;
     }
@@ -763,14 +762,13 @@ class ThermalPrinterService {
     const nativeConnected = Capacitor.isNativePlatform() && nativePrinterBridge.isConnected();
     const webConnected = !Capacitor.isNativePlatform() && this.isConnected();
 
-    // Browser print only when explicitly requested (e.g. from printer dialog test button)
-    if (options?.forceBrowser) {
-      await this.printReceiptViaBrowser(data);
-      return;
-    }
-
-    // No printer connected — skip silently (do NOT open browser print dialog)
+    // If no direct thermal printer is connected, check if browser fallback requested
     if (!nativeConnected && !webConnected) {
+      if (options?.forceBrowser) {
+        await this.printReceiptViaBrowser(data);
+        return;
+      }
+      // No printer connected — skip silently (do NOT open browser print dialog)
       console.log("[ThermalPrinter] No printer connected — receipt print skipped.");
       return;
     }
