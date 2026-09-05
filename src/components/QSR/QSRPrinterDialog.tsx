@@ -3,11 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Printer, PrinterCheck, RefreshCw, Bluetooth, FileText, Receipt, Check, AlertCircle } from "lucide-react";
+import { Printer, PrinterCheck, RefreshCw, Bluetooth, FileText, Receipt, Check, AlertCircle, Usb, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { thermalPrinterService } from "@/services/thermalPrinterService";
 import { getPaperSize, setPaperSize, nativePrinterBridge } from "@/services/nativePrinterBridge";
 import { Capacitor } from "@capacitor/core";
+import { downloadKioskShortcut } from "@/utils/kioskShortcut";
 
 interface QSRPrinterDialogProps {
   isOpen: boolean;
@@ -247,6 +248,37 @@ export const QSRPrinterDialog: React.FC<QSRPrinterDialogProps> = ({
               </Button>
             </div>
           </div>
+
+          {/* USB Cable Silent Printing Shortcut */}
+          {!Capacitor.isNativePlatform() && (
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-2">
+              <div className="flex items-center gap-2">
+                <Usb className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <p className="text-xs font-bold text-gray-900 dark:text-white">
+                  USB Cable Printer (Direct Silent Print)
+                </p>
+              </div>
+              <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                Using a USB cable printer? Download this 1-click Windows desktop shortcut to bypass Chrome's print popup and print directly to your thermal printer.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  downloadKioskShortcut();
+                  toast({
+                    title: "Shortcut Installer Downloaded ✓",
+                    description: "Double-click the downloaded .bat file to place the Direct Print shortcut on your Desktop.",
+                  });
+                }}
+                className="w-full gap-2 rounded-xl text-xs h-9 font-semibold bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Create Windows Desktop Shortcut (.bat)
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -659,16 +659,14 @@ class ThermalPrinterService {
     const nativeConnected = Capacitor.isNativePlatform() && nativePrinterBridge.isConnected();
     const webConnected = !Capacitor.isNativePlatform() && this.isConnected();
 
-    // If no direct thermal printer is connected, check if browser fallback requested
-    if (!nativeConnected && !webConnected) {
-      if (options?.forceBrowser) {
-        await this.printKOTViaBrowser(data);
-        return;
-      }
-      // No printer connected — skip silently (do NOT open browser print dialog)
-      console.log("[ThermalPrinter] No printer connected — KOT print skipped.");
+    // Browser print dialog when forced (e.g. on web or requested)
+    if (options?.forceBrowser) {
+      await this.printKOTViaBrowser(data);
       return;
     }
+
+    // Direct Bluetooth/Native thermal print if connected
+    if (nativeConnected || webConnected) {
 
     const W = getPaperWidth();
     const SEP = "-".repeat(W) + "\n";
@@ -756,22 +754,19 @@ class ThermalPrinterService {
 
     const bytes = this.encodeText(receipt);
     await this.writeBytes(bytes);
+    return;
   }
+
+  // Fallback: print via hidden iframe (works for USB/Windows thermal printers)
+  await this.printKOTViaBrowser(data);
+}
 
   async printReceipt(data: ReceiptData, options?: { forceBrowser?: boolean }) {
     const nativeConnected = Capacitor.isNativePlatform() && nativePrinterBridge.isConnected();
     const webConnected = !Capacitor.isNativePlatform() && this.isConnected();
 
-    // If no direct thermal printer is connected, check if browser fallback requested
-    if (!nativeConnected && !webConnected) {
-      if (options?.forceBrowser) {
-        await this.printReceiptViaBrowser(data);
-        return;
-      }
-      // No printer connected — skip silently (do NOT open browser print dialog)
-      console.log("[ThermalPrinter] No printer connected — receipt print skipped.");
-      return;
-    }
+    // Direct Bluetooth/Native thermal print if connected
+    if (nativeConnected || webConnected) {
 
     const W = getPaperWidth();
     const SEP = "-".repeat(W) + "\n";
@@ -919,7 +914,12 @@ class ThermalPrinterService {
     receipt += this.CUT_PAPER;
 
     await this.writeBytes(this.encodeText(receipt));
+    return;
   }
+
+  // Fallback: print via hidden iframe (works for USB/Windows thermal printers)
+  await this.printReceiptViaBrowser(data);
+}
 }
 
 export const thermalPrinterService = new ThermalPrinterService();

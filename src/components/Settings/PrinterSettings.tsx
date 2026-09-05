@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Capacitor } from "@capacitor/core";
-import { Bluetooth, Wifi, Usb, RefreshCw, Printer, Check, X, Radio } from "lucide-react";
+import { Bluetooth, Wifi, Usb, RefreshCw, Printer, Check, X, Radio, Download } from "lucide-react";
+import { downloadKioskShortcut } from "@/utils/kioskShortcut";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -404,6 +405,54 @@ const LANTab = ({
   );
 };
 
+// ─── USB Tab (Silent Direct Printing Shortcut) ────────────────────────────────
+
+const USBTab = () => {
+  const { toast } = useToast();
+
+  const handleDownload = () => {
+    downloadKioskShortcut();
+    toast({
+      title: "Shortcut Installer Downloaded ✓",
+      description: "Double-click the downloaded .bat file to create the Direct Print shortcut on your Desktop.",
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">USB Cable Thermal Printing</span>
+        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
+          Windows USB Driver
+        </Badge>
+      </div>
+
+      <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm text-muted-foreground space-y-2.5">
+        <p className="font-semibold text-foreground">How USB Silent Printing Works:</p>
+        <p>
+          USB thermal printers print through the Windows printer driver. To print KOTs and Bills <strong>directly with zero print preview popup</strong>, open POS using the Direct Print desktop shortcut.
+        </p>
+        <div className="border-t border-border/50 pt-2 space-y-1 text-xs">
+          <p className="font-medium text-foreground">1-Time Setup:</p>
+          <p>1. Ensure your thermal printer is set as default printer in Windows.</p>
+          <p>2. Click below to download the Desktop Shortcut installer.</p>
+          <p>3. Double-click the downloaded file — it creates the shortcut on your Desktop.</p>
+        </div>
+      </div>
+
+      <Button
+        onClick={handleDownload}
+        className="w-full gap-2 bg-amber-600 hover:bg-amber-700 text-white font-medium"
+      >
+        <Download className="h-4 w-4" />
+        Download POS Direct Print Shortcut (.bat)
+      </Button>
+
+      <TestPrintButton disabled={false} />
+    </div>
+  );
+};
+
 // ─── Main PrinterSettings component ──────────────────────────────────────────
 
 export const PrinterSettings = () => {
@@ -486,10 +535,14 @@ export const PrinterSettings = () => {
       {/* Connection tabs */}
       <div className="rounded-xl border border-border overflow-hidden">
         <Tabs defaultValue="bluetooth">
-          <TabsList className="w-full rounded-none border-b border-border h-11 grid grid-cols-2">
+          <TabsList className="w-full rounded-none border-b border-border h-11 grid grid-cols-3">
             <TabsTrigger value="bluetooth" className="text-xs gap-1.5">
               <Bluetooth className="h-3.5 w-3.5" />
               Bluetooth
+            </TabsTrigger>
+            <TabsTrigger value="usb" className="text-xs gap-1.5">
+              <Usb className="h-3.5 w-3.5" />
+              USB Cable
             </TabsTrigger>
             <TabsTrigger value="lan" className="text-xs gap-1.5">
               <Wifi className="h-3.5 w-3.5" />
@@ -503,6 +556,9 @@ export const PrinterSettings = () => {
                 connected={status.connected && status.type === "bluetooth"}
                 onStatusChange={refresh}
               />
+            </TabsContent>
+            <TabsContent value="usb">
+              <USBTab />
             </TabsContent>
             <TabsContent value="lan">
               <LANTab
