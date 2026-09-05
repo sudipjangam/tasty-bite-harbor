@@ -797,8 +797,14 @@ const PaymentDialog = ({
         iframeDoc.write(html);
         iframeDoc.close();
         setTimeout(() => {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
+          try {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+          } catch (e) {
+            // Fallback: if iframe print is blocked, use window.print() with dialog
+            console.warn("[PaymentDialog] iframe.print() blocked, falling back to window.print()", e);
+            window.print();
+          }
           setTimeout(() => iframe.remove(), 60000);
         }, 300);
       }
