@@ -33,7 +33,20 @@ import {
   Upload,
   Trash2,
   Palette,
+  Printer,
+  Download,
+  Copy,
+  Check,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { downloadKioskShortcut, getKioskPowerShellCommand } from "@/utils/kioskShortcut";
+import { Capacitor } from "@capacitor/core";
 import { uploadImage } from "@/utils/imageUpload";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -72,6 +85,8 @@ const Settings = () => {
   });
 
   const [logoUploading, setLogoUploading] = useState(false);
+  const [showShortcutDialog, setShowShortcutDialog] = useState(false);
+  const [copiedCommand, setCopiedCommand] = useState(false);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -277,20 +292,35 @@ const Settings = () => {
                 </p>
               </div>
             </div>
-            <Button
-              variant="destructive"
-              onClick={handleLogout}
-              className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 shadow-lg hover:shadow-xl transition-all duration-300"
-              disabled={loading}
-              size="lg"
-            >
-              {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <LogOut className="w-5 h-5" />
+            <div className="flex items-center gap-3">
+              {!Capacitor.isNativePlatform() && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowShortcutDialog(true)}
+                  className="flex items-center gap-2 border-indigo-200 dark:border-indigo-800 bg-white dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 shadow-md hover:shadow-lg transition-all duration-300 font-semibold"
+                  size="lg"
+                  title="Direct print shortcut for USB thermal printers"
+                >
+                  <Printer className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  <span className="hidden sm:inline">Direct Print Shortcut</span>
+                  <span className="sm:hidden">Shortcut</span>
+                </Button>
               )}
-              <span className="font-semibold">Logout</span>
-            </Button>
+              <Button
+                variant="destructive"
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 shadow-lg hover:shadow-xl transition-all duration-300"
+                disabled={loading}
+                size="lg"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <LogOut className="w-5 h-5" />
+                )}
+                <span className="font-semibold">Logout</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -943,6 +973,109 @@ const Settings = () => {
         </Tabs>
       </div>
     </div>
+
+    {/* POS Direct Print Desktop Shortcut Dialog */}
+    <Dialog open={showShortcutDialog} onOpenChange={setShowShortcutDialog}>
+      <DialogContent className="sm:max-w-lg p-6 rounded-3xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl">
+        <DialogHeader className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <Printer className="w-6 h-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
+                  POS Direct Print Shortcut
+                </DialogTitle>
+                <DialogDescription className="text-xs text-gray-500 dark:text-gray-400">
+                  Windows silent printing for USB thermal printers (zero popup window)
+                </DialogDescription>
+              </div>
+            </div>
+            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs px-2.5 py-1">
+              Kiosk Mode
+            </Badge>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4 pt-2">
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 space-y-1.5">
+            <p className="font-bold text-sm text-amber-800 dark:text-amber-300">
+              Why use this desktop shortcut?
+            </p>
+            <p className="leading-relaxed opacity-90">
+              Standard web browsers show a print preview popup before printing. This 1-click shortcut launches Chrome/Edge in silent POS kiosk mode so every <strong>Send to Kitchen (KOT)</strong> and <strong>Bill</strong> prints instantly to your thermal printer with zero dialog window.
+            </p>
+          </div>
+
+          <div className="space-y-2.5 text-xs text-gray-600 dark:text-gray-400">
+            <p className="font-semibold text-gray-900 dark:text-white uppercase tracking-wider text-[11px]">
+              Quick 3-Step Setup
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200/60 dark:border-gray-700/60">
+                <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">1</span>
+                <span>Set your USB thermal printer as the <strong>Default Printer</strong> in Windows Settings.</span>
+              </div>
+              <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200/60 dark:border-gray-700/60">
+                <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">2</span>
+                <span>Click below to download the 1-click installer (<code className="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded font-mono text-[10px]">.bat</code>) and double-click it.</span>
+              </div>
+              <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200/60 dark:border-gray-700/60">
+                <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">3</span>
+                <span>Launch POS using the new <strong>TastyBite POS (Direct Print)</strong> shortcut on your Desktop!</span>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => {
+              downloadKioskShortcut();
+              toast({
+                title: "Shortcut Installer Downloaded ✓",
+                description: "Double-click the downloaded .bat file to place the shortcut on your Windows Desktop.",
+              });
+            }}
+            className="w-full gap-2 h-11 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold shadow-lg shadow-amber-500/20 text-sm"
+          >
+            <Download className="w-4 h-4" />
+            Download Desktop Shortcut (.bat)
+          </Button>
+
+          <div className="flex items-center justify-between pt-1 border-t border-gray-200 dark:border-gray-800">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+              Or copy PowerShell command:
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(getKioskPowerShellCommand());
+                setCopiedCommand(true);
+                setTimeout(() => setCopiedCommand(false), 2500);
+                toast({
+                  title: "Command Copied to Clipboard ✓",
+                  description: "Paste into PowerShell and press Enter to create the shortcut.",
+                });
+              }}
+              className="text-xs h-8 gap-1.5 text-gray-600 dark:text-gray-300"
+            >
+              {copiedCommand ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  Copy Command
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
     </FeatureLock>
   );
 };
