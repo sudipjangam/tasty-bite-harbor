@@ -36,6 +36,7 @@ import { POSRiderTrackingDrawer } from "@/components/Aggregators/POSRiderTrackin
 import { useRiderTracking } from "@/hooks/useRiderTracking";
 import { Quick86Modal } from "@/components/Menu/Quick86Modal";
 import { use86Cascade } from "@/hooks/use86Cascade";
+import { useOnlineDelivery } from "@/hooks/useOnlineDelivery";
 import { KitchenLoadGauge } from "@/components/Kitchen/KitchenLoadGauge";
 import {
   Clock,
@@ -130,18 +131,22 @@ export const QSRPosMain: React.FC = () => {
   const [customerPhone, setCustomerPhone] = useState<string>("");
   const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false);
 
-  // Rider Tracking Drawer state & Feature Lock check
+  // Online Delivery (Swiggy / Zomato) check
+  const { isOnlineDeliveryEnabled } = useOnlineDelivery();
+
+  // Rider Tracking Drawer state & Feature Lock check (only when online delivery is enabled)
   const [showRiderTracking, setShowRiderTracking] = useState(false);
   const { totalActiveRiders, ridersAtStore } = useRiderTracking();
   const { isLocked: isRiderTrackingLocked } = useFeatureGate("aggregators.rider_tracking");
   const { isLocked: isAggregatorsViewLocked } = useFeatureGate("aggregators.view");
-  const canShowRiderTracking = !isRiderTrackingLocked && !isAggregatorsViewLocked;
+  const canShowRiderTracking = isOnlineDeliveryEnabled && !isRiderTrackingLocked && !isAggregatorsViewLocked;
 
   // 86 Stock-Kill modal state & Feature Lock check
+  // Quick 86 is ONLY shown if online delivery feature (Swiggy / Zomato) is enabled for this restaurant
   const [show86Modal, setShow86Modal] = useState(false);
   const { unavailableCount } = use86Cascade();
   const { isLocked: is86MenuSyncLocked } = useFeatureGate("aggregators.menu_sync");
-  const canShow86Button = !is86MenuSyncLocked;
+  const canShow86Button = isOnlineDeliveryEnabled && !is86MenuSyncLocked;
 
   // Hooks
   const { restaurantId, restaurantName } = useRestaurantId();
@@ -1748,8 +1753,8 @@ export const QSRPosMain: React.FC = () => {
                   </Button>
                 )}
 
-                {/* Kitchen Load & Surge Throttle Gauge */}
-                <KitchenLoadGauge compact />
+                {/* Kitchen Load & Surge Throttle Gauge (only when online delivery active) */}
+                {isOnlineDeliveryEnabled && <KitchenLoadGauge compact />}
 
                 <Button
                   variant="outline"
@@ -2011,10 +2016,12 @@ export const QSRPosMain: React.FC = () => {
         onPrinterStateChange={refreshPrinterStatus}
       />
       {/* 1-Click 86 Stock Auto-Kill Dialog */}
-      <Quick86Modal
-        isOpen={show86Modal}
-        onClose={() => setShow86Modal(false)}
-      />
+      {canShow86Button && (
+        <Quick86Modal
+          isOpen={show86Modal}
+          onClose={() => setShow86Modal(false)}
+        />
+      )}
     </div>
   );
 };

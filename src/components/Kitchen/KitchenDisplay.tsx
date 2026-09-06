@@ -32,6 +32,7 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Quick86Modal } from "@/components/Menu/Quick86Modal";
 import { use86Cascade } from "@/hooks/use86Cascade";
+import { useOnlineDelivery } from "@/hooks/useOnlineDelivery";
 import { useFeatureGate } from "@/hooks/useFeatureGate";
 import { KitchenVoiceSettings } from "./KitchenVoiceSettings";
 import { KitchenLoadGauge } from "./KitchenLoadGauge";
@@ -117,8 +118,9 @@ const KitchenDisplay = () => {
   const [show86Modal, setShow86Modal] = useState(false);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const { unavailableCount } = use86Cascade();
+  const { isOnlineDeliveryEnabled } = useOnlineDelivery();
   const { isLocked: is86MenuSyncLocked } = useFeatureGate("aggregators.menu_sync");
-  const canShow86Button = !is86MenuSyncLocked;
+  const canShow86Button = isOnlineDeliveryEnabled && !is86MenuSyncLocked;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
