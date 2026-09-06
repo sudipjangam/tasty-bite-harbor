@@ -666,12 +666,6 @@ class ThermalPrinterService {
     const nativeConnected = Capacitor.isNativePlatform() && nativePrinterBridge.isConnected();
     const webConnected = !Capacitor.isNativePlatform() && this.isConnected();
 
-    // Browser print dialog when forced (e.g. on web or requested)
-    if (options?.forceBrowser) {
-      await this.printKOTViaBrowser(data);
-      return;
-    }
-
     // Direct Bluetooth/Native thermal print if connected
     if (nativeConnected || webConnected) {
 
