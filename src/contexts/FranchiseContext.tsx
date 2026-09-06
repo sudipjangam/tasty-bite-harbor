@@ -90,8 +90,20 @@ interface FranchiseProviderProps {
 
 export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }) => {
   const { user } = useAuth();
-  const [currentBranch, setCurrentBranch] = useState<MockBranch | null>(null);
+  const [currentBranch, setCurrentBranchState] = useState<MockBranch | null>(null);
   const [mockBranches, setMockBranches] = useState<MockBranch[]>(MOCK_BRANCHES);
+
+  const setCurrentBranch = (b: MockBranch | null) => {
+    setCurrentBranchState(b);
+    try {
+      if (b?.id) {
+        localStorage.setItem("active_branch_id", b.id);
+      } else {
+        localStorage.removeItem("active_branch_id");
+      }
+      window.dispatchEvent(new Event("active_branch_changed"));
+    } catch {}
+  };
 
   // Demo mode: persisted in localStorage, defaults to false (Live DB queries)
   const [demoMode, setDemoModeState] = useState<boolean>(() => {
@@ -125,15 +137,20 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
       let activeOrgId = member?.organization_id;
       let activeRole = member?.role as OrgRole || "viewer";
 
-      // Fallback for platform admin or standalone users
+      // Fallback: only platform admin can access organizations without explicit membership
       if (!activeOrgId) {
-        const { data: firstOrg } = await supabase
-          .from("organizations")
-          .select("id")
-          .limit(1)
-          .maybeSingle();
-        activeOrgId = firstOrg?.id;
-        activeRole = "owner";
+        const { data: isPlatformAdmin } = await supabase.rpc("is_platform_admin");
+        if (isPlatformAdmin) {
+          const { data: firstOrg } = await supabase
+            .from("organizations")
+            .select("id")
+            .limit(1)
+            .maybeSingle();
+          activeOrgId = firstOrg?.id;
+          activeRole = "owner";
+        } else {
+          return null;
+        }
       }
 
       if (!activeOrgId) return null;

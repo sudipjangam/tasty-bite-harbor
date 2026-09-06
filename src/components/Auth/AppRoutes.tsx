@@ -520,7 +520,7 @@ export const AppRoutes = () => {
           <Route
             path="/nc-orders"
             element={
-              <PermissionGuard>
+              <PermissionGuard permission="orders.view">
                 <LazyRoute>
                   <NCOrders />
                 </LazyRoute>
