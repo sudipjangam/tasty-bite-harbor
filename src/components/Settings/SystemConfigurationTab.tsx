@@ -5,15 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
 import { useAuth } from '@/hooks/useAuth';
+import { useOnlineDelivery } from '@/hooks/useOnlineDelivery';
 import { 
   Settings, Download, Upload, Database, Shield, 
   Loader2, Check, AlertTriangle, DollarSign, RefreshCw,
-  HardDrive, FileJson, Calendar, Star, Instagram, Save, Smartphone
+  HardDrive, FileJson, Calendar, Star, Instagram, Save, Smartphone, Bike
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -31,6 +33,7 @@ export function SystemConfigurationTab() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { restaurantId } = useRestaurantId();
+  const { isOnlineDeliveryEnabled, toggleOnlineDelivery, isToggling, connectedStores } = useOnlineDelivery();
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [selectedCurrency, setSelectedCurrency] = useState<string>('');
   const [isBackupLoading, setIsBackupLoading] = useState(false);
@@ -261,6 +264,71 @@ export function SystemConfigurationTab() {
 
   return (
     <div className="space-y-6">
+      {/* Online Delivery (Swiggy / Zomato) Configuration */}
+      <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
+        <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-r from-orange-500 to-rose-600 rounded-xl shadow-lg">
+                <Bike className="h-6 w-6 text-white" />
+              </div>
+              Online Delivery (Swiggy / Zomato)
+            </CardTitle>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-gray-500">
+                {isOnlineDeliveryEnabled ? "ENABLED" : "DISABLED"}
+              </span>
+              <Switch
+                checked={isOnlineDeliveryEnabled}
+                disabled={isToggling}
+                onCheckedChange={toggleOnlineDelivery}
+              />
+            </div>
+          </div>
+          <CardDescription className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
+            Control online order relay and 1-Click Quick 86 item cascade. When disabled, Quick 86 is hidden in QSR POS.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div
+              className={`p-5 rounded-2xl border transition-all ${
+                isOnlineDeliveryEnabled
+                  ? "bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800"
+                  : "bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-sm text-gray-800 dark:text-gray-200">
+                  Feature Status
+                </span>
+                <Badge variant={isOnlineDeliveryEnabled ? "default" : "secondary"}>
+                  {isOnlineDeliveryEnabled ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {isOnlineDeliveryEnabled
+                  ? "Quick 86 button and delivery rider tracking are visible in QSR POS."
+                  : "Quick 86 and delivery rider tracking are hidden from QSR POS."}
+              </p>
+            </div>
+            <div className="p-5 rounded-2xl border bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-sm text-gray-800 dark:text-gray-200">
+                  Connected Channels
+                </span>
+                <span className="text-xs font-mono font-bold text-gray-600 dark:text-gray-400">
+                  {connectedStores.length} Connected
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Manage credentials for Swiggy, Zomato, and UrbanPiper in the Online Aggregators Hub.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Currency Configuration */}
       <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
         <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">

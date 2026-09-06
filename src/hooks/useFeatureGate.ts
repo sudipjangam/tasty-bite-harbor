@@ -140,14 +140,19 @@ export const useFeatureGate = (featureKey: string): UseFeatureGateResult => {
   // Fetch plan components
   useEffect(() => {
     const load = async () => {
-      if (!user?.restaurant_id) {
+      const targetRestaurantId =
+        (typeof window !== "undefined"
+          ? localStorage.getItem("active_branch_id")
+          : null) || user?.restaurant_id;
+
+      if (!targetRestaurantId) {
         setPlanComponents([]);
         setLoading(false);
         return;
       }
 
       try {
-        const components = await fetchWithCache(user.restaurant_id);
+        const components = await fetchWithCache(targetRestaurantId);
         setPlanComponents(components);
       } catch (error) {
         console.error('[useFeatureGate] Error loading components:', error);
@@ -160,9 +165,9 @@ export const useFeatureGate = (featureKey: string): UseFeatureGateResult => {
     load();
   }, [user?.restaurant_id, forceUpdate]);
 
-  // Determine if locked
+  // Determine if locked (defaults to locked while loading to prevent premature feature reveal)
   const isLocked = useMemo(() => {
-    if (loading) return false; // Don't lock while loading
+    if (loading) return true;
     if (!featureKey) return false;
     return !hasFeatureAccess(featureKey, planComponents);
   }, [featureKey, planComponents, loading]);

@@ -28,6 +28,7 @@ import OrdersColumn from "@/components/Kitchen/OrdersColumn";
 import { KitchenOrder } from "@/components/Kitchen/KitchenDisplay";
 import { Quick86Modal } from "@/components/Menu/Quick86Modal";
 import { use86Cascade } from "@/hooks/use86Cascade";
+import { useOnlineDelivery } from "@/hooks/useOnlineDelivery";
 import { KitchenVoiceSettings } from "@/components/Kitchen/KitchenVoiceSettings";
 import { KitchenLoadGauge } from "@/components/Kitchen/KitchenLoadGauge";
 import {
@@ -81,6 +82,7 @@ const KitchenTV = () => {
   const [fontSizeClass, setFontSizeClass] = useState<"text-base" | "text-lg" | "text-xl">("text-lg");
   const [show86Modal, setShow86Modal] = useState(false);
   const { unavailableCount } = use86Cascade();
+  const { isOnlineDeliveryEnabled } = useOnlineDelivery();
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
@@ -866,25 +868,27 @@ const KitchenTV = () => {
             {isAudioEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-amber-400" />}
           </Button>
 
-          {/* 1-Click 86 Stock Auto-Kill Button */}
-          <Button
-            variant="outline"
-            onClick={() => setShow86Modal(true)}
-            className={`rounded-xl px-4 py-2 text-xs font-bold transition-all gap-1.5 shadow-sm ${
-              unavailableCount > 0
-                ? "bg-rose-900/80 border-rose-600 text-rose-200 hover:bg-rose-800/80 animate-pulse"
-                : "bg-slate-800 hover:bg-slate-700 text-rose-300 border border-slate-700"
-            }`}
-            title="1-Click 86 Out of Stock Cascade"
-          >
-            <Zap className="w-4 h-4 text-rose-400 fill-rose-400" />
-            <span>86 Items</span>
-            {unavailableCount > 0 && (
-              <span className="px-1.5 py-0.2 text-[10px] bg-rose-600 text-white rounded-full font-extrabold">
-                {unavailableCount}
-              </span>
-            )}
-          </Button>
+          {/* 1-Click 86 Stock Auto-Kill Button (Online Delivery only) */}
+          {isOnlineDeliveryEnabled && (
+            <Button
+              variant="outline"
+              onClick={() => setShow86Modal(true)}
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition-all gap-1.5 shadow-sm ${
+                unavailableCount > 0
+                  ? "bg-rose-900/80 border-rose-600 text-rose-200 hover:bg-rose-800/80 animate-pulse"
+                  : "bg-slate-800 hover:bg-slate-700 text-rose-300 border border-slate-700"
+              }`}
+              title="1-Click 86 Out of Stock Cascade"
+            >
+              <Zap className="w-4 h-4 text-rose-400 fill-rose-400" />
+              <span>86 Items</span>
+              {unavailableCount > 0 && (
+                <span className="px-1.5 py-0.2 text-[10px] bg-rose-600 text-white rounded-full font-extrabold">
+                  {unavailableCount}
+                </span>
+              )}
+            </Button>
+          )}
 
           {/* Fullscreen Button */}
           <Button
@@ -978,10 +982,12 @@ const KitchenTV = () => {
       </div>
 
       {/* 1-Click 86 Stock Auto-Kill Dialog */}
-      <Quick86Modal
-        isOpen={show86Modal}
-        onClose={() => setShow86Modal(false)}
-      />
+      {isOnlineDeliveryEnabled && (
+        <Quick86Modal
+          isOpen={show86Modal}
+          onClose={() => setShow86Modal(false)}
+        />
+      )}
 
       {/* Kitchen Vernacular Voice Settings Dialog */}
       <KitchenVoiceSettings

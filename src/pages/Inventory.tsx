@@ -102,6 +102,7 @@ import { Separator } from "@/components/ui/separator";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { Quick86Modal } from "@/components/Menu/Quick86Modal";
 import { use86Cascade } from "@/hooks/use86Cascade";
+import { useOnlineDelivery } from "@/hooks/useOnlineDelivery";
 
 interface InventoryItem {
   id: string;
@@ -142,6 +143,7 @@ const Inventory = () => {
   } | null>(null);
   const [show86Modal, setShow86Modal] = useState(false);
   const { unavailableCount } = use86Cascade();
+  const { isOnlineDeliveryEnabled } = useOnlineDelivery();
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
 
@@ -989,24 +991,26 @@ const Inventory = () => {
               </div>
 
               <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setShow86Modal(true)}
-                  className={`font-bold px-4 py-3 rounded-2xl transition-all duration-300 gap-1.5 shadow-sm ${
-                    unavailableCount > 0
-                      ? "bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 text-rose-700 dark:text-rose-300 animate-pulse"
-                      : "bg-white dark:bg-gray-800 border-2 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50"
-                  }`}
-                  title="1-Click 86 Out of Stock Cascade"
-                >
-                  <Zap className="h-4 w-4 text-rose-600 dark:text-rose-400 fill-rose-600" />
-                  <span>86 Dish Kill</span>
-                  {unavailableCount > 0 && (
-                    <span className="px-1.5 py-0.2 text-[10px] bg-rose-600 text-white rounded-full font-extrabold">
-                      {unavailableCount}
-                    </span>
-                  )}
-                </Button>
+                {isOnlineDeliveryEnabled && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShow86Modal(true)}
+                    className={`font-bold px-4 py-3 rounded-2xl transition-all duration-300 gap-1.5 shadow-sm ${
+                      unavailableCount > 0
+                        ? "bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 text-rose-700 dark:text-rose-300 animate-pulse"
+                        : "bg-white dark:bg-gray-800 border-2 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50"
+                    }`}
+                    title="1-Click 86 Out of Stock Cascade"
+                  >
+                    <Zap className="h-4 w-4 text-rose-600 dark:text-rose-400 fill-rose-600" />
+                    <span>86 Dish Kill</span>
+                    {unavailableCount > 0 && (
+                      <span className="px-1.5 py-0.2 text-[10px] bg-rose-600 text-white rounded-full font-extrabold">
+                        {unavailableCount}
+                      </span>
+                    )}
+                  </Button>
+                )}
 
                 <Button
                   onClick={() => {
@@ -2179,10 +2183,12 @@ const Inventory = () => {
       )}
 
       {/* 1-Click 86 Stock Auto-Kill Dialog */}
-      <Quick86Modal
-        isOpen={show86Modal}
-        onClose={() => setShow86Modal(false)}
-      />
+      {isOnlineDeliveryEnabled && (
+        <Quick86Modal
+          isOpen={show86Modal}
+          onClose={() => setShow86Modal(false)}
+        />
+      )}
     </div>
   );
 };
