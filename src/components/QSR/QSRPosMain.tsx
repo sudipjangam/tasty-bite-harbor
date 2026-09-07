@@ -145,8 +145,9 @@ export const QSRPosMain: React.FC = () => {
   // Quick 86 is ONLY shown if online delivery feature (Swiggy / Zomato) is enabled for this restaurant
   const [show86Modal, setShow86Modal] = useState(false);
   const { unavailableCount } = use86Cascade();
+  const { isLocked: is86LiveLocked } = useFeatureGate("aggregators.live_86");
   const { isLocked: is86MenuSyncLocked } = useFeatureGate("aggregators.menu_sync");
-  const canShow86Button = isOnlineDeliveryEnabled && !is86MenuSyncLocked;
+  const canShow86Button = isOnlineDeliveryEnabled && (!is86LiveLocked || !is86MenuSyncLocked);
 
   // Hooks
   const { restaurantId, restaurantName } = useRestaurantId();

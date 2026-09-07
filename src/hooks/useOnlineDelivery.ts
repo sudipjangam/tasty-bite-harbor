@@ -35,6 +35,7 @@ export const useOnlineDelivery = (): UseOnlineDeliveryResult => {
   const { isLocked: isLive86Locked, loading: isLive86Loading } = useFeatureGate("aggregators.live_86");
   const { isLocked: isSwiggyLocked, loading: isSwiggyLoading } = useFeatureGate("aggregators.swiggy");
   const { isLocked: isZomatoLocked, loading: isZomatoLoading } = useFeatureGate("aggregators.zomato");
+  const isGateLoading = isViewLoading || isMenuSyncLoading || isLive86Loading || isSwiggyLoading || isZomatoLoading;
 
   // 2. Realtime listener on aggregator stores and restaurant settings
   useRealtimeSubscription({
@@ -119,7 +120,7 @@ export const useOnlineDelivery = (): UseOnlineDeliveryResult => {
 
   // 6. Whether any aggregator / 86 delivery feature is granted by the plan (from Feature Permissions screen)
   const isPlanFeatureEnabled = useMemo(() => {
-    if (isViewLoading || isMenuSyncLoading || isLive86Loading || isSwiggyLoading || isZomatoLoading) {
+    if (isGateLoading) {
       return false;
     }
     return (
@@ -130,11 +131,7 @@ export const useOnlineDelivery = (): UseOnlineDeliveryResult => {
       !isAggregatorsViewLocked
     );
   }, [
-    isViewLoading,
-    isMenuSyncLoading,
-    isLive86Loading,
-    isSwiggyLoading,
-    isZomatoLoading,
+    isGateLoading,
     isLive86Locked,
     isMenuSyncLocked,
     isSwiggyLocked,
@@ -147,14 +144,12 @@ export const useOnlineDelivery = (): UseOnlineDeliveryResult => {
   // OR if a connected store exists OR if explicitly enabled in restaurant settings.
   // When 0/13 are checked (as in the Feature Permissions screenshot), it evaluates to FALSE and does not show.
   const isOnlineDeliveryEnabled = useMemo(() => {
-    if (isViewLoading || isMenuSyncLoading || isLive86Loading || isLoadingStores || isLoadingSettings) {
+    if (isGateLoading || isLoadingStores || isLoadingSettings) {
       return false;
     }
     return isPlanFeatureEnabled || hasConnectedStore || isExplicitlyEnabledInSettings;
   }, [
-    isViewLoading,
-    isMenuSyncLoading,
-    isLive86Loading,
+    isGateLoading,
     isLoadingStores,
     isLoadingSettings,
     isPlanFeatureEnabled,
