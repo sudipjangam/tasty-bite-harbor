@@ -1,12 +1,21 @@
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { LazyImage } from "@/components/ui/lazy-image";
+
+interface MenuItemVariant {
+  id: string;
+  menu_item_id: string;
+  name: string;
+  price: number;
+  is_available?: boolean;
+  sort_order?: number;
+}
 
 interface MenuItem {
   id: string;
@@ -32,7 +41,38 @@ const MenuItemsGrid = ({
   onSelectItem,
 }: MenuItemsGridProps) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [variantPickerItem, setVariantPickerItem] = useState<MenuItem | null>(null);
   const { symbol: currencySymbol } = useCurrencyContext();
+
+  // Fetch all variants for this restaurant
+  const { data: variantsMap = {} } = useQuery({
+    queryKey: ["menu-item-variants"],
+    queryFn: async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("restaurant_id")
+        .eq("id", (await supabase.auth.getUser()).data.user?.id)
+        .maybeSingle();
+
+      if (!profile?.restaurant_id) return {};
+
+      const { data, error } = await supabase
+        .from("menu_item_variants")
+        .select("*")
+        .eq("restaurant_id", profile.restaurant_id)
+        .eq("is_available", true)
+        .order("sort_order");
+
+      if (error) throw error;
+
+      const map: Record<string, MenuItemVariant[]> = {};
+      data?.forEach((v: any) => {
+        if (!map[v.menu_item_id]) map[v.menu_item_id] = [];
+        map[v.menu_item_id].push(v);
+      });
+      return map;
+    },
+  });
 
   const { data: items, isLoading } = useQuery({
     queryKey: ["menu-items", selectedCategory],
@@ -66,6 +106,26 @@ const MenuItemsGrid = ({
     },
     enabled: !!selectedCategory,
   });
+
+  const handleCardClick = (item: MenuItem) => {
+    const itemVariants = variantsMap[item.id];
+    if (itemVariants && itemVariants.length > 0) {
+      setVariantPickerItem(item);
+    } else {
+      onSelectItem(item);
+    }
+  };
+
+  const handleVariantSelect = (variant: MenuItemVariant) => {
+    if (!variantPickerItem) return;
+    onSelectItem({
+      ...variantPickerItem,
+      id: `${variantPickerItem.id}__${variant.id}`,
+      name: `${variantPickerItem.name} (${variant.name})`,
+      price: variant.price,
+    });
+    setVariantPickerItem(null);
+  };
 
   // Filter items based on search query
   const filteredItems = items?.filter(
@@ -146,7 +206,7 @@ const MenuItemsGrid = ({
                     ? "border-blue-200 dark:border-blue-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20"
                     : "border-gray-100 dark:border-gray-700 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900"
                 }`}
-                onClick={() => onSelectItem(item)}
+                onClick={() => handleCardClick(item)}
               >
                 {/* Quick Add Button - Appears on hover */}
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
@@ -215,6 +275,15 @@ const MenuItemsGrid = ({
                   </span>
                 </div>
 
+                {/* Variant Sizes Available Badge */}
+                {variantsMap[item.id] && variantsMap[item.id].length > 0 && (
+                  <div className="text-center mt-1">
+                    <span className="inline-block text-[10px] font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-800">
+                      🏷️ {variantsMap[item.id].length} Sizes
+                    </span>
+                  </div>
+                )}
+
                 {/* Weight/Volume Badge */}
                 {isWeightBased && (
                   <div className="text-center mt-1">
@@ -230,6 +299,71 @@ const MenuItemsGrid = ({
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Variant Selection Modal / Bottom Sheet */}
+      {variantPickerItem && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+          onClick={() => setVariantPickerItem(null)}
+        >
+          <div
+            className="bg-white dark:bg-gray-900 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl border border-gray-100 dark:border-gray-800 animate-in slide-in-from-bottom-5 sm:slide-in-from-bottom-2 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Handle bar for mobile */}
+            <div className="flex justify-center mb-3 sm:hidden">
+              <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-100 dark:border-gray-800">
+              <div>
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                  {variantPickerItem.name}
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Choose a size / variant
+                </p>
+              </div>
+              <button
+                onClick={() => setVariantPickerItem(null)}
+                className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Variant Options */}
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+              {variantsMap[variantPickerItem.id]?.map((variant) => (
+                <button
+                  key={variant.id}
+                  onClick={() => handleVariantSelect(variant)}
+                  className="w-full flex items-center justify-between p-3.5 rounded-2xl border-2 border-gray-100 dark:border-white/10 hover:border-indigo-400 dark:hover:border-indigo-500/50 bg-white/80 dark:bg-white/5 hover:bg-gradient-to-r hover:from-indigo-50/80 hover:to-purple-50/50 dark:hover:from-indigo-500/10 dark:hover:to-purple-500/5 transition-all active:scale-[0.98]"
+                >
+                  <span className="text-sm font-semibold text-gray-800 dark:text-white/90">
+                    {variant.name}
+                  </span>
+                  <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+                    {currencySymbol}{variant.price.toFixed(0)}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Regular Base Item Option */}
+            <button
+              onClick={() => {
+                onSelectItem(variantPickerItem);
+                setVariantPickerItem(null);
+              }}
+              className="w-full mt-3 p-3 rounded-2xl border-2 border-dashed border-gray-200 dark:border-white/10 text-center text-xs font-semibold text-gray-500 dark:text-white/40 hover:bg-gray-50 dark:hover:bg-white/5 transition-all"
+            >
+              Regular Base — {currencySymbol}{variantPickerItem.price.toFixed(0)}
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -157,8 +157,9 @@ export const hasFeatureAccess = (featureKey: string, planFeatures: string[]): bo
 
   // 3. Legacy flat-key fallback (e.g. if DB has 'reports' instead of 'reports.*')
   // This ensures live users aren't locked out before the migration script runs.
+  // Note: 'aggregators' features are strictly granular-gated (Swiggy, Zomato, Universal 86, etc.)
   const rootKey = segments[0];
-  if (normalizedPlan.includes(rootKey)) return true;
+  if (rootKey !== 'aggregators' && normalizedPlan.includes(rootKey)) return true;
 
   // 4. Reverse-wildcard: root key "suppliers" matches "suppliers.basic" in plan
   // This prevents lockouts when FeatureLock uses a bare root key

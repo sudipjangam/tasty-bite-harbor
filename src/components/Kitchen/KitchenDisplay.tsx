@@ -119,8 +119,9 @@ const KitchenDisplay = () => {
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const { unavailableCount } = use86Cascade();
   const { isOnlineDeliveryEnabled } = useOnlineDelivery();
+  const { isLocked: is86LiveLocked } = useFeatureGate("aggregators.live_86");
   const { isLocked: is86MenuSyncLocked } = useFeatureGate("aggregators.menu_sync");
-  const canShow86Button = isOnlineDeliveryEnabled && !is86MenuSyncLocked;
+  const canShow86Button = isOnlineDeliveryEnabled && (!is86LiveLocked || !is86MenuSyncLocked);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
