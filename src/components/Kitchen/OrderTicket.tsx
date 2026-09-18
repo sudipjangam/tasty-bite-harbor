@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatDistanceToNow, differenceInMinutes } from "date-fns";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import {
@@ -94,13 +94,45 @@ const OrderTicket = ({
     onUpdateItems(order.id, newItems, newCompletionStatus);
   };
 
+  // Live ticking timer for precise second-by-second aging
+  const [now, setNow] = useState<Date>(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const createdTime = new Date(order.created_at).getTime();
+  const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - createdTime) / 1000));
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  const remainingSeconds = elapsedSeconds % 60;
+  const formattedTimer = `${String(elapsedMinutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+
+  const isCriticalAging = order.status !== "ready" && elapsedMinutes >= 20;
+  const isWarningAging = order.status !== "ready" && elapsedMinutes >= 10 && elapsedMinutes < 20;
+  const isFreshAging = order.status !== "ready" && elapsedMinutes < 10;
+
   const orderAge = formatDistanceToNow(new Date(order.created_at), {
     addSuffix: true,
   });
   const minutesSinceCreation = differenceInMinutes(
-    new Date(),
+    now,
     new Date(order.created_at),
   );
+
+  const handleCompleteAll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!order.items || order.items.length === 0) return;
+    if (onUpdateItems) {
+      const allTrue = new Array(order.items.length).fill(true);
+      onUpdateItems(order.id, order.items, allTrue);
+    } else {
+      order.items.forEach((_, idx) => {
+        if (!completedItems.has(idx)) {
+          onItemComplete(order.id, idx, true);
+        }
+      });
+    }
+  };
 
   const getNextStatus = (): KitchenOrder["status"] => {
     switch (order.status) {
@@ -117,24 +149,32 @@ const OrderTicket = ({
     switch (order.status) {
       case "new":
         return {
-          border: isLate
-            ? "border-l-4 border-red-500"
-            : "border-l-4 border-amber-500",
-          statusBadge: isLate
-            ? "bg-gradient-to-r from-red-500 to-rose-500 text-white"
-            : "bg-gradient-to-r from-amber-500 to-orange-500 text-white",
+          border: isCriticalAging
+            ? "border-l-4 border-rose-600"
+            : isWarningAging
+              ? "border-l-4 border-amber-500"
+              : "border-l-4 border-emerald-500",
+          statusBadge: isCriticalAging
+            ? "bg-gradient-to-r from-rose-600 to-red-600 text-white"
+            : isWarningAging
+              ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
+              : "bg-gradient-to-r from-emerald-500 to-teal-600 text-white",
           button:
             "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white",
           icon: <Play className="w-4 h-4" />,
         };
       case "preparing":
         return {
-          border: isLate
-            ? "border-l-4 border-red-500"
-            : "border-l-4 border-blue-500",
-          statusBadge: isLate
-            ? "bg-gradient-to-r from-red-500 to-rose-500 text-white"
-            : "bg-gradient-to-r from-blue-500 to-indigo-600 text-white",
+          border: isCriticalAging
+            ? "border-l-4 border-rose-600"
+            : isWarningAging
+              ? "border-l-4 border-amber-500"
+              : "border-l-4 border-blue-500",
+          statusBadge: isCriticalAging
+            ? "bg-gradient-to-r from-rose-600 to-red-600 text-white"
+            : isWarningAging
+              ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
+              : "bg-gradient-to-r from-blue-500 to-indigo-600 text-white",
           button:
             "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white",
           icon: <CheckCircle2 className="w-4 h-4" />,
@@ -211,7 +251,13 @@ const OrderTicket = ({
 
   return (
     <Card
-      className={`${styles.border} hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl overflow-hidden`}
+      className={`${styles.border} ${
+        isCriticalAging
+          ? "ring-2 ring-rose-500 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] bg-rose-50/70 dark:bg-rose-950/40 shadow-rose-500/25 shadow-xl"
+          : isWarningAging
+            ? "ring-1 ring-amber-400 bg-amber-50/40 dark:bg-amber-950/20 shadow-amber-500/10 shadow-lg"
+            : "bg-white/90 dark:bg-gray-800/90"
+      } hover:shadow-xl transition-all duration-300 hover:-translate-y-1 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-2xl overflow-hidden`}
     >
       <div className="p-4 sm:p-5">
         {/* Order Header */}
@@ -219,10 +265,20 @@ const OrderTicket = ({
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap mb-2">
               {getPriorityBadge()}
-              {isLate && (
-                <Badge className="bg-red-500 text-white font-bold animate-pulse">
-                  <AlertTriangle className="w-3 h-3 mr-1" />
-                  LATE
+              {isCriticalAging ? (
+                <Badge className="bg-gradient-to-r from-rose-600 to-red-600 text-white font-extrabold shadow-md animate-bounce flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  🔥 DELAYED ({formattedTimer})
+                </Badge>
+              ) : isWarningAging ? (
+                <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold shadow flex items-center gap-1">
+                  <Timer className="w-3 h-3" />
+                  ⚠️ WARNING ({formattedTimer})
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-semibold flex items-center gap-1">
+                  <Timer className="w-3 h-3 text-emerald-600" />
+                  {formattedTimer}
                 </Badge>
               )}
               {order.items.some((item: any) => item.is_addition) && (
@@ -266,19 +322,33 @@ const OrderTicket = ({
             <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 gap-4 mt-2">
               <div
                 className={`flex items-center gap-1 ${
-                  isLate ? "text-red-500 dark:text-red-400 font-semibold" : ""
+                  isCriticalAging
+                    ? "text-rose-600 dark:text-rose-400 font-bold"
+                    : isWarningAging
+                      ? "text-amber-600 dark:text-amber-400 font-semibold"
+                      : "text-gray-500 dark:text-gray-400"
                 }`}
               >
                 <Timer className="w-4 h-4" />
                 <span>{orderAge}</span>
-                {minutesSinceCreation > 0 && (
-                  <span className="text-xs">({minutesSinceCreation}m)</span>
-                )}
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
                 <span>
                   {completedItems.size}/{order.items.length} items
                 </span>
+                {order.items.length > 0 && completedItems.size < order.items.length && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCompleteAll}
+                    className="h-6 px-2 text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-md border border-emerald-200 dark:border-emerald-800/40"
+                    title="Mark all items completed"
+                  >
+                    <Check className="w-3.5 h-3.5 mr-1" />
+                    All Done
+                  </Button>
+                )}
               </div>
             </div>
 

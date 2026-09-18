@@ -26,6 +26,7 @@ import {
   Sparkles,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { useKitchenSounds, SUPPORTED_LANGUAGES } from "@/hooks/useKitchenSounds";
 
@@ -41,6 +42,7 @@ export const KitchenVoiceSettings: React.FC<KitchenVoiceSettingsProps> = ({
   const {
     isAudioEnabled,
     isVoiceEnabled,
+    isOverdueAlertEnabled,
     selectedLanguage,
     voiceRate,
     detectedVoiceName,
@@ -49,6 +51,7 @@ export const KitchenVoiceSettings: React.FC<KitchenVoiceSettingsProps> = ({
     setLanguage,
     setVoiceEnabled,
     setVoiceRate,
+    setOverdueAlertEnabled,
     testVoice,
   } = useKitchenSounds();
 
@@ -137,6 +140,35 @@ export const KitchenVoiceSettings: React.FC<KitchenVoiceSettingsProps> = ({
               <Switch
                 checked={isVoiceEnabled}
                 onCheckedChange={(checked) => setVoiceEnabled(checked)}
+                disabled={!isAudioEnabled}
+              />
+            </div>
+
+            <div className="h-px bg-gray-200 dark:bg-gray-700" />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`p-2 rounded-xl ${
+                    isOverdueAlertEnabled
+                      ? "bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-300"
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-400"
+                  }`}
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900 dark:text-white">
+                    Overdue Order Siren
+                  </h4>
+                  <p className="text-[10px] text-gray-400">
+                    Periodic audible alarm for orders delayed &gt;20 min
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={isOverdueAlertEnabled}
+                onCheckedChange={(checked) => setOverdueAlertEnabled(checked)}
                 disabled={!isAudioEnabled}
               />
             </div>

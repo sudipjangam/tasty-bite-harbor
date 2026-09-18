@@ -4,6 +4,7 @@ const AUDIO_ENABLED_KEY = "kds_audio_enabled";
 const VOICE_ENABLED_KEY = "kds_voice_enabled";
 const VOICE_LANG_KEY = "kds_voice_language";
 const VOICE_RATE_KEY = "kds_voice_rate";
+const OVERDUE_ALERT_KEY = "kds_overdue_alert_enabled";
 
 export interface LanguageOption {
   code: string;
@@ -166,6 +167,11 @@ export const useKitchenSounds = () => {
     return saved ? parseFloat(saved) : 0.95;
   });
 
+  const [isOverdueAlertEnabled, setIsOverdueAlertEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem(OVERDUE_ALERT_KEY);
+    return saved === null ? true : saved === "true";
+  });
+
   // Refs for latest values inside async speech queue (prevents stale closures)
   const voiceRateRef = useRef(voiceRate);
   const selectedLanguageRef = useRef(selectedLanguage);
@@ -251,10 +257,17 @@ export const useKitchenSounds = () => {
     localStorage.setItem(VOICE_RATE_KEY, rate.toString());
   }, []);
 
+  const setOverdueAlertEnabledState = useCallback((enabled: boolean) => {
+    setIsOverdueAlertEnabled(enabled);
+    localStorage.setItem(OVERDUE_ALERT_KEY, enabled ? "true" : "false");
+    window.dispatchEvent(new Event("kds_audio_changed"));
+  }, []);
+
   useEffect(() => {
     const handleStorageChange = () => {
       setIsAudioEnabled(localStorage.getItem(AUDIO_ENABLED_KEY) === "true");
       setIsVoiceEnabled(localStorage.getItem(VOICE_ENABLED_KEY) !== "false");
+      setIsOverdueAlertEnabled(localStorage.getItem(OVERDUE_ALERT_KEY) !== "false");
       setSelectedLanguage(localStorage.getItem(VOICE_LANG_KEY) || "mr");
     };
     window.addEventListener("storage", handleStorageChange);
@@ -315,6 +328,14 @@ export const useKitchenSounds = () => {
 
   const playReadyChime = useCallback(() => {
     playTone([587.33, 880], 0.35, "sine", 0.1);
+  }, [playTone]);
+
+  const playOverdueAlert = useCallback(() => {
+    const enabled = localStorage.getItem(AUDIO_ENABLED_KEY) === "true";
+    const overdueEnabled = localStorage.getItem(OVERDUE_ALERT_KEY) !== "false";
+    if (!enabled || !overdueEnabled) return;
+    // Acoustic siren: 3-tone urgency chime (sawtooth wave for cut-through noise)
+    playTone([784, 659.25, 880], 0.22, "sawtooth", 0.08);
   }, [playTone]);
 
   // Smart Voice Finder — cross-browser (Chrome Google, Edge Microsoft, Brave SAPI)
@@ -524,6 +545,7 @@ export const useKitchenSounds = () => {
   return {
     isAudioEnabled,
     isVoiceEnabled,
+    isOverdueAlertEnabled,
     selectedLanguage,
     voiceRate,
     detectedVoiceName,
@@ -533,10 +555,12 @@ export const useKitchenSounds = () => {
     setLanguage,
     setVoiceEnabled: setVoiceEnabledState,
     setVoiceRate: setSpeechRateState,
+    setOverdueAlertEnabled: setOverdueAlertEnabledState,
     playNewOrder,
     playModified,
     playRushOrder,
     playReadyChime,
+    playOverdueAlert,
     speakText,
     speakOrder,
     testVoice,

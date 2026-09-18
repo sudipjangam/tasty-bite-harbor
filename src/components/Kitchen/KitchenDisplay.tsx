@@ -14,6 +14,8 @@ import {
   List,
   Tv,
   Zap,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HelpProvider from "@/components/Help/HelpProvider";
@@ -96,14 +98,17 @@ const KitchenDisplay = () => {
   const {
     isAudioEnabled,
     isVoiceEnabled,
+    isOverdueAlertEnabled,
     selectedLanguage,
     setLanguage,
     enableAudio,
     disableAudio,
+    setOverdueAlertEnabled,
     playNewOrder,
     playModified,
     playRushOrder,
     playReadyChime,
+    playOverdueAlert,
     speakOrder,
   } = useKitchenSounds();
   const [dateFilter, setDateFilter] = useState("today");
@@ -900,6 +905,25 @@ const KitchenDisplay = () => {
   const readyOrders = filterOrdersByStatus("ready").length;
   const lateOrders = orders.filter(isOrderLate).length;
 
+  // Periodic audio alert for delayed / overdue orders (>20 min) with mute support
+  useEffect(() => {
+    if (!isAudioEnabled || !isOverdueAlertEnabled) return;
+
+    const overdueCheckInterval = setInterval(() => {
+      const hasOverdueOrders = orders.some((order) => {
+        if (order.status === "ready" || order.bumped_at) return false;
+        const mins = differenceInMinutes(new Date(), new Date(order.created_at));
+        return mins >= 20;
+      });
+
+      if (hasOverdueOrders) {
+        playOverdueAlert();
+      }
+    }, 180000); // Check every 3 minutes
+
+    return () => clearInterval(overdueCheckInterval);
+  }, [orders, isAudioEnabled, isOverdueAlertEnabled, playOverdueAlert]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 p-3 sm:p-6 pb-28 sm:pb-8">
       {isMobile ? (
@@ -938,6 +962,21 @@ const KitchenDisplay = () => {
                 title={isAudioEnabled ? "Mute kitchen alerts" : "Enable kitchen audio alerts"}
               >
                 {isAudioEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setOverdueAlertEnabled(!isOverdueAlertEnabled)}
+                disabled={!isAudioEnabled}
+                className={`h-8 w-8 rounded-lg transition-all ${
+                  isAudioEnabled && isOverdueAlertEnabled
+                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-400"
+                }`}
+                title={isOverdueAlertEnabled ? "Mute overdue order siren" : "Enable overdue order siren"}
+              >
+                {isAudioEnabled && isOverdueAlertEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
               </Button>
 
               <Button
@@ -1253,6 +1292,21 @@ const KitchenDisplay = () => {
                   title={isAudioEnabled ? "Mute Audio Chimes" : "Enable Audio Chimes"}
                 >
                   {isAudioEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setOverdueAlertEnabled(!isOverdueAlertEnabled)}
+                  disabled={!isAudioEnabled}
+                  className={`h-7 w-7 rounded-lg transition-all ${
+                    isAudioEnabled && isOverdueAlertEnabled
+                      ? "text-amber-600 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-900/50"
+                      : "text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                  title={isOverdueAlertEnabled ? "Mute Overdue Siren" : "Enable Overdue Siren"}
+                >
+                  {isAudioEnabled && isOverdueAlertEnabled ? <Bell className="h-3.5 w-3.5" /> : <BellOff className="h-3.5 w-3.5" />}
                 </Button>
 
                 <Button
