@@ -852,8 +852,8 @@ const Inventory = () => {
                 <Package className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <h1 className="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">
-                  Inventory Management
+                <h1 className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                  Inventory
                 </h1>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
                   {restaurantName || "Stock & Cost Management"}
