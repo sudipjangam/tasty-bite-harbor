@@ -5,7 +5,16 @@ import {
 } from "@/data/franchiseMockData";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Search, Filter, Eye } from "lucide-react";
+import { ShoppingCart, Search, Filter, Eye, ChevronLeft, ChevronRight, Hash, User, Calendar, CreditCard, Building2, Utensils } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const statusConfig: Record<
   MockOrder["status"],
@@ -39,10 +48,13 @@ const statusConfig: Record<
 };
 
 const CrossBranchOrders: React.FC = () => {
-  const { currentBranch, allBranches, orders, formatCurrency } = useFranchise();
+  const { currentBranch, allBranches, orders, formatCurrency, dateRange, currentBranchLabel, isAllBranches } = useFranchise();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<MockOrder["status"] | "all">("all");
   const [branchFilter, setBranchFilter] = useState("all");
+  const [selectedOrder, setSelectedOrder] = useState<MockOrder | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
 
   const filtered = orders.filter((o) => {
     const matchBranch = currentBranch
@@ -55,6 +67,9 @@ const CrossBranchOrders: React.FC = () => {
       o.orderNumber.toLowerCase().includes(search.toLowerCase());
     return matchBranch && matchStatus && matchSearch;
   });
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginatedOrders = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   // Mini stats
   const total = filtered.length;
@@ -74,7 +89,9 @@ const CrossBranchOrders: React.FC = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Cross-Branch Orders</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Today · All branches</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          {isAllBranches ? "All branches" : currentBranchLabel} · {dateRange === "today" ? "Today" : dateRange === "7d" ? "Last 7 Days" : dateRange === "90d" ? "Last 90 Days" : "Last 30 Days"}
+        </p>
       </div>
 
       {/* Mini stats */}
@@ -148,7 +165,7 @@ const CrossBranchOrders: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {filtered.map((order) => {
+              {paginatedOrders.map((order) => {
                 const sc = statusConfig[order.status];
                 return (
                   <tr
@@ -189,7 +206,11 @@ const CrossBranchOrders: React.FC = () => {
                       {order.time}
                     </td>
                     <td className="px-4 py-3.5 text-right">
-                      <button className="text-gray-400 hover:text-violet-600 transition-colors">
+                      <button
+                        onClick={() => setSelectedOrder(order)}
+                        className="text-gray-400 hover:text-violet-600 transition-colors p-1 rounded-md hover:bg-violet-50 dark:hover:bg-violet-950/30"
+                        title="View Order Details"
+                      >
                         <Eye className="h-4 w-4" />
                       </button>
                     </td>
@@ -207,10 +228,118 @@ const CrossBranchOrders: React.FC = () => {
           </div>
         )}
 
-        <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500">
-          Showing {filtered.length} of {orders.length} orders
+        {/* Pagination & footer */}
+        <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <div>
+            Showing {filtered.length > 0 ? (page - 1) * pageSize + 1 : 0} to{" "}
+            {Math.min(page * pageSize, filtered.length)} of {filtered.length} orders
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs gap-1"
+                disabled={page === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Prev
+              </Button>
+              <span className="px-2 font-medium">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs gap-1"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* ─── ORDER DETAILS DIALOG ─── */}
+      <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+        <DialogContent className="max-w-md p-6 rounded-2xl bg-white dark:bg-gray-900">
+          {selectedOrder && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center justify-between">
+                  <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                    <Hash className="h-4 w-4 text-violet-600" />
+                    Order Details {selectedOrder.orderNumber}
+                  </DialogTitle>
+                  <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-semibold", statusConfig[selectedOrder.status].className)}>
+                    {statusConfig[selectedOrder.status].label}
+                  </span>
+                </div>
+                <DialogDescription className="text-xs text-gray-500 mt-1">
+                  Placed at {selectedOrder.time} · {selectedOrder.date}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 my-3 text-sm">
+                <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800">
+                  <div>
+                    <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                      <Building2 className="h-3 w-3" /> Branch
+                    </span>
+                    <p className="font-semibold text-gray-900 dark:text-white mt-0.5">
+                      {selectedOrder.branchName}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                      <User className="h-3 w-3" /> Customer
+                    </span>
+                    <p className="font-semibold text-gray-900 dark:text-white mt-0.5">
+                      {selectedOrder.customer}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                      <CreditCard className="h-3 w-3" /> Payment Method
+                    </span>
+                    <p className="font-semibold text-gray-900 dark:text-white mt-0.5 uppercase text-xs">
+                      {selectedOrder.paymentMethod}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-400">Total Bill</span>
+                    <p className="font-bold text-violet-600 dark:text-violet-400 text-base mt-0.5">
+                      {formatCurrency(selectedOrder.amount)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                    <Utensils className="h-3.5 w-3.5" /> Order Items
+                  </h4>
+                  <div className="p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/40 text-xs leading-relaxed font-mono text-gray-700 dark:text-gray-300">
+                    {selectedOrder.items}
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedOrder(null)}
+                  className="w-full rounded-xl"
+                >
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

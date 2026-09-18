@@ -18,6 +18,7 @@ interface ApprovalRequest {
   resolvedBy?: string;
   resolvedComment?: string;
   resolvedAt?: string;
+  payload?: any;
 }
 
 const INITIAL_REQUESTS: ApprovalRequest[] = [
@@ -81,6 +82,7 @@ const ApprovalsWorkflow: React.FC = () => {
     }
 
     const fetchRequests = async () => {
+      if (!org?.id) return;
       setLoading(true);
       try {
         const { data, error } = await supabase
@@ -91,8 +93,23 @@ const ApprovalsWorkflow: React.FC = () => {
 
         if (error) throw error;
 
+        // Fetch real names for approver profiles
+        const approverIds = Array.from(new Set((data || []).map((r: any) => r.approver_id).filter(Boolean)));
+        const approverMap: Record<string, string> = {};
+        if (approverIds.length > 0) {
+          const { data: profs } = await supabase
+            .from("profiles")
+            .select("id, first_name, last_name, email")
+            .in("id", approverIds);
+          (profs || []).forEach((p: any) => {
+            const fullName = `${p.first_name || ""} ${p.last_name || ""}`.trim();
+            approverMap[p.id] = fullName || p.email || "Owner / Manager";
+          });
+        }
+
         const mapped: ApprovalRequest[] = (data || []).map((r: any) => {
           const branch = allBranches.find((b) => b.id === r.restaurant_id);
+          const approverName = r.approver_id ? (approverMap[r.approver_id] || "Owner") : undefined;
           return {
             id: r.id,
             branchId: r.restaurant_id,
@@ -102,9 +119,10 @@ const ApprovalsWorkflow: React.FC = () => {
             bmComment: r.bm_comment || "",
             timestamp: new Date(r.created_at).toLocaleString(),
             status: r.status === "pending" ? "Pending" : r.status === "approved" ? "Approved" : "Rejected",
-            resolvedBy: r.resolved_at ? "Owner" : undefined,
+            resolvedBy: r.resolved_at ? (approverName || "Owner") : undefined,
             resolvedComment: r.resolver_comment || undefined,
             resolvedAt: r.resolved_at ? new Date(r.resolved_at).toLocaleString() : undefined,
+            payload: r.payload,
           };
         });
 
@@ -176,6 +194,31 @@ const ApprovalsWorkflow: React.FC = () => {
 
       if (error) throw error;
 
+      // Automated execution hook: Apply price limit override to target branch menu item if item_id exists
+      if (actionType === "Approve" && reviewingReq.type === "Price Limit Override") {
+        const p = reviewingReq.payload || {};
+        if (p.item_id) {
+          await supabase.from("menu_items").update({
+            price: p.new_price !== undefined ? Number(p.new_price) : undefined,
+            max_price_override: p.new_max_price !== undefined ? Number(p.new_max_price) : undefined,
+            min_price_override: p.new_min_price !== undefined ? Number(p.new_min_price) : undefined,
+          }).eq("id", p.item_id);
+        }
+      }
+
+      // Fetch current approver profile name
+      let approverDisplayName = "Owner";
+      if (approverId) {
+        const { data: myProf } = await supabase
+          .from("profiles")
+          .select("first_name, last_name, email")
+          .eq("id", approverId)
+          .maybeSingle();
+        if (myProf) {
+          approverDisplayName = `${myProf.first_name || ""} ${myProf.last_name || ""}`.trim() || myProf.email || "Owner";
+        }
+      }
+
       toast({
         title: `Request ${actionType}d`,
         description: `Request for ${reviewingReq.branchName} has been successfully ${actionType.toLowerCase()}d.`,
@@ -187,7 +230,7 @@ const ApprovalsWorkflow: React.FC = () => {
             return {
               ...r,
               status: actionType === "Approve" ? "Approved" : "Rejected",
-              resolvedBy: "Owner",
+              resolvedBy: approverDisplayName,
               resolvedComment: resolverComment,
               resolvedAt: new Date().toLocaleString(),
             };

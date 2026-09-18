@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
-import { Users, Search, Award, Star, Gift, Save } from "lucide-react";
+import { Users, Search, Award, Star, Gift, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const tierConfig = {
   Silver: { className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
@@ -12,7 +13,7 @@ const tierConfig = {
 };
 
 const CrossBranchCustomers: React.FC = () => {
-  const { customers, allBranches } = useFranchise();
+  const { customers, allBranches, org, demoMode, refetch } = useFranchise();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"customers" | "loyalty">("customers");
   const [search, setSearch] = useState("");
@@ -26,6 +27,28 @@ const CrossBranchCustomers: React.FC = () => {
   const [platMin, setPlatMin] = useState(800);
   const [platDiscount, setPlatDiscount] = useState(15);
   const [savingLoyalty, setSavingLoyalty] = useState(false);
+
+  // Load existing loyalty configuration from org settings
+  useEffect(() => {
+    if (demoMode || !org?.id) return;
+    const loadOrgSettings = async () => {
+      const { data } = await supabase
+        .from("organizations")
+        .select("settings")
+        .eq("id", org.id)
+        .maybeSingle();
+
+      const loyalty = (data?.settings as any)?.loyalty_program;
+      if (loyalty) {
+        if (typeof loyalty.points_rate === "number") setPointsRate(loyalty.points_rate);
+        if (typeof loyalty.gold_min === "number") setGoldMin(loyalty.gold_min);
+        if (typeof loyalty.gold_discount === "number") setGoldDiscount(loyalty.gold_discount);
+        if (typeof loyalty.plat_min === "number") setPlatMin(loyalty.plat_min);
+        if (typeof loyalty.plat_discount === "number") setPlatDiscount(loyalty.plat_discount);
+      }
+    };
+    loadOrgSettings();
+  }, [org?.id, demoMode]);
 
   const filtered = customers.filter((c) => {
     const matchesSearch =
@@ -42,16 +65,56 @@ const CrossBranchCustomers: React.FC = () => {
     return matchesSearch && matchesTier && matchesBranch;
   });
 
-  const handleSaveLoyalty = (e: React.FormEvent) => {
+  const handleSaveLoyalty = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingLoyalty(true);
-    setTimeout(() => {
-      setSavingLoyalty(false);
+    try {
+      if (!demoMode && org?.id) {
+        const { data: existing } = await supabase
+          .from("organizations")
+          .select("settings")
+          .eq("id", org.id)
+          .maybeSingle();
+
+        const currentSettings = existing?.settings && typeof existing.settings === "object"
+          ? (existing.settings as Record<string, any>)
+          : {};
+
+        const updatedSettings = {
+          ...currentSettings,
+          loyalty_program: {
+            points_rate: pointsRate,
+            gold_min: goldMin,
+            gold_discount: goldDiscount,
+            plat_min: platMin,
+            plat_discount: platDiscount,
+            updated_at: new Date().toISOString(),
+          },
+        };
+
+        const { error } = await supabase
+          .from("organizations")
+          .update({ settings: updatedSettings })
+          .eq("id", org.id);
+
+        if (error) throw error;
+        refetch();
+      }
+
       toast({
         title: "Loyalty Scheme Updated",
         description: "Chain-wide loyalty multipliers and tier structures have been saved successfully.",
       });
-    }, 1000);
+    } catch (err: any) {
+      console.error("Error saving loyalty scheme:", err);
+      toast({
+        title: "Update Failed",
+        description: err.message || "Failed to update loyalty settings in database.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingLoyalty(false);
+    }
   };
 
   return (
@@ -275,8 +338,12 @@ const CrossBranchCustomers: React.FC = () => {
             </div>
           </div>
 
-          <Button type="submit" disabled={savingLoyalty} className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white">
-            <Save className="h-4 w-4 mr-2" />
+          <Button
+            type="submit"
+            disabled={savingLoyalty}
+            className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white flex items-center justify-center gap-2"
+          >
+            {savingLoyalty ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {savingLoyalty ? "Updating Rules..." : "Save Loyalty Scheme"}
           </Button>
         </form>

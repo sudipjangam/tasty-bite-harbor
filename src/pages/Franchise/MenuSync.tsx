@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { UtensilsCrossed, Send, Plus, Save, Trash2, AlertTriangle, Layers, Check } from "lucide-react";
+import { UtensilsCrossed, Send, Plus, Save, Trash2, AlertTriangle, Layers, Check, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +24,7 @@ const originConfig = {
 const CATEGORIES = ["Main Course", "Starters", "Beverages", "Desserts", "Breads", "Combos", "General"];
 
 const MenuSync: React.FC = () => {
-  const { menuItems, allBranches, addMasterMenuItem, pushMenuItemsToBranches, deleteMasterMenuItem } = useFranchise();
+  const { menuItems, allBranches, addMasterMenuItem, pushMenuItemsToBranches, deleteMasterMenuItem, adoptOrphanedMenuItem, refetch } = useFranchise();
   const { toast } = useToast();
 
   const [search, setSearch] = useState("");
@@ -33,7 +34,9 @@ const MenuSync: React.FC = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isPushOpen, setIsPushOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isLimitOpen, setIsLimitOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<any>(null);
+  const [itemForLimit, setItemForLimit] = useState<any>(null);
 
   // Form states - Add Master Item
   const [formName, setFormName] = useState("");
@@ -42,6 +45,10 @@ const MenuSync: React.FC = () => {
   const [formMinPrice, setFormMinPrice] = useState<number | undefined>(undefined);
   const [formMaxPrice, setFormMaxPrice] = useState<number | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Form states - Edit Price Limits
+  const [editMinPrice, setEditMinPrice] = useState<number | undefined>(undefined);
+  const [editMaxPrice, setEditMaxPrice] = useState<number | undefined>(undefined);
 
   // Form states - Push to branches
   const [targetBranches, setTargetBranches] = useState<string[]>([]);
@@ -151,31 +158,53 @@ const MenuSync: React.FC = () => {
     }
   };
 
-  const handleUpdatePriceOverride = (itemId: string, newPrice: number) => {
-    const item = menuItems.find(m => m.id === itemId);
-    if (!item) return;
+  const handleOpenPriceLimit = (item: any) => {
+    setItemForLimit(item);
+    setEditMinPrice(item.minPriceOverride);
+    setEditMaxPrice(item.maxPriceOverride);
+    setIsLimitOpen(true);
+  };
 
-    if (item.minPriceOverride && newPrice < item.minPriceOverride) {
+  const handleSavePriceLimit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!itemForLimit) return;
+    if (editMinPrice && editMaxPrice && editMinPrice > editMaxPrice) {
       toast({
-        title: "Price Limit Rejected",
-        description: `Price ₹${newPrice} is below allowed minimum limit ₹${item.minPriceOverride}.`,
-        variant: "destructive"
-      });
-      return;
-    }
-    if (item.maxPriceOverride && newPrice > item.maxPriceOverride) {
-      toast({
-        title: "Price Limit Rejected",
-        description: `Price ₹${newPrice} is above allowed maximum limit ₹${item.maxPriceOverride}.`,
+        title: "Price Error",
+        description: "Minimum price cannot be greater than maximum price.",
         variant: "destructive"
       });
       return;
     }
 
-    toast({
-      title: "Price Updated",
-      description: `Updated price for ${item.name} to ₹${newPrice}.`
-    });
+    setIsSaving(true);
+    const { error } = await supabase
+      .from("menu_items")
+      .update({
+        min_price_override: editMinPrice || null,
+        max_price_override: editMaxPrice || null
+      })
+      .eq("id", itemForLimit.id);
+    setIsSaving(false);
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to update price limits.", variant: "destructive" });
+    } else {
+      toast({ title: "Price Limits Saved", description: `Updated boundaries for ${itemForLimit.name}.` });
+      setIsLimitOpen(false);
+      refetch();
+    }
+  };
+
+  const handleAdoptOrphan = async (item: any) => {
+    setIsSaving(true);
+    const ok = await adoptOrphanedMenuItem(item.id);
+    setIsSaving(false);
+    if (ok) {
+      toast({ title: "Item Claimed", description: `${item.name} is now an independent branch item.` });
+    } else {
+      toast({ title: "Error", description: "Failed to adopt orphaned item.", variant: "destructive" });
+    }
   };
 
   const categories = [...new Set(filtered.map((m) => m.category))];
@@ -298,7 +327,28 @@ const MenuSync: React.FC = () => {
                               {item.maxPriceOverride ? `₹${item.maxPriceOverride}` : "None"}
                             </span>
                           </div>
+                          <button
+                            onClick={() => handleOpenPriceLimit(item)}
+                            className="p-1.5 text-gray-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 rounded-lg transition-colors ml-1"
+                            title="Edit Price Limits"
+                          >
+                            <SlidersHorizontal className="h-3.5 w-3.5" />
+                          </button>
                         </div>
+                      )}
+
+                      {/* Orphan action */}
+                      {item.origin === "orphaned" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAdoptOrphan(item)}
+                          disabled={isSaving}
+                          className="text-xs h-7 gap-1 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30 shrink-0"
+                          title="Claim this orphaned item as an independent branch item"
+                        >
+                          <Sparkles className="h-3 w-3" /> Adopt
+                        </Button>
                       )}
 
                       {/* Price & Status */}
@@ -489,6 +539,61 @@ const MenuSync: React.FC = () => {
               {isSaving ? "Deleting..." : "Mark Orphaned & Delete"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── DIALOG 4: EDIT PRICE LIMITS ─── */}
+      <Dialog open={isLimitOpen} onOpenChange={setIsLimitOpen}>
+        <DialogContent className="max-w-md p-6 rounded-2xl bg-white dark:bg-gray-900">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <SlidersHorizontal className="h-5 w-5 text-violet-600" />
+              Edit Price Limits — {itemForLimit?.name}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-gray-500 mt-1">
+              Set branch price bounds. Branches can only adjust their prices within this defined window.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSavePriceLimit} className="space-y-4 my-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Min Price (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editMinPrice ?? ""}
+                  onChange={(e) => setEditMinPrice(e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="No minimum"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Max Price (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editMaxPrice ?? ""}
+                  onChange={(e) => setEditMaxPrice(e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="No maximum"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="flex gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsLimitOpen(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSaving}
+                className="flex-1 bg-violet-600 hover:bg-violet-700 text-white font-medium"
+              >
+                {isSaving ? "Saving..." : "Save Limits"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

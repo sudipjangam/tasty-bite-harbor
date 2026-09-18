@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, Download, Calendar } from "lucide-react";
+import { TrendingUp, TrendingDown, Download, Calendar, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { MockPnLBranch } from "@/data/franchiseMockData";
 
 // ─── Helpers ─────────────────────────────────────────────────
 const fmt = (v: number) => `₹${Math.abs(v).toLocaleString("en-IN")}`;
@@ -98,52 +100,66 @@ const DivertingBarChart: React.FC<{ rows: DivergeRow[] }> = ({ rows }) => {
                 style={{ width: 1 }}
               />
 
-              {/* ── Expenses section (bars left-align from center) ── */}
-              <div className="flex-1 flex items-center h-full">
+              {/* ── Expense section (bars left-align to the center) ── */}
+              <div className="flex-1 flex items-center justify-start h-full overflow-hidden">
                 {/* Expense bar */}
                 <div
                   className="h-full bg-red-500 flex items-center justify-center px-2 overflow-hidden"
                   style={{
                     width: `${expPct}%`,
-                    minWidth: 60,
+                    minWidth: 48,
                     borderRadius: "0 6px 6px 0",
                   }}
                 >
-                  <span className="text-white text-xs font-semibold whitespace-nowrap truncate">
+                  <span className="text-white text-xs font-semibold whitespace-nowrap truncate hidden sm:block">
                     {fmt(row.expenses)}
                   </span>
                 </div>
 
-                {/* Profit/margin outside to the right */}
-                <span
-                  className={cn(
-                    "ml-2.5 text-xs font-bold whitespace-nowrap shrink-0",
-                    isPos
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-red-500 dark:text-red-400"
-                  )}
-                >
-                  {isPos ? "+" : "-"}{fmt(Math.abs(row.profit))}
+                {/* Outside label */}
+                <span className="text-xs text-gray-500 dark:text-white/50 ml-2 shrink-0 whitespace-nowrap">
+                  {fmt(row.expenses)}
                 </span>
               </div>
+
+              {/* ── Profit pill (fixed right column) ── */}
+              <div className="shrink-0 pl-3 flex items-center" style={{ width: 120 }}>
+                <span
+                  className={cn(
+                    "text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap flex items-center gap-1",
+                    isPos
+                      ? "text-emerald-700 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950/40"
+                      : "text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-950/40"
+                  )}
+                >
+                  {isPos ? "+" : "-"}
+                  {fmt(row.profit)}
+                </span>
+              </div>
+
             </div>
           );
         })}
       </div>
 
-      {/* ── X-axis ── */}
-      <div className="flex items-center mt-3" style={{ marginLeft: 88 }}>
-        {/* Left section label */}
-        <div className="flex-1 flex justify-start">
-          <span className="text-[10px] text-gray-400 dark:text-white/30">0</span>
+      {/* Axis ticks at bottom */}
+      <div className="flex items-center mt-3 pt-2 border-t border-gray-100 dark:border-white/10 text-xs text-gray-400 dark:text-white/30">
+        <div className="text-right pr-3" style={{ width: 88 }}>
+          <span className="text-[10px]">Branch</span>
         </div>
-        {/* Center 0 */}
-        <div className="shrink-0 text-[10px] text-gray-400 dark:text-white/30 -translate-x-1">0</div>
-        {/* Right section labels */}
-        <div className="flex-1 flex justify-between pl-2">
-          {[20, 40, 60, 80, 100].map((v) => (
+        <div className="flex-1 flex justify-between pr-2">
+          {["-100%", "-75%", "-50%", "-25%"].map((v) => (
             <span key={v} className="text-[10px] text-gray-400 dark:text-white/30">{v}</span>
           ))}
+        </div>
+        <div className="shrink-0 text-center font-bold text-[10px]" style={{ width: 1 }}>0</div>
+        <div className="flex-1 flex justify-between pl-2">
+          {["+25%", "+50%", "+75%", "+100%"].map((v) => (
+            <span key={v} className="text-[10px] text-gray-400 dark:text-white/30">{v}</span>
+          ))}
+        </div>
+        <div className="shrink-0 pl-3" style={{ width: 120 }}>
+          <span className="text-[10px]">Net Profit</span>
         </div>
       </div>
     </div>
@@ -152,7 +168,7 @@ const DivertingBarChart: React.FC<{ rows: DivergeRow[] }> = ({ rows }) => {
 
 // ─── Main Page ────────────────────────────────────────────────
 const CrossBranchPnL: React.FC = () => {
-  const { currentBranch, pnlBranches, kpis } = useFranchise();
+  const { currentBranch, allBranches, pnlBranches, kpis, demoMode } = useFranchise();
   const { toast } = useToast();
 
   // Dynamic period labels
@@ -165,44 +181,138 @@ const CrossBranchPnL: React.FC = () => {
   const [period, setPeriod] = useState(`This Month - ${thisMonthLabel}`);
   const [startDate, setStartDate] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(now.toISOString().split("T")[0]);
+  const [livePnL, setLivePnL] = useState<MockPnLBranch[] | null>(null);
+  const [isLoadingReal, setIsLoadingReal] = useState(false);
 
   let multiplier = 1.0;
   let dateSubtext = thisMonthLabel;
 
+  // Compute ISO dates for queries
+  let queryStartIso = "";
+  let queryEndIso = "";
+
   if (period === `This Month - ${thisMonthLabel}`) {
     multiplier = 1.0;
     dateSubtext = `${new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - ${now.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
+    queryStartIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    queryEndIso = now.toISOString();
   } else if (period === `Last Month - ${lastMonthLabel}`) {
     multiplier = 0.92;
     dateSubtext = `${new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth(), 1).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - ${new Date(now.getFullYear(), now.getMonth(), 0).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
+    queryStartIso = new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth(), 1).toISOString();
+    queryEndIso = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
   } else if (period === "This Quarter") {
     multiplier = 2.85;
     const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
     dateSubtext = `${qStart.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - ${now.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
+    queryStartIso = qStart.toISOString();
+    queryEndIso = now.toISOString();
   } else if (period === "This Year") {
     multiplier = 11.4;
     dateSubtext = `Jan 1, ${now.getFullYear()} - ${now.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
+    queryStartIso = new Date(now.getFullYear(), 0, 1).toISOString();
+    queryEndIso = now.toISOString();
   } else if (period === "Custom Range") {
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffDays = Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) || 1;
     multiplier = diffDays / 30;
     dateSubtext = `${start.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} - ${end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
+    queryStartIso = new Date(startDate).toISOString();
+    queryEndIso = new Date(`${endDate}T23:59:59`).toISOString();
   }
 
-  // Multiply baseline values by period modifier
+  // Fetch real historical P&L for non-demo mode
+  useEffect(() => {
+    if (demoMode || allBranches.length === 0) {
+      setLivePnL(null);
+      return;
+    }
+
+    const fetchRealPnL = async () => {
+      setIsLoadingReal(true);
+      try {
+        const branchIds = allBranches.map((b) => b.id);
+        const [ordRes, expRes] = await Promise.all([
+          supabase
+            .from("orders")
+            .select("restaurant_id, total")
+            .in("restaurant_id", branchIds)
+            .gte("created_at", queryStartIso)
+            .lte("created_at", queryEndIso),
+          supabase
+            .from("expenses")
+            .select("restaurant_id, amount, category")
+            .in("restaurant_id", branchIds)
+            .gte("expense_date", queryStartIso.split("T")[0])
+            .lte("expense_date", queryEndIso.split("T")[0])
+        ]);
+
+        const revMap: Record<string, number> = {};
+        (ordRes.data || []).forEach((o) => {
+          revMap[o.restaurant_id] = (revMap[o.restaurant_id] || 0) + Number(o.total || 0);
+        });
+
+        const expCategoryMap: Record<string, string> = {
+          food: "foodCost", "food cost": "foodCost", "food & beverage": "foodCost",
+          ingredients: "foodCost", "raw materials": "foodCost", grocery: "foodCost",
+          labor: "laborCost", labour: "laborCost", salary: "laborCost",
+          salaries: "laborCost", wages: "laborCost", staff: "laborCost", payroll: "laborCost",
+          rent: "rent", lease: "rent", property: "rent",
+          utilities: "utilities", electricity: "utilities", water: "utilities", power: "utilities", gas: "utilities",
+          marketing: "marketing", advertising: "marketing", promotion: "marketing", ads: "marketing",
+        };
+
+        const branchExpMap: Record<string, Record<string, number>> = {};
+        (expRes.data || []).forEach((e) => {
+          if (!branchExpMap[e.restaurant_id]) branchExpMap[e.restaurant_id] = {};
+          const cat = (e.category || "other").toLowerCase();
+          const mapped = expCategoryMap[cat] || "other";
+          branchExpMap[e.restaurant_id][mapped] = (branchExpMap[e.restaurant_id][mapped] || 0) + Number(e.amount || 0);
+        });
+
+        const mapped: MockPnLBranch[] = allBranches.map((b) => {
+          const revenue = revMap[b.id] || 0;
+          const exps = branchExpMap[b.id] || {};
+          return {
+            branchId: b.id,
+            branchName: b.name,
+            color: b.color,
+            revenue,
+            foodCost: Math.round(exps.foodCost || 0),
+            laborCost: Math.round(exps.laborCost || 0),
+            rent: Math.round(exps.rent || 0),
+            utilities: Math.round(exps.utilities || 0),
+            marketing: Math.round(exps.marketing || 0),
+            other: Math.round(exps.other || 0),
+          };
+        });
+
+        setLivePnL(mapped);
+      } catch (err) {
+        console.error("Failed to fetch real P&L for period:", err);
+      } finally {
+        setIsLoadingReal(false);
+      }
+    };
+
+    fetchRealPnL();
+  }, [period, startDate, endDate, allBranches, demoMode, queryStartIso, queryEndIso]);
+
+  // Use live queried PnL if available, else multiply baseline in demo mode
+  const baseList = livePnL || pnlBranches;
   const displayBranches = (currentBranch
-    ? pnlBranches.filter((b) => b.branchId === currentBranch.id)
-    : pnlBranches
+    ? baseList.filter((b) => b.branchId === currentBranch.id)
+    : baseList
   ).map((b) => ({
     ...b,
-    revenue: Math.round(b.revenue * multiplier),
-    foodCost: Math.round(b.foodCost * multiplier),
-    laborCost: Math.round(b.laborCost * multiplier),
-    rent: Math.round(b.rent * multiplier),
-    utilities: Math.round(b.utilities * multiplier),
-    marketing: Math.round(b.marketing * multiplier),
-    other: Math.round(b.other * multiplier),
+    revenue: livePnL ? b.revenue : Math.round(b.revenue * multiplier),
+    foodCost: livePnL ? b.foodCost : Math.round(b.foodCost * multiplier),
+    laborCost: livePnL ? b.laborCost : Math.round(b.laborCost * multiplier),
+    rent: livePnL ? b.rent : Math.round(b.rent * multiplier),
+    utilities: livePnL ? b.utilities : Math.round(b.utilities * multiplier),
+    marketing: livePnL ? b.marketing : Math.round(b.marketing * multiplier),
+    other: livePnL ? b.other : Math.round(b.other * multiplier),
   }));
 
   // Build diverging rows

@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Package, AlertTriangle, ArrowRightLeft, ShoppingBag, Plus } from "lucide-react";
+import { Package, AlertTriangle, ArrowRightLeft, ShoppingBag, Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const statusConfig = {
   ok: { label: "OK", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
@@ -12,21 +13,46 @@ const statusConfig = {
 };
 
 const CrossBranchInventory: React.FC = () => {
-  const { currentBranch, allBranches, inventory } = useFranchise();
+  const { currentBranch, allBranches, inventory, demoMode, refetch } = useFranchise();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"levels" | "transfer" | "bulk">("levels");
   const [branchFilter, setBranchFilter] = useState("all");
 
   // Transfer state
-  const [transSource, setTransSource] = useState("branch-1");
-  const [transDest, setTransDest] = useState("branch-2");
-  const [transItem, setTransItem] = useState("inv2"); // Chicken
+  const [transSource, setTransSource] = useState("");
+  const [transDest, setTransDest] = useState("");
+  const [transItem, setTransItem] = useState("");
   const [transQty, setTransQty] = useState(5);
+  const [isTransferring, setIsTransferring] = useState(false);
 
   // Bulk Purchase state
   const [bulkItem, setBulkItem] = useState("Basmati Rice");
   const [bulkQty, setBulkQty] = useState(100);
   const [bulkDistMode, setBulkDistMode] = useState("equal");
+  const [isBulkOrdering, setIsBulkOrdering] = useState(false);
+
+  // Initialize dropdown defaults from real branch/inventory data
+  useEffect(() => {
+    if (allBranches.length > 0) {
+      if (!transSource || !allBranches.some((b) => b.id === transSource)) {
+        setTransSource(allBranches[0].id);
+        const second = allBranches.length > 1 ? allBranches[1].id : allBranches[0].id;
+        setTransDest(second);
+      }
+    }
+  }, [allBranches, transSource]);
+
+  const sourceItems = inventory.filter((i) => !transSource || i.branchId === transSource);
+
+  useEffect(() => {
+    if (sourceItems.length > 0) {
+      if (!transItem || !sourceItems.some((i) => i.id === transItem)) {
+        setTransItem(sourceItems[0].id);
+      }
+    } else {
+      setTransItem("");
+    }
+  }, [sourceItems, transItem]);
 
   const filtered = inventory.filter((i) =>
     currentBranch ? i.branchId === currentBranch.id : branchFilter === "all" || i.branchId === branchFilter
@@ -35,27 +61,207 @@ const CrossBranchInventory: React.FC = () => {
   const critical = filtered.filter((i) => i.status === "critical").length;
   const low = filtered.filter((i) => i.status === "low").length;
 
-  const handleTransfer = (e: React.FormEvent) => {
+  const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (transSource === transDest) {
-      toast({ title: "Error", description: "Source and destination cannot be same", variant: "destructive" });
+      toast({ title: "Error", description: "Source and destination branch cannot be the same.", variant: "destructive" });
       return;
     }
-    const item = inventory.find(i => i.id === transItem);
-    const srcB = allBranches.find(b => b.id === transSource);
-    const destB = allBranches.find(b => b.id === transDest);
-    toast({
-      title: "Transfer Initiated",
-      description: `Moving ${transQty} ${item?.unit || "units"} of ${item?.name} from ${srcB?.name} to ${destB?.name}.`,
-    });
+    const item = inventory.find((i) => i.id === transItem);
+    if (!item) {
+      toast({ title: "Error", description: "Please select an inventory item to transfer.", variant: "destructive" });
+      return;
+    }
+    if (item.quantity < transQty) {
+      toast({
+        title: "Insufficient Stock",
+        description: `Source branch only has ${item.quantity} ${item.unit} available (requested: ${transQty}).`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const srcB = allBranches.find((b) => b.id === transSource);
+    const destB = allBranches.find((b) => b.id === transDest);
+
+    setIsTransferring(true);
+    try {
+      if (!demoMode) {
+        // 1. Deduct from source branch
+        const remainingQty = Math.max(0, item.quantity - transQty);
+        const { error: srcErr } = await supabase
+          .from("inventory_items")
+          .update({ quantity: remainingQty })
+          .eq("id", item.id);
+
+        if (srcErr) throw srcErr;
+
+        // 2. Audit log transfer out
+        await supabase.from("inventory_transactions").insert({
+          restaurant_id: transSource,
+          inventory_item_id: item.id,
+          transaction_type: "transfer",
+          quantity_change: -transQty,
+          notes: `Branch Transfer to ${destB?.name || "Branch"}`,
+        });
+
+        // 3. Find or insert matching item in destination branch
+        const { data: existingDestItem } = await supabase
+          .from("inventory_items")
+          .select("id, quantity, pricing_unit")
+          .eq("restaurant_id", transDest)
+          .ilike("name", item.name)
+          .maybeSingle();
+
+        let destItemId = existingDestItem?.id;
+        let convertedQty = transQty;
+        const srcUnit = (item.unit || "").toLowerCase();
+        const destUnit = (existingDestItem?.pricing_unit || item.unit || "").toLowerCase();
+
+        // Convert between standard units if mismatched
+        if (srcUnit === "kg" && (destUnit === "g" || destUnit === "gm" || destUnit === "grams")) {
+          convertedQty = transQty * 1000;
+        } else if ((srcUnit === "g" || srcUnit === "gm" || srcUnit === "grams") && destUnit === "kg") {
+          convertedQty = transQty / 1000;
+        } else if (srcUnit === "l" && (destUnit === "ml" || destUnit === "milliliters")) {
+          convertedQty = transQty * 1000;
+        } else if (srcUnit === "ml" && destUnit === "l") {
+          convertedQty = transQty / 1000;
+        }
+
+        try {
+          if (existingDestItem) {
+            const newDestQty = Number(existingDestItem.quantity || 0) + convertedQty;
+            const { error: destErr } = await supabase
+              .from("inventory_items")
+              .update({ quantity: newDestQty })
+              .eq("id", destItemId);
+            if (destErr) throw destErr;
+          } else {
+            const { data: inserted, error: insertErr } = await supabase
+              .from("inventory_items")
+              .insert({
+                restaurant_id: transDest,
+                name: item.name,
+                category: item.category || "General",
+                quantity: convertedQty,
+                pricing_unit: item.unit || "kg",
+                reorder_level: item.reorderLevel || 10,
+              })
+              .select("id")
+              .single();
+            if (insertErr) throw insertErr;
+            destItemId = inserted?.id;
+          }
+        } catch (targetErr) {
+          // Rollback source item deduction on destination failure
+          await supabase
+            .from("inventory_items")
+            .update({ quantity: item.quantity })
+            .eq("id", item.id);
+          throw targetErr;
+        }
+
+        // 4. Audit log transfer in
+        if (destItemId) {
+          await supabase.from("inventory_transactions").insert({
+            restaurant_id: transDest,
+            inventory_item_id: destItemId,
+            transaction_type: "transfer",
+            quantity_change: convertedQty,
+            notes: `Branch Transfer from ${srcB?.name || "Branch"} (${convertedQty} ${destUnit})`,
+          });
+        }
+
+        refetch();
+      }
+
+      toast({
+        title: "Transfer Completed",
+        description: `Successfully moved ${transQty} ${item.unit} of ${item.name} from ${srcB?.name} to ${destB?.name}.`,
+      });
+    } catch (err: any) {
+      console.error("Transfer error:", err);
+      toast({
+        title: "Transfer Failed",
+        description: err.message || "Failed to execute stock transfer.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTransferring(false);
+    }
   };
 
-  const handleBulkPurchase = (e: React.FormEvent) => {
+  const handleBulkPurchase = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Bulk Order Placed",
-      description: `Ordered ${bulkQty}kg of ${bulkItem}. Allocation strategy: ${bulkDistMode}.`,
-    });
+    if (allBranches.length === 0) {
+      toast({ title: "Error", description: "No branches available to distribute purchase.", variant: "destructive" });
+      return;
+    }
+
+    setIsBulkOrdering(true);
+    try {
+      if (!demoMode) {
+        // Equal distribution
+        const perBranchQty = Math.max(1, Math.round(bulkQty / allBranches.length));
+
+        for (const branch of allBranches) {
+          const { data: existing } = await supabase
+            .from("inventory_items")
+            .select("id, quantity")
+            .eq("restaurant_id", branch.id)
+            .ilike("name", bulkItem)
+            .maybeSingle();
+
+          let itemId = existing?.id;
+          if (existing) {
+            await supabase
+              .from("inventory_items")
+              .update({ quantity: Number(existing.quantity || 0) + perBranchQty })
+              .eq("id", itemId);
+          } else {
+            const { data: created } = await supabase
+              .from("inventory_items")
+              .insert({
+                restaurant_id: branch.id,
+                name: bulkItem,
+                category: "Raw Material",
+                quantity: perBranchQty,
+                pricing_unit: "kg",
+                reorder_level: 10,
+              })
+              .select("id")
+              .single();
+            itemId = created?.id;
+          }
+
+          if (itemId) {
+            await supabase.from("inventory_transactions").insert({
+              restaurant_id: branch.id,
+              inventory_item_id: itemId,
+              transaction_type: "purchase",
+              quantity_change: perBranchQty,
+              notes: `Central Bulk Purchase (${bulkDistMode})`,
+            });
+          }
+        }
+        refetch();
+      }
+
+      toast({
+        title: "Bulk Order Dispatched",
+        description: `Allocated ${bulkQty}kg of ${bulkItem} across ${allBranches.length} branches (${bulkDistMode} split).`,
+      });
+    } catch (err: any) {
+      console.error("Bulk order error:", err);
+      toast({
+        title: "Bulk Order Failed",
+        description: err.message || "Failed to record bulk purchase.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkOrdering(false);
+    }
   };
 
   return (
@@ -211,7 +417,8 @@ const CrossBranchInventory: React.FC = () => {
                 onChange={(e) => setTransItem(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
               >
-                {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({i.quantity} {i.unit} in {i.branchName})</option>)}
+                {sourceItems.length === 0 && <option value="">No items found in source branch</option>}
+                {sourceItems.map(i => <option key={i.id} value={i.id}>{i.name} ({i.quantity} {i.unit})</option>)}
               </select>
             </div>
 
@@ -226,8 +433,13 @@ const CrossBranchInventory: React.FC = () => {
               />
             </div>
 
-            <Button type="submit" className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white">
-              Execute Transfer
+            <Button
+              type="submit"
+              disabled={isTransferring || sourceItems.length === 0}
+              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white flex items-center justify-center gap-2"
+            >
+              {isTransferring && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isTransferring ? "Executing Transfer..." : "Execute Transfer"}
             </Button>
           </form>
         </div>
@@ -298,8 +510,13 @@ const CrossBranchInventory: React.FC = () => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white">
-              Place Bulk Purchase Order
+            <Button
+              type="submit"
+              disabled={isBulkOrdering}
+              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white flex items-center justify-center gap-2"
+            >
+              {isBulkOrdering && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isBulkOrdering ? "Placing Order..." : "Place Bulk Purchase Order"}
             </Button>
           </form>
         </div>
