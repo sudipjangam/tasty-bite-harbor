@@ -49,6 +49,9 @@ export default defineConfig(({ mode }) => {
   server: {
     host: "::",
     port: 8080,
+    watch: {
+      ignored: ['**/android/**', '**/dist/**', '**/.git/**'],
+    },
     proxy: {
       // Proxy /api/supabase to the real Supabase URL during local development.
       // In production, Vercel/Netlify rewrites handle this instead.
