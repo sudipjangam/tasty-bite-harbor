@@ -29,9 +29,11 @@ jobs:
           
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
         
       - name: Capacitor Sync
-        run: npx cap sync
+        run: npm run cap:sync
         
       - name: Build with Gradle
         run: |
