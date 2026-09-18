@@ -103,7 +103,8 @@ const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onView, onDeact
             <div className="text-center p-2 rounded-xl bg-gray-50 dark:bg-gray-700/50">
               <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-0.5">Rating</p>
               <p className="text-xs font-bold text-amber-500 flex items-center justify-center gap-0.5">
-                <Star className="h-3 w-3 fill-current" />{branch.rating}
+                <Star className="h-3 w-3 fill-current" />
+                {branch.rating > 0 ? branch.rating.toFixed(1) : "New"}
               </p>
             </div>
           </div>
@@ -172,6 +173,8 @@ const BranchManagement: React.FC = () => {
   const [formEmail, setFormEmail] = useState("");
   const [formColor, setFormColor] = useState("#3b82f6");
   const [formIsHq, setFormIsHq] = useState(false);
+  const [formRating, setFormRating] = useState<number | string>("");
+  const [formReviews, setFormReviews] = useState<number | string>("");
   const [isSaving, setIsSaving] = useState(false);
 
   // Auto-open edit modal if query string has ?edit=BRANCH_ID
@@ -198,6 +201,8 @@ const BranchManagement: React.FC = () => {
     setFormEmail("");
     setFormColor("#3b82f6");
     setFormIsHq(false);
+    setFormRating("");
+    setFormReviews("");
   };
 
   const handleOpenAdd = () => {
@@ -225,6 +230,8 @@ const BranchManagement: React.FC = () => {
     setFormEmail(branch.email);
     setFormColor(branch.color);
     setFormIsHq(branch.isHeadquarters);
+    setFormRating(branch.rating > 0 ? branch.rating : "");
+    setFormReviews(branch.totalReviews !== undefined ? branch.totalReviews : "");
     setIsEditOpen(true);
   };
 
@@ -299,7 +306,9 @@ const BranchManagement: React.FC = () => {
       phone: formPhone,
       email: formEmail,
       color: formColor,
-      isHeadquarters: formIsHq
+      isHeadquarters: formIsHq,
+      rating: formRating !== "" ? Number(formRating) : 0,
+      totalReviews: formReviews !== "" ? Number(formReviews) : 0
     });
     setIsSaving(false);
 
@@ -635,6 +644,42 @@ const BranchManagement: React.FC = () => {
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Set as Headquarters (HQ) Branch</span>
             </label>
 
+            <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
+                <Star className="h-3.5 w-3.5 text-amber-500 fill-current" /> Store Rating & Review Profile
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    Rating (0.0 - 5.0)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="5"
+                    value={formRating}
+                    onChange={(e) => setFormRating(e.target.value)}
+                    placeholder="e.g. 4.8"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    Total Reviews Count
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formReviews}
+                    onChange={(e) => setFormReviews(e.target.value)}
+                    placeholder="e.g. 96"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+            </div>
+
             <DialogFooter className="pt-2">
               <Button type="submit" disabled={isSaving} className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white font-medium">
                 {isSaving ? "Saving Changes..." : "Save Changes"}
@@ -744,7 +789,13 @@ const BranchManagement: React.FC = () => {
                     <div>
                       <h4 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Rating Score</h4>
                       <div className="flex items-center gap-1 mt-1 text-xs font-semibold text-amber-500">
-                        <Star className="h-3.5 w-3.5 fill-current" /> {selectedBranch.rating} / 5.0
+                        <Star className="h-3.5 w-3.5 fill-current" />
+                        {selectedBranch.rating > 0 ? `${selectedBranch.rating.toFixed(1)} / 5.0` : "No ratings"}
+                        {selectedBranch.totalReviews !== undefined && selectedBranch.totalReviews > 0 && (
+                          <span className="text-[10px] text-gray-400 font-normal ml-1">
+                            ({selectedBranch.totalReviews} reviews)
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

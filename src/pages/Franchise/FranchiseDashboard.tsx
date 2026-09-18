@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
 import {
@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Users,
   Edit3,
+  Sparkles,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -28,6 +29,17 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { MockBranch } from "@/data/franchiseMockData";
 
 // ─── KPI Card ────────────────────────────────────────────────
 interface KpiCardProps {
@@ -36,12 +48,31 @@ interface KpiCardProps {
   growth?: number;
   icon: React.ReactNode;
   color: string;
+  subtext?: string;
+  onClick?: () => void;
 }
-const KpiCard: React.FC<KpiCardProps> = ({ title, value, growth, icon, color }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 flex items-start gap-4 hover:shadow-md transition-shadow">
-    <div className={cn("p-3 rounded-xl", color)}>{icon}</div>
+const KpiCard: React.FC<KpiCardProps> = ({ title, value, growth, icon, color, subtext, onClick }) => (
+  <div
+    onClick={onClick}
+    className={cn(
+      "bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 flex items-start gap-4 transition-all relative overflow-hidden",
+      onClick
+        ? "cursor-pointer hover:shadow-md hover:border-amber-300 dark:hover:border-amber-500/50 group hover:scale-[1.01]"
+        : "hover:shadow-md"
+    )}
+  >
+    <div className={cn("p-3 rounded-xl transition-transform", color, onClick && "group-hover:scale-105")}>
+      {icon}
+    </div>
     <div className="flex-1 min-w-0">
-      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{title}</p>
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium truncate">{title}</p>
+        {onClick && (
+          <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 px-1.5 py-0.5 rounded-md flex items-center gap-0.5 opacity-80 group-hover:opacity-100">
+            <Edit3 className="h-2.5 w-2.5" /> Edit
+          </span>
+        )}
+      </div>
       <p className="text-2xl font-bold text-gray-900 dark:text-white mt-0.5 truncate">
         {value}
       </p>
@@ -60,6 +91,11 @@ const KpiCard: React.FC<KpiCardProps> = ({ title, value, growth, icon, color }) 
           {Math.abs(growth)}% vs last month
         </div>
       )}
+      {subtext && (
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate">
+          {subtext}
+        </p>
+      )}
     </div>
   </div>
 );
@@ -76,9 +112,49 @@ const FranchiseDashboard: React.FC = () => {
     staff,
     demoMode,
     dateRange,
-    setDateRange
+    setDateRange,
+    updateBranchRating,
   } = useFranchise();
   const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Rating Modal States
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [targetBranchId, setTargetBranchId] = useState<string>("");
+  const [ratingInput, setRatingInput] = useState<number>(4.8);
+  const [reviewsInput, setReviewsInput] = useState<number>(50);
+  const [isSavingRating, setIsSavingRating] = useState(false);
+
+  const handleOpenRatingModal = (branch?: MockBranch) => {
+    const target = branch || currentBranch || allBranches[0];
+    if (!target) return;
+    setTargetBranchId(target.id);
+    setRatingInput(target.rating > 0 ? target.rating : 4.8);
+    setReviewsInput(target.totalReviews || 0);
+    setIsRatingModalOpen(true);
+  };
+
+  const handleSaveRating = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetBranchId) return;
+    setIsSavingRating(true);
+    const target = allBranches.find(b => b.id === targetBranchId);
+    const success = await updateBranchRating(targetBranchId, Number(ratingInput), Number(reviewsInput));
+    setIsSavingRating(false);
+    if (success) {
+      toast({
+        title: "Store Rating Updated",
+        description: `Successfully set rating for ${target?.name || "branch"} to ${Number(ratingInput).toFixed(1)}/5 (${reviewsInput} reviews).`,
+      });
+      setIsRatingModalOpen(false);
+    } else {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update branch rating in database.",
+        variant: "destructive"
+      });
+    }
+  };
 
   // If a specific branch is selected, show that branch's data only
   const displayBranches = currentBranch ? [currentBranch] : allBranches;
@@ -175,12 +251,26 @@ const FranchiseDashboard: React.FC = () => {
           icon={<Store className="h-5 w-5 text-white" />}
           color="bg-gradient-to-br from-violet-500 to-purple-600"
         />
-        <KpiCard
-          title="Avg Rating"
-          value={`${isAllBranches ? kpis.avgRating : (currentBranch?.rating ?? 0)}/5`}
-          icon={<Star className="h-5 w-5 text-white" />}
-          color="bg-gradient-to-br from-amber-500 to-orange-500"
-        />
+        {(() => {
+          const currentRating = isAllBranches ? kpis.avgRating : (currentBranch?.rating ?? 0);
+          const currentReviews = isAllBranches
+            ? allBranches.reduce((acc, b) => acc + (b.totalReviews || 0), 0)
+            : (currentBranch?.totalReviews ?? 0);
+          return (
+            <KpiCard
+              title="Avg Rating"
+              value={currentRating > 0 ? `${currentRating.toFixed(1)}/5` : "No ratings"}
+              subtext={
+                currentRating > 0
+                  ? `${currentReviews > 0 ? `${currentReviews} reviews · ` : ""}Tap to update`
+                  : "Tap to set store rating"
+              }
+              icon={<Star className="h-5 w-5 text-white" />}
+              color="bg-gradient-to-br from-amber-500 to-orange-500"
+              onClick={() => handleOpenRatingModal(currentBranch || undefined)}
+            />
+          );
+        })()}
       </div>
 
       {/* Staff Count and Attendance Widget */}
@@ -385,9 +475,14 @@ const FranchiseDashboard: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-4 py-3.5 text-right hidden lg:table-cell">
-                    <span className="flex items-center justify-end gap-1 text-amber-500 text-xs font-medium">
-                      <Star className="h-3 w-3 fill-current" />{branch.rating}
-                    </span>
+                    <button
+                      onClick={() => handleOpenRatingModal(branch)}
+                      title="Click to update store rating"
+                      className="inline-flex items-center justify-end gap-1 text-amber-500 text-xs font-semibold hover:underline group cursor-pointer"
+                    >
+                      <Star className="h-3 w-3 fill-current group-hover:scale-110 transition-transform" />
+                      {branch.rating > 0 ? `${branch.rating.toFixed(1)}/5` : "Set"}
+                    </button>
                   </td>
                   <td className="px-4 py-3.5 text-center">
                     <span className={cn(
@@ -414,6 +509,128 @@ const FranchiseDashboard: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* ─── STORE RATING & REVIEWS MODAL ─── */}
+      <Dialog open={isRatingModalOpen} onOpenChange={setIsRatingModalOpen}>
+        <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl border-none shadow-2xl">
+          <div className="p-6 bg-gradient-to-r from-amber-500 to-orange-500 text-white relative">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Star className="h-5 w-5 fill-current text-amber-200" /> Update Store Rating
+            </h2>
+            <p className="text-xs text-amber-100 mt-1">
+              Set customer review scores and ratings for your franchise stores.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveRating} className="p-6 space-y-4 bg-white dark:bg-gray-900">
+            {allBranches.length > 1 && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                  Select Branch
+                </label>
+                <select
+                  value={targetBranchId}
+                  onChange={(e) => {
+                    setTargetBranchId(e.target.value);
+                    const b = allBranches.find(item => item.id === e.target.value);
+                    if (b) {
+                      setRatingInput(b.rating > 0 ? b.rating : 4.8);
+                      setReviewsInput(b.totalReviews || 0);
+                    }
+                  }}
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                >
+                  {allBranches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
+                Quick Star Rating (1 - 5 Stars)
+              </label>
+              <div className="flex items-center gap-2 mb-3">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRatingInput(star)}
+                    className={cn(
+                      "p-2 rounded-xl border transition-all flex items-center justify-center",
+                      ratingInput >= star
+                        ? "bg-amber-50 dark:bg-amber-950/40 border-amber-400 text-amber-500 shadow-sm"
+                        : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600 hover:text-amber-400"
+                    )}
+                  >
+                    <Star className={cn("h-5 w-5", ratingInput >= star && "fill-current")} />
+                  </button>
+                ))}
+                <span className="text-sm font-bold text-amber-600 dark:text-amber-400 ml-2">
+                  {Number(ratingInput).toFixed(1)} / 5.0
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                  Exact Score (0.0 - 5.0)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="5"
+                  required
+                  value={ratingInput}
+                  onChange={(e) => setRatingInput(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                  Total Reviews Count
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  value={reviewsInput}
+                  onChange={(e) => setReviewsInput(parseInt(e.target.value) || 0)}
+                  placeholder="e.g. 96"
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/30 rounded-xl text-xs text-amber-800 dark:text-amber-300">
+              💡 Store ratings synchronize with branch receipts, digital QR menus, and Google / Zomato aggregated public scores.
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsRatingModalOpen(false)}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSavingRating}
+                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium text-xs"
+              >
+                {isSavingRating ? "Saving Rating..." : "Save Rating"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

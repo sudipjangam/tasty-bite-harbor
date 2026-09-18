@@ -22,6 +22,7 @@ export interface MockBranch {
   orders: number;
   profitMargin: number;
   rating: number;
+  totalReviews?: number;
   openedDate: string;
   color: string; // for charts & badges
 }
