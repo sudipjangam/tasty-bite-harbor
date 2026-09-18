@@ -125,10 +125,14 @@ const TeamManagement: React.FC = () => {
     setIsSubmitting(false);
 
     if (success) {
-      toast({ title: "🎉 Invitation Sent", description: `Invited ${inviteName} (${inviteEmail}) as ${inviteRole}.` });
+      toast({ title: "🎉 Member Added", description: `Added ${inviteName} (${inviteEmail}) as ${inviteRole}.` });
       setIsInviteOpen(false);
     } else {
-      toast({ title: "Error", description: "Failed to send invitation.", variant: "destructive" });
+      toast({
+        title: "Account Not Found",
+        description: `No existing account found with email "${inviteEmail}". Staff must sign up first before receiving franchise permissions.`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -330,6 +334,10 @@ const TeamManagement: React.FC = () => {
                 placeholder="e.g. rahul@tastybite.com"
                 className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
               />
+              <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
+                <Mail className="h-3 w-3 text-violet-500 shrink-0" />
+                Staff member must have registered on the platform with this email.
+              </p>
             </div>
 
             <div>

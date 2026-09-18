@@ -80,6 +80,7 @@ interface FranchiseContextType {
   addMasterMenuItem: (item: { name: string; category: string; price: number; description?: string; minPriceOverride?: number; maxPriceOverride?: number }) => Promise<boolean>;
   pushMenuItemsToBranches: (itemIds: string[], branchIds: string[]) => Promise<boolean>;
   deleteMasterMenuItem: (itemId: string) => Promise<boolean>;
+  adoptOrphanedMenuItem: (itemId: string) => Promise<boolean>;
 }
 
 const FranchiseContext = createContext<FranchiseContextType | undefined>(undefined);
@@ -90,8 +91,22 @@ interface FranchiseProviderProps {
 
 export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }) => {
   const { user } = useAuth();
-  const [currentBranch, setCurrentBranch] = useState<MockBranch | null>(null);
+  const [currentBranch, setCurrentBranchState] = useState<MockBranch | null>(null);
   const [mockBranches, setMockBranches] = useState<MockBranch[]>(MOCK_BRANCHES);
+  const [dateRange, setDateRange] = useState<DateRangePreset>("30d");
+
+  // Sync branch selection with localStorage and other tabs/hooks
+  const setCurrentBranch = (branch: MockBranch | null) => {
+    setCurrentBranchState(branch);
+    try {
+      if (branch?.id) {
+        localStorage.setItem("active_branch_id", branch.id);
+      } else {
+        localStorage.removeItem("active_branch_id");
+      }
+      window.dispatchEvent(new Event("branch_changed"));
+    } catch {}
+  };
 
   // Demo mode: persisted in localStorage, defaults to false (Live DB queries)
   const [demoMode, setDemoModeState] = useState<boolean>(() => {
@@ -112,7 +127,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
 
   // 1. Fetch organization details
   const { data: dbData, isLoading, refetch } = useQuery({
-    queryKey: ["franchise_portal_data", user?.id],
+    queryKey: ["franchise_portal_data", user?.id, dateRange],
     enabled: !!user?.id && !demoMode,
     queryFn: async () => {
       // Find organization membership
@@ -138,14 +153,37 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
 
       if (!activeOrgId) return null;
 
-      // ── Date range helpers ────────────────────────────────────
+      // ── Dynamic date range calculation ─────────────────────────
       const now = new Date();
-      const thirtyDaysAgo = new Date(now);
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const sixtyDaysAgo = new Date(now);
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-      const sevenDaysAgo = new Date(now);
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      let currentPeriodStart: Date;
+      let previousPeriodStart: Date;
+      let trendDays = 7;
+
+      if (dateRange === "today") {
+        currentPeriodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+        previousPeriodStart = new Date(currentPeriodStart);
+        previousPeriodStart.setDate(previousPeriodStart.getDate() - 1);
+        trendDays = 7;
+      } else if (dateRange === "7d") {
+        currentPeriodStart = new Date(now);
+        currentPeriodStart.setDate(currentPeriodStart.getDate() - 7);
+        previousPeriodStart = new Date(now);
+        previousPeriodStart.setDate(previousPeriodStart.getDate() - 14);
+        trendDays = 7;
+      } else if (dateRange === "90d") {
+        currentPeriodStart = new Date(now);
+        currentPeriodStart.setDate(currentPeriodStart.getDate() - 90);
+        previousPeriodStart = new Date(now);
+        previousPeriodStart.setDate(previousPeriodStart.getDate() - 180);
+        trendDays = 14;
+      } else {
+        // "30d" default
+        currentPeriodStart = new Date(now);
+        currentPeriodStart.setDate(currentPeriodStart.getDate() - 30);
+        previousPeriodStart = new Date(now);
+        previousPeriodStart.setDate(previousPeriodStart.getDate() - 60);
+        trendDays = 7;
+      }
       const todayStr = now.toISOString().split("T")[0];
 
       // Query organization + subscription + branches + menu + members
@@ -185,23 +223,23 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
       const branchIds = branchRows.map(b => b.id);
       const colors = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#ec4899"];
 
-      // ── Fetch ALL orders for these branches (current 30 days + previous 30 days for growth) ──
+      // ── Fetch ALL orders for these branches for the dynamic period + previous comparison period ──
       let allOrderRows: any[] = [];
       if (branchIds.length > 0) {
         const { data: ords } = await supabase
           .from("orders")
           .select("id, restaurant_id, total, status, customer_name, items, order_number, payment_method, created_at")
           .in("restaurant_id", branchIds)
-          .gte("created_at", sixtyDaysAgo.toISOString())
+          .gte("created_at", previousPeriodStart.toISOString())
           .order("created_at", { ascending: false });
         allOrderRows = ords || [];
       }
 
-      // Split into current period (last 30 days) and previous period
-      const currentPeriodOrders = allOrderRows.filter(o => new Date(o.created_at) >= thirtyDaysAgo);
+      // Split into current period and previous comparison period
+      const currentPeriodOrders = allOrderRows.filter(o => new Date(o.created_at) >= currentPeriodStart);
       const previousPeriodOrders = allOrderRows.filter(o => {
         const d = new Date(o.created_at);
-        return d >= sixtyDaysAgo && d < thirtyDaysAgo;
+        return d >= previousPeriodStart && d < currentPeriodStart;
       });
 
       // ── Aggregate revenue & order counts per branch ──
@@ -224,7 +262,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
           .from("expenses")
           .select("restaurant_id, amount, category")
           .in("restaurant_id", branchIds)
-          .gte("expense_date", thirtyDaysAgo.toISOString().split("T")[0])
+          .gte("expense_date", currentPeriodStart.toISOString().split("T")[0])
           .lte("expense_date", todayStr);
         expenseRows = exps || [];
       }
@@ -268,21 +306,37 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
         const { data: custData } = await supabase.rpc("get_org_customers", { p_org_id: activeOrgId });
         customerRows = custData || [];
       } catch {
-        // RPC may not exist yet — fall back to direct query
+        // RPC may not exist yet — fall back to direct query with cross-branch deduplication
         if (branchIds.length > 0) {
           const { data: custDirect } = await supabase
             .from("customers")
             .select("id, name, phone, email, loyalty_points, visit_count, total_spent, restaurant_id")
             .in("restaurant_id", branchIds);
-          customerRows = (custDirect || []).map(c => ({
-            customer_id: c.id,
-            name: c.name,
-            phone: c.phone || "",
-            loyalty_points: c.loyalty_points || 0,
-            visit_count: c.visit_count || 0,
-            total_spent: c.total_spent || 0,
-            branches_visited: [c.restaurant_id]
-          }));
+
+          const custMap: Record<string, any> = {};
+          (custDirect || []).forEach((c) => {
+            const key = (c.phone || c.email || c.id || "").trim();
+            if (!custMap[key]) {
+              custMap[key] = {
+                customer_id: c.id,
+                name: c.name,
+                phone: c.phone || "",
+                email: c.email || "",
+                loyalty_points: Number(c.loyalty_points || 0),
+                visit_count: Number(c.visit_count || 0),
+                total_spent: Number(c.total_spent || 0),
+                branches_visited: c.restaurant_id ? [c.restaurant_id] : []
+              };
+            } else {
+              custMap[key].loyalty_points += Number(c.loyalty_points || 0);
+              custMap[key].visit_count += Number(c.visit_count || 0);
+              custMap[key].total_spent += Number(c.total_spent || 0);
+              if (c.restaurant_id && !custMap[key].branches_visited.includes(c.restaurant_id)) {
+                custMap[key].branches_visited.push(c.restaurant_id);
+              }
+            }
+          });
+          customerRows = Object.values(custMap);
         }
       }
 
@@ -335,7 +389,13 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
 
       const mappedStaff: MockStaffMember[] = profileRows.map(s => {
         const branchObj = mappedBranches.find(b => b.id === s.restaurant_id);
-        // Determine attendance: clocked in today → present, staff table status "leave"/"inactive" → leave/absent, else absent
+        const branchClockCount = clockRows.filter(c => c.restaurant_id === s.restaurant_id).length;
+
+        // Determine attendance:
+        // Clocked in today → present
+        // Staff status on_leave → leave
+        // Branch has no time clock entries today and staff is active → present
+        // Else → absent
         let attendance: "present" | "absent" | "leave" = "absent";
         if (clockedInStaffIds.has(s.id)) {
           attendance = "present";
@@ -343,6 +403,10 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
           const staffStatus = staffStatusMap[s.id];
           if (staffStatus === "on_leave" || staffStatus === "leave") {
             attendance = "leave";
+          } else if (branchClockCount === 0 && (staffStatus === "active" || !staffStatus)) {
+            attendance = "present";
+          } else {
+            attendance = "absent";
           }
         }
 
@@ -557,9 +621,9 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
         totalExpenses: totalExp
       };
 
-      // ── Revenue Trend: last 7 days from real orders ──
+      // ── Revenue Trend: dynamic days from real orders ──
       const revenueTrend: Record<string, any>[] = [];
-      for (let i = 6; i >= 0; i--) {
+      for (let i = trendDays - 1; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(d.getDate() - i);
         const dateStr = d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
@@ -568,10 +632,13 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
         const point: Record<string, any> = { date: dateStr };
         mappedBranches.forEach(b => {
           const key = b.name.split(" ")[0].toLowerCase();
-          const dayOrders = currentPeriodOrders.filter(o =>
+          const dayOrders = allOrderRows.filter(o =>
             o.restaurant_id === b.id && o.created_at?.startsWith(dayKey)
           );
-          point[key] = dayOrders.reduce((s: number, o: any) => s + Number(o.total || 0), 0);
+          const dayTotal = dayOrders.reduce((s: number, o: any) => s + Number(o.total || 0), 0);
+          point[key] = dayTotal;
+          point[b.id] = dayTotal;
+          point[b.name] = dayTotal;
         });
         revenueTrend.push(point);
       }
@@ -604,11 +671,19 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     }
   });
 
-  // Automatically reset branch selection if allBranches change
+  // Automatically reset branch selection if allBranches change or restore from active_branch_id
   const currentBranches = demoMode ? mockBranches : (dbData?.branches || []);
   useEffect(() => {
     if (currentBranch && !currentBranches.some(b => b.id === currentBranch.id)) {
       setCurrentBranch(null);
+    } else if (!currentBranch && currentBranches.length > 0) {
+      const savedBranchId = typeof window !== "undefined" ? localStorage.getItem("active_branch_id") : null;
+      if (savedBranchId) {
+        const match = currentBranches.find(b => b.id === savedBranchId);
+        if (match) {
+          setCurrentBranchState(match);
+        }
+      }
     }
   }, [currentBranches, currentBranch]);
 
@@ -697,13 +772,26 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     }
   };
 
-  const [dateRange, setDateRange] = useState<DateRangePreset>("30d");
   const [mockTeam, setMockTeam] = useState<typeof MOCK_TEAM>(MOCK_TEAM);
   const [mockMenuItems, setMockMenuItems] = useState<MockMenuItem[]>(MOCK_MENU_ITEMS);
 
   const deactivateBranch = async (id: string): Promise<boolean> => {
     const branchToToggle = currentBranches.find((b) => b.id === id);
     const newStatus = branchToToggle?.status === "active" ? "inactive" : "active";
+
+    // Clear active branch from session if deactivating current active branch
+    if (newStatus === "inactive") {
+      try {
+        const savedBranchId = localStorage.getItem("active_branch_id");
+        if (savedBranchId === id) {
+          localStorage.removeItem("active_branch_id");
+          if (currentBranch?.id === id) {
+            setCurrentBranchState(null);
+          }
+          window.dispatchEvent(new Event("branch_changed"));
+        }
+      } catch {}
+    }
 
     if (demoMode) {
       setMockBranches(mockBranches.map((item) => (item.id === id ? { ...item, status: newStatus } : item)));
@@ -748,15 +836,17 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
       const { data: prof } = await supabase
         .from("profiles")
         .select("id")
-        .eq("email", data.email)
+        .eq("email", data.email.trim().toLowerCase())
         .maybeSingle();
 
-      const memberUserId = prof?.id || user?.id; // fallback to current user or mock insert
-      if (!memberUserId) return false;
+      if (!prof?.id) {
+        console.warn("[FranchiseContext] User with email not registered yet:", data.email);
+        return false;
+      }
 
       const { error } = await supabase.from("organization_members").insert({
         organization_id: activeOrgId,
-        user_id: memberUserId,
+        user_id: prof.id,
         role: data.role,
         accessible_branches: data.accessibleBranches,
       });
@@ -879,16 +969,41 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
 
       for (const branchId of targetBranchIds) {
         for (const item of itemsToPush) {
-          await supabase.from("menu_items").insert({
-            organization_id: activeOrgId,
-            restaurant_id: branchId,
-            name: item.name,
-            category: item.category,
-            price: item.price,
-            origin: "inherited",
-            source_item_id: item.id,
-            is_available: item.isAvailable ?? true,
-          });
+          // Check if target branch already has this item (by source_item_id or name+inherited)
+          const { data: existingItem } = await supabase
+            .from("menu_items")
+            .select("id")
+            .eq("restaurant_id", branchId)
+            .or(`source_item_id.eq.${item.id},name.eq.${item.name}`)
+            .maybeSingle();
+
+          if (existingItem?.id) {
+            // Update existing branch item to stay synced
+            await supabase
+              .from("menu_items")
+              .update({
+                name: item.name,
+                category: item.category,
+                price: item.price,
+                origin: "inherited",
+                source_item_id: item.id,
+                organization_id: activeOrgId,
+                is_available: item.isAvailable ?? true,
+              })
+              .eq("id", existingItem.id);
+          } else {
+            // Insert new inherited item
+            await supabase.from("menu_items").insert({
+              organization_id: activeOrgId,
+              restaurant_id: branchId,
+              name: item.name,
+              category: item.category,
+              price: item.price,
+              origin: "inherited",
+              source_item_id: item.id,
+              is_available: item.isAvailable ?? true,
+            });
+          }
         }
       }
       refetch();
@@ -922,6 +1037,27 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
 
       if (error) {
         console.error("Error deleting master menu item:", error);
+        return false;
+      }
+      refetch();
+      return true;
+    }
+  };
+
+  const adoptOrphanedMenuItem = async (itemId: string): Promise<boolean> => {
+    if (demoMode) {
+      setMockMenuItems((prev) =>
+        prev.map((item) => (item.id === itemId ? { ...item, origin: "branch" } : item))
+      );
+      return true;
+    } else {
+      const { error } = await supabase
+        .from("menu_items")
+        .update({ origin: "branch", source_item_id: null })
+        .eq("id", itemId);
+
+      if (error) {
+        console.error("Error adopting orphaned menu item:", error);
         return false;
       }
       refetch();
@@ -964,6 +1100,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     addMasterMenuItem,
     pushMenuItemsToBranches,
     deleteMasterMenuItem,
+    adoptOrphanedMenuItem,
   };
 
   return (

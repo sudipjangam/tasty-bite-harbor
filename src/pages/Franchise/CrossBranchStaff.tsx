@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { cn } from "@/lib/utils";
-import { Users, Phone, UserCheck, Calendar, RefreshCw, DollarSign } from "lucide-react";
+import { Users, Phone, UserCheck, Calendar, RefreshCw, DollarSign, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   present: { label: "Present", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
@@ -13,7 +14,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 };
 
 const CrossBranchStaff: React.FC = () => {
-  const { currentBranch, allBranches, staff, payroll } = useFranchise();
+  const { currentBranch, allBranches, staff, payroll, org, demoMode, refetch } = useFranchise();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"attendance" | "roaming" | "payroll">("attendance");
   const [branchFilter, setBranchFilter] = useState("all");
@@ -22,6 +23,35 @@ const CrossBranchStaff: React.FC = () => {
   const [selectedStaff, setSelectedStaff] = useState(() => staff[0]?.id || "");
   const [primaryBranch, setPrimaryBranch] = useState(() => staff[0]?.branchId || allBranches[0]?.id || "");
   const [secondaryBranches, setSecondaryBranches] = useState<string[]>([]);
+  const [isSavingRoster, setIsSavingRoster] = useState(false);
+
+  // Sync selectedStaff if list updates
+  useEffect(() => {
+    if (staff.length > 0 && (!selectedStaff || !staff.some(s => s.id === selectedStaff))) {
+      setSelectedStaff(staff[0].id);
+      setPrimaryBranch(staff[0].branchId || allBranches[0]?.id || "");
+    }
+  }, [staff, selectedStaff, allBranches]);
+
+  // Load existing roaming assignments for selectedStaff
+  useEffect(() => {
+    if (!selectedStaff || demoMode) return;
+    const loadPermissions = async () => {
+      const { data } = await supabase
+        .from("organization_members")
+        .select("accessible_branches")
+        .eq("user_id", selectedStaff)
+        .maybeSingle();
+
+      if (data?.accessible_branches && Array.isArray(data.accessible_branches)) {
+        const secondaries = (data.accessible_branches as string[]).filter(id => id !== primaryBranch);
+        setSecondaryBranches(secondaries);
+      } else {
+        setSecondaryBranches([]);
+      }
+    };
+    loadPermissions();
+  }, [selectedStaff, primaryBranch, demoMode]);
 
   const filtered = staff.filter((s) =>
     currentBranch
@@ -41,14 +71,57 @@ const CrossBranchStaff: React.FC = () => {
     }
   };
 
-  const handleUpdateRoster = (e: React.FormEvent) => {
+  const handleUpdateRoster = async (e: React.FormEvent) => {
     e.preventDefault();
     const staffMember = staff.find(s => s.id === selectedStaff);
     const secNames = allBranches.filter(b => secondaryBranches.includes(b.id)).map(b => b.name).join(", ");
-    toast({
-      title: "Roster Configured",
-      description: `Assigned roaming access for ${staffMember?.name} to: ${secNames || "None"}.`,
-    });
+
+    setIsSavingRoster(true);
+    try {
+      if (!demoMode && org?.id && selectedStaff) {
+        const targetBranches = Array.from(new Set([primaryBranch, ...secondaryBranches])).filter(Boolean);
+
+        const { data: memberRow } = await supabase
+          .from("organization_members")
+          .select("id")
+          .eq("user_id", selectedStaff)
+          .eq("organization_id", org.id)
+          .maybeSingle();
+
+        if (memberRow?.id) {
+          const { error } = await supabase
+            .from("organization_members")
+            .update({ accessible_branches: targetBranches })
+            .eq("id", memberRow.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("organization_members")
+            .insert({
+              organization_id: org.id,
+              user_id: selectedStaff,
+              role: "member",
+              accessible_branches: targetBranches,
+            });
+          if (error) throw error;
+        }
+        refetch();
+      }
+
+      toast({
+        title: "Roster Configured",
+        description: `Assigned roaming access for ${staffMember?.name || "staff"} to: ${secNames || "Primary Base only"}.`,
+      });
+    } catch (err: any) {
+      console.error("Error saving roaming roster:", err);
+      toast({
+        title: "Save Failed",
+        description: err.message || "Failed to save roaming permissions.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingRoster(false);
+    }
   };
 
   return (
@@ -207,8 +280,13 @@ const CrossBranchStaff: React.FC = () => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white">
-              Save Roaming Permissions
+            <Button
+              type="submit"
+              disabled={isSavingRoster}
+              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white flex items-center justify-center gap-2"
+            >
+              {isSavingRoster && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isSavingRoster ? "Saving Permissions..." : "Save Roaming Permissions"}
             </Button>
           </form>
         </div>

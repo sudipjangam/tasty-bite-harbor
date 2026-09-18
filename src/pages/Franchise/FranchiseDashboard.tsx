@@ -89,18 +89,17 @@ const FranchiseDashboard: React.FC = () => {
 
   const trendData = revenueTrend.map((d) => {
     if (!currentBranch) return d;
-    const key = branchKey(currentBranch.name) as keyof typeof d;
+    const val = d[currentBranch.name] ?? d[currentBranch.id] ?? d[branchKey(currentBranch.name)] ?? 0;
     // Re-key the data under the display name for Recharts
-    return { date: d.date, [currentBranch.name]: d[key] ?? 0 };
+    return { date: d.date, [currentBranch.name]: val };
   });
 
-  // In demo mode the context emits fixed keys "mumbai","pune"... so use them;
-  // in live mode derive from allBranches (same algorithm as context uses)
+  // In demo mode use fixed mock keys; in live mode use unique branch names
   const trendKeys = currentBranch
     ? [currentBranch.name]
     : demoMode
     ? ["mumbai", "pune", "nashik", "nagpur"]
-    : allBranches.map((b) => branchKey(b.name));
+    : allBranches.map((b) => b.name);
 
   const trendColors = currentBranch
     ? [currentBranch.color]
@@ -277,7 +276,7 @@ const FranchiseDashboard: React.FC = () => {
         {/* Revenue Trend */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
-            Revenue Trend — Last 7 Days
+            Revenue Trend — {dateRange === "today" ? "Today" : dateRange === "7d" ? "Last 7 Days" : dateRange === "90d" ? "Last 14 Days" : "Last 7 Days"}
           </h2>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={trendData} margin={{ top: 0, right: 8, bottom: 0, left: 0 }}>

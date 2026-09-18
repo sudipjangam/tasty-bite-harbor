@@ -239,7 +239,7 @@ const BranchManagement: React.FC = () => {
     if (success) {
       toast({
         title: isActivating ? "Branch Activated" : "Branch Deactivated",
-        description: `${branch.name} status updated to ${isActivating ? "Active" : "Inactive"}.`,
+        description: `${branch.name} is now ${isActivating ? "Active" : "Inactive"}. ${!isActivating ? "Active sessions for this branch are cleared." : ""}`,
       });
     } else {
       toast({
