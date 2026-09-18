@@ -81,6 +81,7 @@ interface FranchiseContextType {
   pushMenuItemsToBranches: (itemIds: string[], branchIds: string[]) => Promise<boolean>;
   deleteMasterMenuItem: (itemId: string) => Promise<boolean>;
   adoptOrphanedMenuItem: (itemId: string) => Promise<boolean>;
+  pendingApprovalsCount: number;
 }
 
 const FranchiseContext = createContext<FranchiseContextType | undefined>(undefined);
@@ -186,13 +187,14 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
       }
       const todayStr = now.toISOString().split("T")[0];
 
-      // Query organization + subscription + branches + menu + members
-      const [orgRes, subRes, branchRes, menuRes, memberRes] = await Promise.all([
+      // Query organization + subscription + branches + menu + members + pending approvals
+      const [orgRes, subRes, branchRes, menuRes, memberRes, approvalsRes] = await Promise.all([
         supabase.from("organizations").select("*").eq("id", activeOrgId).maybeSingle(),
         supabase.from("organization_subscriptions").select("*").eq("organization_id", activeOrgId).maybeSingle(),
         supabase.from("restaurants").select("*").eq("organization_id", activeOrgId),
         supabase.from("menu_items").select("*").eq("organization_id", activeOrgId),
-        supabase.from("organization_members").select("*").eq("organization_id", activeOrgId)
+        supabase.from("organization_members").select("*").eq("organization_id", activeOrgId),
+        supabase.from("approval_requests").select("id, restaurant_id").eq("organization_id", activeOrgId).eq("status", "pending")
       ]);
 
       const orgRow = orgRes.data;
@@ -666,10 +668,44 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
         menuItems: mappedMenuItems,
         pnlBranches: mappedPnL,
         kpis,
-        revenueTrend
+        revenueTrend,
+        pendingApprovals: approvalsRes.data || []
       };
     }
   });
+
+  // Dynamic pending approvals count (branch-aware & demo-mode aware)
+  const pendingApprovalsCount = demoMode
+    ? (currentBranch ? 1 : 2)
+    : (
+        currentBranch
+          ? (dbData?.pendingApprovals || []).filter((a: any) => a.restaurant_id === currentBranch.id).length
+          : (dbData?.pendingApprovals || []).length
+      );
+
+  // Realtime subscription for live approval_requests updates
+  useEffect(() => {
+    if (demoMode || !dbData?.org?.id) return;
+    const channel = supabase
+      .channel("franchise-approvals-channel")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "approval_requests",
+          filter: `organization_id=eq.${dbData.org.id}`,
+        },
+        () => {
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [demoMode, dbData?.org?.id, refetch]);
 
   // Automatically reset branch selection if allBranches change or restore from active_branch_id
   const currentBranches = demoMode ? mockBranches : (dbData?.branches || []);
@@ -1101,6 +1137,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     pushMenuItemsToBranches,
     deleteMasterMenuItem,
     adoptOrphanedMenuItem,
+    pendingApprovalsCount,
   };
 
   return (

@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
+import SwadeshiLoader from "@/styles/Loader/SwadeshiLoader";
 
 // ─── Nav items for franchise sidebar ────────────────────────
 const franchiseNavItems = [
@@ -105,7 +106,7 @@ const franchiseNavItems = [
 export const FranchiseLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { org, demoMode, setDemoMode, isLoading } = useFranchise();
+  const { org, demoMode, setDemoMode, isLoading, pendingApprovalsCount } = useFranchise();
   const { user, isRole } = useAuth();
   const isAdminOrOwner = isRole("admin");
   const { toast } = useToast();
@@ -237,7 +238,7 @@ export const FranchiseLayout: React.FC = () => {
                             : "text-white/70 group-hover:text-white",
                         )}
                       />
-                      {item.title === "Approvals" && collapsed && (
+                      {item.title === "Approvals" && collapsed && pendingApprovalsCount > 0 && (
                         <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse" />
                       )}
                     </div>
@@ -247,9 +248,9 @@ export const FranchiseLayout: React.FC = () => {
                           <span className="text-sm font-medium block truncate">
                             {item.title}
                           </span>
-                          {item.title === "Approvals" && (
+                          {item.title === "Approvals" && pendingApprovalsCount > 0 && (
                             <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 animate-pulse">
-                              2
+                              {pendingApprovalsCount}
                             </span>
                           )}
                         </div>
@@ -343,11 +344,18 @@ export const FranchiseLayout: React.FC = () => {
             )}
 
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center h-64 gap-3">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600" />
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Loading live organization data...
-                </p>
+              <div className="flex flex-col items-center justify-center min-h-[65vh] py-12">
+                <SwadeshiLoader
+                  loadingText="loading"
+                  words={[
+                    "franchise",
+                    "branches",
+                    "analytics",
+                    "operations",
+                    "solutions",
+                  ]}
+                  size={120}
+                />
               </div>
             ) : (
               <Outlet />
@@ -475,13 +483,18 @@ const FranchiseMobileNav: React.FC = () => {
                   >
                     <div
                       className={cn(
-                        "p-3 rounded-2xl bg-gradient-to-br",
+                        "p-3 rounded-2xl bg-gradient-to-br relative",
                         active
                           ? "from-violet-500 to-purple-600 shadow-lg shadow-violet-500/30"
                           : "from-slate-700 to-slate-800",
                       )}
                     >
                       <Icon className="h-5 w-5 text-white" />
+                      {title === "Approvals" && pendingApprovalsCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                          {pendingApprovalsCount}
+                        </span>
+                      )}
                     </div>
                     <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 text-center leading-tight">
                       {title}

@@ -58,7 +58,7 @@ const INITIAL_REQUESTS: ApprovalRequest[] = [
 ];
 
 const ApprovalsWorkflow: React.FC = () => {
-  const { allBranches, org, demoMode } = useFranchise();
+  const { allBranches, org, demoMode, refetch } = useFranchise();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"pending" | "raise" | "history">("pending");
   const [requests, setRequests] = useState<ApprovalRequest[]>(demoMode ? INITIAL_REQUESTS : []);
@@ -238,6 +238,7 @@ const ApprovalsWorkflow: React.FC = () => {
           return r;
         })
       );
+      refetch();
     } catch (err: any) {
       toast({
         title: "Action Failed",
@@ -316,6 +317,7 @@ const ApprovalsWorkflow: React.FC = () => {
       setSimDetails("");
       setSimComment("");
       setActiveTab("pending");
+      refetch();
     } catch (err: any) {
       toast({
         title: "Simulation Failed",
