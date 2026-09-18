@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Capacitor } from "@capacitor/core";
-import { Bluetooth, Wifi, Usb, RefreshCw, Printer, Check, X, Radio, Download } from "lucide-react";
+import { Bluetooth, Wifi, Usb, RefreshCw, Printer, Check, X, Radio, Download, Unplug, Signal } from "lucide-react";
 import { downloadKioskShortcut } from "@/utils/kioskShortcut";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,19 @@ import {
   setPaperSize,
 } from "@/services/nativePrinterBridge";
 import { thermalPrinterService } from "@/services/thermalPrinterService";
+import { cn } from "@/lib/utils";
+
+// ─── Shared styles ────────────────────────────────────────────────────────────
+
+const cardStyle: React.CSSProperties = {
+  background: "rgba(255,255,255,0.06)",
+  backdropFilter: "blur(16px)",
+  WebkitBackdropFilter: "blur(16px)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const gradientBtnClass =
+  "bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-500 hover:from-indigo-600 hover:via-purple-600 hover:to-violet-600 text-white border-0 shadow-lg shadow-purple-500/20 transition-all active:scale-[0.98]";
 
 // ─── Paper size selector ──────────────────────────────────────────────────────
 
@@ -27,18 +40,33 @@ const PaperSizeSelector = () => {
   };
 
   return (
-    <div className="flex gap-3 items-center">
-      <Label className="text-sm text-muted-foreground shrink-0">Paper Size</Label>
-      <div className="flex rounded-lg border border-border overflow-hidden">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2.5">
+        <div
+          className="flex h-9 w-9 items-center justify-center rounded-xl"
+          style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)" }}
+        >
+          <Printer className="h-4 w-4 text-white" />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-foreground">Paper Width</p>
+          <p className="text-[11px] text-muted-foreground">Thermal roll size</p>
+        </div>
+      </div>
+      <div
+        className="flex rounded-full overflow-hidden p-0.5"
+        style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)" }}
+      >
         {(["58", "80"] as const).map((s) => (
           <button
             key={s}
             onClick={() => handleChange(s)}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
+            className={cn(
+              "px-4 py-1.5 text-xs font-semibold rounded-full transition-all",
               size === s
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
+                ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
             {s}mm
           </button>
@@ -51,16 +79,25 @@ const PaperSizeSelector = () => {
 // ─── Connection badge ─────────────────────────────────────────────────────────
 
 const StatusBadge = ({ connected }: { connected: boolean }) => (
-  <Badge
-    variant={connected ? "default" : "secondary"}
-    className={connected ? "bg-green-500/20 text-green-500 border-green-500/30" : ""}
-  >
-    {connected ? (
-      <><Check className="h-3 w-3 mr-1" /> Connected</>
-    ) : (
-      <><X className="h-3 w-3 mr-1" /> Not connected</>
+  <div
+    className={cn(
+      "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium",
     )}
-  </Badge>
+    style={{
+      background: connected ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.1)",
+      border: `1px solid ${connected ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.2)"}`,
+    }}
+  >
+    <span className="relative flex h-2 w-2">
+      {connected && (
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+      )}
+      <span className={cn("relative inline-flex rounded-full h-2 w-2", connected ? "bg-green-400" : "bg-red-400")} />
+    </span>
+    <span className={connected ? "text-green-500" : "text-red-400"}>
+      {connected ? "Connected" : "Disconnected"}
+    </span>
+  </div>
 );
 
 // ─── Test print button ────────────────────────────────────────────────────────
@@ -94,15 +131,20 @@ const TestPrintButton = ({ disabled }: { disabled: boolean }) => {
   };
 
   return (
-    <Button
+    <button
       onClick={handleTest}
       disabled={disabled || loading}
-      variant="outline"
-      className="w-full"
+      className={cn(
+        "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none",
+      )}
+      style={{
+        background: "rgba(255,255,255,0.06)",
+        border: "1px solid rgba(255,255,255,0.1)",
+      }}
     >
-      <Printer className="h-4 w-4 mr-2" />
-      {loading ? "Printing..." : "Send Test Print"}
-    </Button>
+      <Printer className="h-4 w-4 text-purple-400" />
+      <span className="text-foreground">{loading ? "Printing..." : "Send Test Print"}</span>
+    </button>
   );
 };
 
@@ -219,21 +261,27 @@ const BluetoothTab = ({
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Web Bluetooth</span>
+          <span className="text-sm font-medium text-foreground">Web Bluetooth</span>
           <StatusBadge connected={connected} />
         </div>
         
-        <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm text-muted-foreground space-y-2">
-          <p className="font-semibold text-foreground">USB / System Thermal Printer:</p>
-          <p>Plug in your USB thermal printer. KOT and Bill receipts print automatically via the Windows/system printer driver.</p>
-          <div className="border-t border-border/50 my-2 pt-2">
-            <p className="font-semibold text-foreground">Bluetooth Wireless Printer:</p>
-            <p>1. Turn on Bluetooth & thermal printer</p>
-            <p>2. Click "Connect Bluetooth Printer" below to pair directly</p>
+        <div className="rounded-xl p-4 text-sm space-y-2.5" style={cardStyle}>
+          <p className="font-semibold text-foreground flex items-center gap-2">
+            <Usb className="h-4 w-4 text-purple-400" /> USB / System Printer
+          </p>
+          <p className="text-muted-foreground text-xs leading-relaxed">
+            Plug in your USB thermal printer. KOT and Bill receipts print automatically via the Windows/system printer driver.
+          </p>
+          <div className="border-t border-white/5 my-2 pt-2">
+            <p className="font-semibold text-foreground flex items-center gap-2 text-xs">
+              <Bluetooth className="h-3.5 w-3.5 text-blue-400" /> Bluetooth Wireless
+            </p>
+            <p className="text-muted-foreground text-xs mt-1">1. Turn on Bluetooth & thermal printer</p>
+            <p className="text-muted-foreground text-xs">2. Click "Connect" below to pair directly</p>
           </div>
         </div>
 
-        <Button onClick={connectWeb} disabled={webConnecting} className="w-full">
+        <Button onClick={connectWeb} disabled={webConnecting} className={cn("w-full rounded-xl h-11", gradientBtnClass)}>
           <Bluetooth className="h-4 w-4 mr-2" />
           {webConnecting ? "Connecting..." : "Connect Bluetooth Printer"}
         </Button>
@@ -246,72 +294,105 @@ const BluetoothTab = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">Bluetooth Classic (SPP)</span>
+        <span className="text-sm font-medium text-foreground">Bluetooth Classic (SPP)</span>
         <StatusBadge connected={connected} />
       </div>
 
       {/* Action buttons */}
       <div className="flex gap-2">
-        <Button
+        <button
           onClick={loadPaired}
           disabled={loadingPaired || scanning}
-          variant="outline"
-          className="flex-1"
+          className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all active:scale-[0.97] disabled:opacity-40"
+          style={cardStyle}
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loadingPaired ? "animate-spin" : ""}`} />
-          {loadingPaired ? "Loading..." : "Paired Devices"}
-        </Button>
-        <Button
+          <RefreshCw className={cn("h-3.5 w-3.5 text-indigo-400", loadingPaired && "animate-spin")} />
+          <span className="text-foreground">{loadingPaired ? "Loading..." : "Paired Devices"}</span>
+        </button>
+        <button
           onClick={scanNearby}
           disabled={scanning || loadingPaired}
-          variant="outline"
-          className="flex-1"
+          className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all active:scale-[0.97] disabled:opacity-40"
+          style={cardStyle}
         >
-          <Radio className={`h-4 w-4 mr-2 ${scanning ? "animate-pulse text-primary" : ""}`} />
-          {scanning ? "Scanning..." : "Scan Nearby"}
-        </Button>
+          <Signal className={cn("h-3.5 w-3.5 text-purple-400", scanning && "animate-pulse")} />
+          <span className="text-foreground">{scanning ? "Scanning..." : "Scan Nearby"}</span>
+        </button>
       </div>
 
       {scanning && (
-        <p className="text-xs text-muted-foreground text-center animate-pulse">
-          Scanning for nearby Bluetooth devices… this may take ~10 seconds
-        </p>
+        <div className="flex items-center justify-center gap-2 py-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-purple-500" />
+          </span>
+          <p className="text-xs text-muted-foreground animate-pulse">
+            Scanning for nearby devices… ~10 seconds
+          </p>
+        </div>
       )}
 
       {/* Device list */}
       {allDevices.length > 0 && (
-        <div className="rounded-lg border border-border divide-y divide-border">
+        <div className="space-y-2">
           {allDevices.map((d) => (
-            <div key={d.address} className="flex items-center justify-between p-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-foreground">{d.name || "Unknown Device"}</p>
-                  {d._paired && (
-                    <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded-full font-medium">
-                      Paired
-                    </span>
-                  )}
+            <div
+              key={d.address}
+              className="flex items-center justify-between p-3 rounded-xl transition-all"
+              style={cardStyle}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                  style={{ background: d._paired ? "rgba(99,102,241,0.15)" : "rgba(168,85,247,0.12)" }}
+                >
+                  <Bluetooth className={cn("h-4 w-4", d._paired ? "text-indigo-400" : "text-purple-400")} />
                 </div>
-                <p className="text-xs text-muted-foreground font-mono">{d.address}</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-foreground truncate">{d.name || "Unknown Device"}</p>
+                    {d._paired && (
+                      <span
+                        className="text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0"
+                        style={{ background: "rgba(34,197,94,0.15)", color: "#4ade80" }}
+                      >
+                        PAIRED
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground font-mono truncate">{d.address}</p>
+                </div>
               </div>
-              <Button
-                size="sm"
+              <button
                 onClick={() => connect(d)}
                 disabled={connecting === d.address}
+                className={cn(
+                  "shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 disabled:opacity-50",
+                  gradientBtnClass
+                )}
               >
-                {connecting === d.address ? "Connecting..." : "Connect"}
-              </Button>
+                {connecting === d.address ? "..." : "Connect"}
+              </button>
             </div>
           ))}
         </div>
       )}
 
       {!loadingPaired && !scanning && allDevices.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground py-4">
-          No devices found. Pair your printer first in{" "}
-          <span className="font-medium">Android Settings → Bluetooth</span>, then tap
-          {" "}<span className="font-medium">Paired Devices</span>.
-        </p>
+        <div className="text-center py-6 space-y-2">
+          <div
+            className="mx-auto flex h-12 w-12 items-center justify-center rounded-full"
+            style={{ background: "rgba(168,85,247,0.1)" }}
+          >
+            <Bluetooth className="h-5 w-5 text-purple-400 opacity-60" />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            No devices found
+          </p>
+          <p className="text-xs text-muted-foreground/70">
+            Pair in <span className="font-medium text-foreground/80">Android Settings → Bluetooth</span>, then tap <span className="font-medium text-foreground/80">Paired Devices</span>
+          </p>
+        </div>
       )}
 
       <TestPrintButton disabled={!connected} />
@@ -363,13 +444,13 @@ const LANTab = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">LAN / WiFi (TCP port 9100)</span>
+        <span className="text-sm font-medium text-foreground">LAN / WiFi (TCP:9100)</span>
         <StatusBadge connected={connected} />
       </div>
 
       <div className="space-y-3">
         <div>
-          <Label htmlFor="printer-ip" className="text-xs text-muted-foreground mb-1 block">
+          <Label htmlFor="printer-ip" className="text-xs text-muted-foreground mb-1.5 block">
             Printer IP Address
           </Label>
           <Input
@@ -379,10 +460,11 @@ const LANTab = ({
             placeholder="192.168.1.100"
             type="text"
             inputMode="numeric"
+            className="rounded-xl h-11 bg-white/[0.04] border-white/10 focus:border-purple-500/50"
           />
         </div>
         <div>
-          <Label htmlFor="printer-port" className="text-xs text-muted-foreground mb-1 block">
+          <Label htmlFor="printer-port" className="text-xs text-muted-foreground mb-1.5 block">
             Port
           </Label>
           <Input
@@ -391,14 +473,19 @@ const LANTab = ({
             onChange={(e) => setPort(e.target.value)}
             placeholder="9100"
             type="number"
+            className="rounded-xl h-11 bg-white/[0.04] border-white/10 focus:border-purple-500/50"
           />
         </div>
       </div>
 
-      <Button onClick={handleConnect} disabled={loading} className="w-full">
-        <Wifi className="h-4 w-4 mr-2" />
+      <button
+        onClick={handleConnect}
+        disabled={loading}
+        className={cn("w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold disabled:opacity-50", gradientBtnClass)}
+      >
+        <Wifi className="h-4 w-4" />
         {loading ? "Connecting..." : "Connect"}
-      </Button>
+      </button>
 
       <TestPrintButton disabled={!connected} />
     </div>
@@ -421,32 +508,41 @@ const USBTab = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">USB Cable Thermal Printing</span>
-        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
-          Windows USB Driver
-        </Badge>
-      </div>
-
-      <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm text-muted-foreground space-y-2.5">
-        <p className="font-semibold text-foreground">How USB Silent Printing Works:</p>
-        <p>
-          USB thermal printers print through the Windows printer driver. To print KOTs and Bills <strong>directly with zero print preview popup</strong>, open POS using the Direct Print desktop shortcut.
-        </p>
-        <div className="border-t border-border/50 pt-2 space-y-1 text-xs">
-          <p className="font-medium text-foreground">1-Time Setup:</p>
-          <p>1. Ensure your thermal printer is set as default printer in Windows.</p>
-          <p>2. Click below to download the Desktop Shortcut installer.</p>
-          <p>3. Double-click the downloaded file — it creates the shortcut on your Desktop.</p>
+        <span className="text-sm font-medium text-foreground">USB Cable Printing</span>
+        <div
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+          style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)" }}
+        >
+          <Usb className="h-3 w-3 text-amber-400" />
+          <span className="text-amber-400">Windows USB</span>
         </div>
       </div>
 
-      <Button
+      <div className="rounded-xl p-4 text-sm space-y-2.5" style={cardStyle}>
+        <p className="font-semibold text-foreground text-xs">How USB Silent Printing Works</p>
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          USB printers print through the Windows driver. To print KOTs and Bills <strong className="text-foreground/80">directly with zero popup</strong>, open POS using the Direct Print shortcut.
+        </p>
+        <div className="border-t border-white/5 pt-2.5 space-y-1 text-[11px] text-muted-foreground">
+          <p className="font-semibold text-foreground text-xs mb-1">1-Time Setup:</p>
+          <p>1. Set thermal printer as default in Windows</p>
+          <p>2. Download the Desktop Shortcut below</p>
+          <p>3. Double-click to create the shortcut</p>
+        </div>
+      </div>
+
+      <button
         onClick={handleDownload}
-        className="w-full gap-2 bg-amber-600 hover:bg-amber-700 text-white font-medium"
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
+        style={{
+          background: "linear-gradient(135deg, #d97706, #f59e0b)",
+          color: "white",
+          boxShadow: "0 4px 15px rgba(245,158,11,0.25)",
+        }}
       >
         <Download className="h-4 w-4" />
-        Download POS Direct Print Shortcut (.bat)
-      </Button>
+        Download Direct Print Shortcut
+      </button>
 
       <TestPrintButton disabled={false} />
     </div>
@@ -495,56 +591,80 @@ export const PrinterSettings = () => {
   };
 
   return (
-    <div className="p-4 space-y-6 max-w-lg mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Printer Setup</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Configure thermal receipt printer
-          </p>
-        </div>
-        {status.connected && (
-          <Button size="sm" variant="ghost" onClick={handleDisconnect} className="text-destructive hover:text-destructive">
-            Disconnect
-          </Button>
-        )}
-      </div>
-
-      {/* Current connection status */}
+    <div className="p-4 space-y-4 max-w-lg mx-auto pb-8">
+      {/* Connected device hero */}
       {status.connected && (
-        <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4">
-          <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-green-500 animate-pulse" />
-            <span className="text-sm font-medium text-green-600 dark:text-green-400">
-              {status.deviceName ?? "Printer"} connected
-            </span>
+        <div
+          className="rounded-2xl p-4 relative overflow-hidden"
+          style={{
+            background: "linear-gradient(135deg, rgba(34,197,94,0.12), rgba(16,185,129,0.08))",
+            border: "1px solid rgba(34,197,94,0.2)",
+          }}
+        >
+          {/* Decorative glow */}
+          <div
+            className="absolute -top-8 -right-8 w-24 h-24 rounded-full opacity-30"
+            style={{ background: "radial-gradient(circle, rgba(34,197,94,0.4), transparent)" }}
+          />
+          <div className="flex items-center justify-between relative">
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                style={{ background: "rgba(34,197,94,0.15)" }}
+              >
+                <Printer className="h-5 w-5 text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-green-400">
+                  {status.deviceName ?? "Printer"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {status.type?.toUpperCase()} · {status.address}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleDisconnect}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95"
+              style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }}
+            >
+              <Unplug className="h-3 w-3 text-red-400" />
+              <span className="text-red-400">Disconnect</span>
+            </button>
           </div>
-          <p className="text-xs text-muted-foreground mt-1 ml-6">
-            Type: {status.type?.toUpperCase()} · {status.address}
-          </p>
         </div>
       )}
 
       {/* Paper size */}
-      <div className="rounded-xl border border-border p-4 space-y-3">
-        <h3 className="text-sm font-medium text-foreground">Paper Settings</h3>
+      <div className="rounded-2xl p-4" style={cardStyle}>
         <PaperSizeSelector />
       </div>
 
       {/* Connection tabs */}
-      <div className="rounded-xl border border-border overflow-hidden">
+      <div className="rounded-2xl overflow-hidden" style={cardStyle}>
         <Tabs defaultValue="bluetooth">
-          <TabsList className="w-full rounded-none border-b border-border h-11 grid grid-cols-3">
-            <TabsTrigger value="bluetooth" className="text-xs gap-1.5">
+          <TabsList
+            className="w-full rounded-none h-12 grid grid-cols-3 bg-transparent p-0"
+            style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <TabsTrigger
+              value="bluetooth"
+              className="text-xs gap-1.5 rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-indigo-400 border-b-2 border-transparent data-[state=active]:border-indigo-400 transition-all"
+            >
               <Bluetooth className="h-3.5 w-3.5" />
               Bluetooth
             </TabsTrigger>
-            <TabsTrigger value="usb" className="text-xs gap-1.5">
+            <TabsTrigger
+              value="usb"
+              className="text-xs gap-1.5 rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-amber-400 border-b-2 border-transparent data-[state=active]:border-amber-400 transition-all"
+            >
               <Usb className="h-3.5 w-3.5" />
               USB Cable
             </TabsTrigger>
-            <TabsTrigger value="lan" className="text-xs gap-1.5">
+            <TabsTrigger
+              value="lan"
+              className="text-xs gap-1.5 rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-purple-400 border-b-2 border-transparent data-[state=active]:border-purple-400 transition-all"
+            >
               <Wifi className="h-3.5 w-3.5" />
               LAN/WiFi
             </TabsTrigger>

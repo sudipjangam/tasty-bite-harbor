@@ -11,8 +11,6 @@ import {
   Grid3x3,
   X,
   ChevronRight,
-  Wifi,
-  WifiOff,
   LayoutDashboard,
   UtensilsCrossed,
   LogOut,
@@ -89,36 +87,6 @@ const MORE_ITEMS: MoreItem[] = [
   { label: "Logout",        icon: LogOut,   action: "logout" },
 ];
 
-// ─── Printer status indicator ────────────────────────────────────────────────
-const PrinterStatusDot = () => {
-  const [connected] = React.useState(() => {
-    return (
-      !!localStorage.getItem("thermal_printer_device_id") ||
-      !!localStorage.getItem("native_printer_connected")
-    );
-  });
-
-  return (
-    <div className="flex items-center gap-1 text-xs">
-      {connected ? (
-        <Wifi className="h-3 w-3 text-green-400" />
-      ) : (
-        <WifiOff className="h-3 w-3 text-red-400" />
-      )}
-      <span className={connected ? "text-green-400" : "text-red-400"}>
-        {connected ? "Printer" : "No Printer"}
-      </span>
-    </div>
-  );
-};
-
-// ─── Top Header ──────────────────────────────────────────────────────────────
-const MobileHeader = ({ title }: { title: string }) => (
-  <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border shrink-0">
-    <h1 className="text-base font-semibold text-foreground">{title}</h1>
-    <PrinterStatusDot />
-  </div>
-);
 
 // ─── More Drawer ─────────────────────────────────────────────────────────────
 const MoreDrawer = ({
@@ -248,7 +216,7 @@ export const OperationsMobileLayout = () => {
   const navigate  = useNavigate();
   const queryClient = useQueryClient();
 
-  const title = ROUTE_TITLES[location.pathname] ?? "Operations";
+
 
   // Re-lock when app returns from background after 30s
   useEffect(() => {
@@ -274,8 +242,6 @@ export const OperationsMobileLayout = () => {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
-      {/* Header */}
-      <MobileHeader title={title} />
 
       {/* Page content — scrollable */}
       <PullToRefresh onRefresh={async () => { await queryClient.invalidateQueries(); }}>
