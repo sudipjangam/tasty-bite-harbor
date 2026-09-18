@@ -82,6 +82,7 @@ interface FranchiseContextType {
   deleteMasterMenuItem: (itemId: string) => Promise<boolean>;
   adoptOrphanedMenuItem: (itemId: string) => Promise<boolean>;
   pendingApprovalsCount: number;
+  updateBranchRating: (branchId: string, rating: number, totalReviews?: number) => Promise<boolean>;
 }
 
 const FranchiseContext = createContext<FranchiseContextType | undefined>(undefined);
@@ -342,6 +343,24 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
         }
       }
 
+      // ── Fetch guest feedback for these branches ──
+      const feedbackMap: Record<string, { totalRating: number; count: number }> = {};
+      if (branchIds.length > 0) {
+        const { data: fbData } = await supabase
+          .from("guest_feedback")
+          .select("restaurant_id, rating")
+          .in("restaurant_id", branchIds);
+        (fbData || []).forEach((f: any) => {
+          if (!feedbackMap[f.restaurant_id]) {
+            feedbackMap[f.restaurant_id] = { totalRating: 0, count: 0 };
+          }
+          if (f.rating && Number(f.rating) > 0) {
+            feedbackMap[f.restaurant_id].totalRating += Number(f.rating);
+            feedbackMap[f.restaurant_id].count += 1;
+          }
+        });
+      }
+
       // ── Map branches with REAL metrics ──
       const mappedBranches: MockBranch[] = branchRows.map((b, idx) => {
         const realRevenue = branchRevenueMap[b.id] || 0;
@@ -351,6 +370,14 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
         const profitMargin = realRevenue > 0
           ? Math.round(((realRevenue - totalBranchExpenses) / realRevenue) * 1000) / 10
           : 0;
+
+        const fb = feedbackMap[b.id];
+        const computedRating = fb && fb.count > 0
+          ? Math.round((fb.totalRating / fb.count) * 10) / 10
+          : Number(b.rating) || 0;
+        const totalReviews = fb && fb.count > 0
+          ? fb.count
+          : Number(b.total_reviews) || 0;
 
         return {
           id: b.id,
@@ -367,7 +394,8 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
           revenue: realRevenue,
           orders: realOrders,
           profitMargin,
-          rating: Number(b.rating) || 0,
+          rating: computedRating,
+          totalReviews,
           openedDate: b.created_at ? new Date(b.created_at).toISOString().split("T")[0] : "2026-01-01",
           color: (b.social_media && typeof b.social_media === "object" && b.social_media.theme_color)
             ? b.social_media.theme_color
@@ -757,7 +785,9 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
         owner_name: b.manager,
         owner_phone: b.managerPhone,
         is_headquarters: b.isHeadquarters || false,
-        social_media: { theme_color: b.color }
+        social_media: { theme_color: b.color },
+        rating: b.rating !== undefined ? Number(b.rating) : 0,
+        total_reviews: b.totalReviews !== undefined ? Number(b.totalReviews) : 0
       });
       if (error) {
         console.error("Error creating branch:", error);
@@ -785,22 +815,48 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
         ? existingRest.social_media
         : {};
 
+      const updatePayload: any = {
+        name: b.name,
+        branch_code: b.code,
+        address: b.address,
+        phone: b.phone,
+        email: b.email,
+        owner_name: b.manager,
+        owner_phone: b.managerPhone,
+        is_headquarters: b.isHeadquarters,
+        social_media: b.color ? { ...existingSocial, theme_color: b.color } : existingSocial
+      };
+      if (b.rating !== undefined) updatePayload.rating = b.rating;
+      if (b.totalReviews !== undefined) updatePayload.total_reviews = b.totalReviews;
+
       const { error } = await supabase
         .from("restaurants")
-        .update({
-          name: b.name,
-          branch_code: b.code,
-          address: b.address,
-          phone: b.phone,
-          email: b.email,
-          owner_name: b.manager,
-          owner_phone: b.managerPhone,
-          is_headquarters: b.isHeadquarters,
-          social_media: b.color ? { ...existingSocial, theme_color: b.color } : existingSocial
-        })
+        .update(updatePayload)
         .eq("id", id);
       if (error) {
         console.error("Error updating branch:", error);
+        return false;
+      }
+      refetch();
+      return true;
+    }
+  };
+
+  const updateBranchRating = async (branchId: string, rating: number, totalReviews?: number): Promise<boolean> => {
+    if (demoMode) {
+      setMockBranches((prev) =>
+        prev.map((item) => (item.id === branchId ? { ...item, rating, totalReviews: totalReviews ?? item.totalReviews ?? 50 } : item))
+      );
+      return true;
+    } else {
+      const updateData: any = { rating };
+      if (totalReviews !== undefined) updateData.total_reviews = totalReviews;
+      const { error } = await supabase
+        .from("restaurants")
+        .update(updateData)
+        .eq("id", branchId);
+      if (error) {
+        console.error("Error updating branch rating:", error);
         return false;
       }
       refetch();
@@ -1138,6 +1194,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     deleteMasterMenuItem,
     adoptOrphanedMenuItem,
     pendingApprovalsCount,
+    updateBranchRating,
   };
 
   return (
