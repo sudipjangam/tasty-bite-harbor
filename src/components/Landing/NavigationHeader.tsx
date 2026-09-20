@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X, ChevronDown, LogOut, LayoutDashboard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 export const NavigationHeader: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -45,6 +47,12 @@ export const NavigationHeader: React.FC = () => {
     setIsMobileMenuOpen(false);
   };
 
+  const handleSignOutAndLogin = async () => {
+    await signOut();
+    navigate("/login");
+    setIsMobileMenuOpen(false);
+  };
+
   return (
     <>
       {/* Scroll Progress Bar */}
@@ -63,7 +71,11 @@ export const NavigationHeader: React.FC = () => {
             {/* Logo */}
             <div
               className="flex items-center gap-2 sm:gap-3 group cursor-pointer"
-              onClick={() => scrollToSection("#hero")}
+              onClick={() => {
+                const hero = document.querySelector("#hero");
+                if (hero) hero.scrollIntoView({ behavior: "smooth" });
+                else window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
             >
               <div className="relative flex items-center justify-center group-hover:scale-105">
                 <img
@@ -101,20 +113,42 @@ export const NavigationHeader: React.FC = () => {
             </nav>
 
             {/* CTA Buttons */}
-            <div className="hidden lg:flex items-center gap-4">
-              <Button
-                variant="ghost"
-                className="text-[#2D3A5F] dark:text-gray-200 hover:text-[#FF6B6B] hover:bg-[#FF6B6B]/10 font-medium"
-                onClick={() => navigate("/auth")}
-              >
-                Sign In
-              </Button>
-              <Button
-                className="landing-btn-primary px-6 py-2.5 rounded-xl font-semibold"
-                onClick={() => navigate("/auth")}
-              >
-                Start Free Trial
-              </Button>
+            <div className="hidden lg:flex items-center gap-3">
+              {user ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    className="text-[#2D3A5F] dark:text-gray-200 hover:text-red-600 font-medium gap-1.5"
+                    onClick={handleSignOutAndLogin}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign In with Other Account
+                  </Button>
+                  <Button
+                    className="landing-btn-primary px-5 py-2.5 rounded-xl font-semibold gap-1.5"
+                    onClick={() => navigate("/subscription")}
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Manage Subscription
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="ghost"
+                    className="text-[#2D3A5F] dark:text-gray-200 hover:text-[#FF6B6B] hover:bg-[#FF6B6B]/10 font-medium"
+                    onClick={() => navigate("/auth")}
+                  >
+                    Sign In
+                  </Button>
+                  <Button
+                    className="landing-btn-primary px-6 py-2.5 rounded-xl font-semibold"
+                    onClick={() => navigate("/auth")}
+                  >
+                    Start Free Trial
+                  </Button>
+                </>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -151,25 +185,48 @@ export const NavigationHeader: React.FC = () => {
             ))}
             <hr className="border-gray-200 dark:border-gray-700" />
             <div className="space-y-3 pt-2">
-              <Button
-                variant="outline"
-                className="w-full border-[#2D3A5F] text-[#2D3A5F] hover:bg-[#2D3A5F] hover:text-white"
-                onClick={() => {
-                  navigate("/auth");
-                  setIsMobileMenuOpen(false);
-                }}
-              >
-                Sign In
-              </Button>
-              <Button
-                className="w-full landing-btn-primary rounded-xl font-semibold"
-                onClick={() => {
-                  navigate("/auth");
-                  setIsMobileMenuOpen(false);
-                }}
-              >
-                Start Free Trial
-              </Button>
+              {user ? (
+                <>
+                  <Button
+                    className="w-full landing-btn-primary rounded-xl font-semibold"
+                    onClick={() => {
+                      navigate("/subscription");
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    Manage Subscription
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full border-red-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                    onClick={handleSignOutAndLogin}
+                  >
+                    Sign In with Other Account
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    className="w-full border-[#2D3A5F] text-[#2D3A5F] hover:bg-[#2D3A5F] hover:text-white"
+                    onClick={() => {
+                      navigate("/auth");
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    Sign In
+                  </Button>
+                  <Button
+                    className="w-full landing-btn-primary rounded-xl font-semibold"
+                    onClick={() => {
+                      navigate("/auth");
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    Start Free Trial
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

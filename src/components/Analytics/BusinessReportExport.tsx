@@ -2,8 +2,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { FileDown, FileText, FileSpreadsheet } from "lucide-react";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import { loadPDFTableEngine } from "@/utils/lazyExportLoaders";
 import { format } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
 import Watermark from "@/components/Layout/Watermark";
@@ -103,8 +102,9 @@ const BusinessReportExport: React.FC<BusinessReportExportProps> = ({
     }
   };
   
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     try {
+      const { jsPDF, autoTable } = await loadPDFTableEngine();
       // Create a new PDF document
       const doc = new jsPDF();
       

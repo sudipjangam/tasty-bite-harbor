@@ -10,10 +10,7 @@ import { HotelMetricsCards } from "@/components/Analytics/HotelMetricsCards";
 import { ConsolidatedRevenueChart } from "@/components/Analytics/ConsolidatedRevenueChart";
 import AIChartBuilder from "@/components/Analytics/AIChartBuilder";
 import { format, subDays } from "date-fns";
-import * as XLSX from "xlsx";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
-import html2canvas from "html2canvas";
+import { loadPDFEngine, loadPDFTableEngine, loadXLSXEngine } from "@/utils/lazyExportLoaders";
 import { useToast } from "@/components/ui/use-toast";
 import Watermark from "@/components/Layout/Watermark";
 import { fetchAllowedComponents } from "@/utils/subscriptionUtils";
@@ -150,8 +147,9 @@ const Analytics = () => {
       (stat) => format(new Date(stat.date), "yyyy-MM-dd") === today,
     )?.order_count || 0;
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     try {
+      const XLSX = await loadXLSXEngine();
       const wb = XLSX.utils.book_new();
 
       const revenueData = data.revenueStats.map((item) => ({
@@ -211,6 +209,8 @@ const Analytics = () => {
 
   const exportToPDF = async () => {
     try {
+      const { jsPDF, html2canvas } = await loadPDFEngine();
+      const { autoTable } = await loadPDFTableEngine();
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",

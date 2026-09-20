@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, useEffect } from "react";
 import { Routes as RouterRoutes, Route, Navigate, useSearchParams } from "react-router-dom";
 import { safeNextPath } from "@/utils/safeNextPath";
 import { useAuth } from "@/hooks/useAuth";
@@ -40,9 +40,21 @@ const SpecialOfferPage = lazy(
   () => import("@/pages/SpecialOfferPage"),
 );
 
-/** Sends an already-signed-in user to ?next= (same-origin relative paths only). */
+/** Sends an already-signed-in user to ?next= (same-origin relative paths only) or logs out if switch requested. */
 const PostAuthRedirect = () => {
   const [searchParams] = useSearchParams();
+  const { signOut } = useAuth();
+
+  useEffect(() => {
+    if (searchParams.get("switch") === "true" || searchParams.get("action") === "switch") {
+      signOut();
+    }
+  }, [searchParams, signOut]);
+
+  if (searchParams.get("switch") === "true" || searchParams.get("action") === "switch") {
+    return <Navigate to="/login" replace />;
+  }
+
   return <Navigate to={safeNextPath(searchParams.get("next")) || "/"} replace />;
 };
 

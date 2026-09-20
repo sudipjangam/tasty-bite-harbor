@@ -14,8 +14,7 @@ import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { loadPDFEngine } from "@/utils/lazyExportLoaders";
 import AddOrderForm from "./AddOrderForm";
 import { Order } from "@/types/orders";
 import {
@@ -200,6 +199,7 @@ const OrderDetailsDialog = ({
       const element = document.getElementById("bill-content");
       if (!element) return;
 
+      const { jsPDF, html2canvas } = await loadPDFEngine();
       const canvas = await html2canvas(element);
       const pdf = new jsPDF();
 

@@ -9,17 +9,14 @@ export const usePermissions = () => {
 
     const requestAllPermissions = async () => {
       try {
-        // 1. Request Notification Permissions
+        // 1. Request Local Notification Permissions safely if needed
         try {
-          await PushNotifications.requestPermissions();
+          const status = await LocalNotifications.checkPermissions();
+          if (status.display === 'prompt') {
+            await LocalNotifications.requestPermissions();
+          }
         } catch (e) {
-          console.warn("PushNotifications permission request failed", e);
-        }
-        
-        try {
-          await LocalNotifications.requestPermissions();
-        } catch (e) {
-          console.warn("LocalNotifications permission request failed", e);
+          console.warn("LocalNotifications permission check failed", e);
         }
 
         // 2. Request Bluetooth Permissions (Android 12+) via cordova plugin

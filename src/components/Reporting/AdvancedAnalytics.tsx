@@ -11,8 +11,7 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { startOfWeek, endOfWeek, format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import { loadPDFTableEngine } from "@/utils/lazyExportLoaders";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -172,6 +171,7 @@ const AdvancedAnalytics = () => {
         topProducts: [],
       };
 
+      const { jsPDF, autoTable } = await loadPDFTableEngine();
       const doc = new jsPDF();
       
       // Set up document properties

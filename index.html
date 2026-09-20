@@ -32,11 +32,24 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
 
-    <!-- Load fonts with font-display: swap for better performance -->
+    <!-- Load fonts with non-blocking async swap for instant mobile first-paint -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;700&display=swap"
+    />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;700&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
 
     <title>Swadeshi Solutions — Restaurant POS &amp; Billing Software (India)</title>
     <meta

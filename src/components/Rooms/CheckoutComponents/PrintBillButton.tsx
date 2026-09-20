@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Printer, FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
+import { loadPDFEngine } from "@/utils/lazyExportLoaders";
 import BillPrint from "./BillPrint";
 
 interface PrintBillButtonProps {
@@ -129,6 +128,7 @@ const PrintBillButton: React.FC<PrintBillButtonProps> = (props) => {
     setIsPrinting(true);
 
     try {
+      const { jsPDF, html2canvas } = await loadPDFEngine();
       const canvas = await html2canvas(printRef.current, {
         scale: 2, // Higher resolution
         logging: false,
