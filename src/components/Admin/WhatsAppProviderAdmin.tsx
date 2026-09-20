@@ -377,15 +377,20 @@ export function WhatsAppProviderAdmin() {
                 {restaurants.map((rest) => {
                   const isEditing = editingId === rest.id;
                   const hasCustom = !!rest.whatsapp_phone_number_id;
+                  const isPending = !rest.whatsapp_phone_number_id && !!rest.whatsapp_phone_number;
 
                   return (
-                    <div key={rest.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div key={rest.id} className={`py-4 px-3 rounded-2xl transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 ${isPending ? 'bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/60' : ''}`}>
                       <div className="space-y-1 min-w-[220px]">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-gray-900 dark:text-white text-base">{rest.name}</span>
                           {hasCustom ? (
                             <Badge className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 border-green-200 dark:border-green-800 text-[11px]">
-                              Custom Sender
+                              ✓ Custom Sender Live
+                            </Badge>
+                          ) : isPending ? (
+                            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 border-amber-300 text-[11px] font-semibold animate-pulse">
+                              ⚠️ Action: Setup Needed
                             </Badge>
                           ) : (
                             <Badge variant="outline" className="text-gray-500 dark:text-gray-400 text-[11px]">
@@ -393,7 +398,7 @@ export function WhatsAppProviderAdmin() {
                             </Badge>
                           )}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-3">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center flex-wrap gap-2">
                           {hasCustom ? (
                             <>
                               <span>Display: <strong>{rest.whatsapp_display_name || rest.name}</strong></span>
@@ -401,6 +406,18 @@ export function WhatsAppProviderAdmin() {
                               <span>Phone: <strong>{rest.whatsapp_phone_number || '-'}</strong></span>
                               <span>•</span>
                               <span className="font-mono">ID: {rest.whatsapp_phone_number_id}</span>
+                            </>
+                          ) : isPending ? (
+                            <>
+                              <span className="text-amber-800 dark:text-amber-200 font-medium">
+                                Submitted Phone: <strong>{rest.whatsapp_phone_number}</strong>
+                              </span>
+                              <span>•</span>
+                              <span>Display: <strong>{rest.whatsapp_display_name || rest.name}</strong></span>
+                              <span>•</span>
+                              <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                                Ready to add in Meta WhatsApp Manager!
+                              </span>
                             </>
                           ) : (
                             <span>Using platform default phone number</span>
@@ -467,13 +484,13 @@ export function WhatsAppProviderAdmin() {
                         </div>
                       ) : (
                         <Button
-                          variant="outline"
+                          variant={isPending ? "default" : "outline"}
                           size="sm"
                           onClick={() => startEditRestaurant(rest)}
-                          className="h-9 text-xs gap-1.5 rounded-xl border-gray-200 dark:border-gray-700"
+                          className={`h-9 text-xs gap-1.5 rounded-xl ${isPending ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-md' : 'border-gray-200 dark:border-gray-700'}`}
                         >
                           <Edit2 className="h-3.5 w-3.5" />
-                          {hasCustom ? 'Edit Sender ID' : 'Assign Sender ID'}
+                          {hasCustom ? 'Edit Sender ID' : isPending ? 'Attach Meta Phone ID' : 'Assign Sender ID'}
                         </Button>
                       )}
                     </div>

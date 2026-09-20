@@ -164,12 +164,23 @@ export function SystemConfigurationTab() {
         .eq('id', restaurantId);
 
       if (error) throw error;
-      toast({
-        title: "WhatsApp Sender Saved ✅",
-        description: waPhoneNumberId.trim()
-          ? "Custom sender identity configured for your restaurant bills."
-          : "Reverted to Swadeshi Solutions default sender."
-      });
+      
+      if (waPhoneNumberId.trim()) {
+        toast({
+          title: "Custom Sender Active ✅",
+          description: `WhatsApp bills are configured to send from ${waDisplayName || waPhoneNumber}.`,
+        });
+      } else if (waPhoneNumber.trim()) {
+        toast({
+          title: "Request Submitted ⏳",
+          description: "Details saved! Swadeshi Solutions support will connect your number to Meta and contact you for OTP verification.",
+        });
+      } else {
+        toast({
+          title: "Saved ✅",
+          description: "Reverted to Swadeshi Solutions default platform sender.",
+        });
+      }
     } catch (err: any) {
       toast({
         title: "Error",
@@ -562,78 +573,86 @@ export function SystemConfigurationTab() {
       {/* WhatsApp Custom Sender Identity */}
       <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
         <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <div className="p-3 bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl shadow-lg">
                 <MessageCircle className="h-6 w-6 text-white" />
               </div>
-              WhatsApp Sender Identity
+              WhatsApp Business Identity
             </CardTitle>
             {waPhoneNumberId.trim() ? (
-              <Badge className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 border-green-200 dark:border-green-800 px-3 py-1 text-xs font-semibold">
-                ✓ Custom Sender Active
+              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300 px-3 py-1 text-xs font-semibold">
+                ✓ Verified &amp; Active
+              </Badge>
+            ) : waPhoneNumber.trim() ? (
+              <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 px-3 py-1 text-xs font-semibold">
+                ⏳ Verification Pending
               </Badge>
             ) : (
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800 px-3 py-1 text-xs">
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 px-3 py-1 text-xs">
                 Platform Default (Swadeshi Solutions)
               </Badge>
             )}
           </div>
-          <CardDescription className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
-            Send WhatsApp bills and receipts from your own restaurant's verified business number and name instead of the platform default.
+          <CardDescription className="text-gray-600 dark:text-gray-400 mt-2 text-base">
+            Send bills, receipts, and order updates from your restaurant's business name and phone number on WhatsApp.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-8">
           <div className="space-y-6">
-            <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/60 text-sm text-emerald-900 dark:text-emerald-200">
-              <p className="font-semibold mb-1">📌 How to get your restaurant number connected:</p>
-              <ol className="list-decimal ml-5 space-y-1 text-xs text-emerald-800 dark:text-emerald-300">
-                <li>Provide a clean phone number (not currently registered on WhatsApp app) to Swadeshi Solutions support.</li>
-                <li>Swadeshi Solutions adds your number under the official Meta WhatsApp Business account with your restaurant display name.</li>
-                <li>Verify the 6-digit OTP sent to your phone, and paste your assigned <strong>Phone Number ID</strong> below.</li>
-              </ol>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Phone Number ID */}
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="wa-phone-number-id" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center justify-between">
-                  <span>Meta Phone Number ID</span>
-                  <span className="text-xs font-normal text-gray-500">Required to activate custom sender</span>
-                </Label>
-                <Input
-                  id="wa-phone-number-id"
-                  value={waPhoneNumberId}
-                  onChange={(e) => setWaPhoneNumberId(e.target.value)}
-                  placeholder="e.g. 104829104812345"
-                  className="h-12 font-mono bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-xl"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Provided by Meta WhatsApp Manager after phone verification. Leave blank to use Swadeshi Solutions default sender.
+            {/* Status explanation alert */}
+            {waPhoneNumberId.trim() ? (
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-900 dark:text-emerald-200">
+                <p className="font-semibold flex items-center gap-2">
+                  <span>🎉</span> Custom sender identity is live!
+                </p>
+                <p className="text-xs text-emerald-800 dark:text-emerald-300 mt-1">
+                  Customer bills are sent displaying <strong>{waDisplayName || 'Your Business'}</strong> ({waPhoneNumber || 'Connected'}).
                 </p>
               </div>
+            ) : waPhoneNumber.trim() ? (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-2xl border border-amber-200 dark:border-amber-800 text-sm text-amber-900 dark:text-amber-200">
+                <p className="font-semibold flex items-center gap-2">
+                  <span>⏳</span> Request under review by Swadeshi Solutions team
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
+                  We are attaching <strong>{waPhoneNumber}</strong> with display name <strong>"{waDisplayName}"</strong> to Meta WhatsApp Business. 
+                  Our team will contact you for the 6-digit OTP code to complete verification.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-2xl border border-blue-200 dark:border-blue-800 text-sm text-blue-900 dark:text-blue-200">
+                <p className="font-semibold flex items-center gap-2">
+                  <span>💡</span> Want your own name on customer WhatsApp bills?
+                </p>
+                <p className="text-xs text-blue-800 dark:text-blue-300 mt-1">
+                  Enter your business phone number and name below. Swadeshi Solutions will connect it to Meta for free so customers see your brand name instead of Swadeshi Solutions.
+                </p>
+              </div>
+            )}
 
-              {/* Display Phone Number */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* WhatsApp Phone Number */}
               <div className="space-y-2">
                 <Label htmlFor="wa-phone-number" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  WhatsApp Phone Number
+                  Business WhatsApp Phone Number
                 </Label>
                 <Input
                   id="wa-phone-number"
                   value={waPhoneNumber}
                   onChange={(e) => setWaPhoneNumber(e.target.value)}
-                  placeholder="+91 98765 43210"
+                  placeholder="e.g. +91 98765 43210"
                   className="h-12 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-xl"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  For your internal reference and display on receipts.
+                  Must be a phone number not currently active on personal WhatsApp app.
                 </p>
               </div>
 
               {/* Verified Display Name */}
               <div className="space-y-2">
                 <Label htmlFor="wa-display-name" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Verified Business Display Name
+                  Business Display Name
                 </Label>
                 <Input
                   id="wa-display-name"
@@ -643,9 +662,31 @@ export function SystemConfigurationTab() {
                   className="h-12 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-xl"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  The verified business name displayed to customers in WhatsApp chats.
+                  The business name customers will see at the top of their WhatsApp chat.
                 </p>
               </div>
+
+              {/* Admin Override Field (only shown if platform admin or if already verified) */}
+              {(user?.role_has_full_access || waPhoneNumberId) && (
+                <div className="space-y-2 md:col-span-2 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-2xl border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="wa-phone-number-id" className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                      Meta Phone Number ID (Assigned by Swadeshi Admin)
+                    </Label>
+                    {!user?.role_has_full_access && (
+                      <span className="text-[11px] text-emerald-600 font-mono">Managed by Platform Admin</span>
+                    )}
+                  </div>
+                  <Input
+                    id="wa-phone-number-id"
+                    value={waPhoneNumberId}
+                    onChange={(e) => setWaPhoneNumberId(e.target.value)}
+                    disabled={!user?.role_has_full_access}
+                    placeholder="Auto-filled once verified (e.g. 104829104812345)"
+                    className="h-10 font-mono text-xs bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-xl"
+                  />
+                </div>
+              )}
             </div>
 
             <Button
@@ -661,7 +702,11 @@ export function SystemConfigurationTab() {
               ) : (
                 <>
                   <Save className="h-4 w-4 mr-2" />
-                  Save WhatsApp Sender
+                  {waPhoneNumberId.trim()
+                    ? "Update Business Identity"
+                    : waPhoneNumber.trim()
+                    ? "Update Request"
+                    : "Submit WhatsApp Business Request"}
                 </>
               )}
             </Button>
