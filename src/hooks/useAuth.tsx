@@ -261,6 +261,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       "pos_held_orders",      // Held POS orders (customer + item data)
       "kds_tv_auth",          // Kitchen TV session
       "qs_owner_whatsapp",    // Owner phone number
+      "active_branch_id",     // Stale franchise branch override
+      "restaurant_name",      // Stale cached restaurant name
+      "cached_restaurant_name",
     ];
     SENSITIVE_LS_KEYS.forEach((key) => localStorage.removeItem(key));
 

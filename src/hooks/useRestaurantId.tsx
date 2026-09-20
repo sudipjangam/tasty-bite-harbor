@@ -44,23 +44,50 @@ export const useRestaurantId = () => {
 
       if (error) throw error;
 
+      // Fetch user's primary restaurant
+      let primaryRestaurant: { id: string; name: string; organization_id: string | null } | null = null;
+      if (userProfile?.restaurant_id) {
+        const { data: rest, error: restErr } = await supabase
+          .from("restaurants")
+          .select("id, name, organization_id")
+          .eq("id", userProfile.restaurant_id)
+          .maybeSingle();
+        if (!restErr && rest) {
+          primaryRestaurant = rest;
+        }
+      }
+
       // 1. If an active branch override is present (e.g. switched in franchise portal),
-      // try to resolve that branch first.
+      // verify that it belongs to the user's primary restaurant or franchise organization!
       if (activeBranchOverride) {
+        if (primaryRestaurant && activeBranchOverride === primaryRestaurant.id) {
+          return {
+            restaurantId: primaryRestaurant.id,
+            restaurantName: primaryRestaurant.name,
+            id: primaryRestaurant.id,
+          };
+        }
+
         const { data: branchRest, error: branchErr } = await supabase
           .from("restaurants")
-          .select("id, name")
+          .select("id, name, organization_id")
           .eq("id", activeBranchOverride)
           .maybeSingle();
 
-        if (!branchErr && branchRest) {
+        const isValidBranch =
+          !branchErr &&
+          branchRest &&
+          primaryRestaurant?.organization_id &&
+          branchRest.organization_id === primaryRestaurant.organization_id;
+
+        if (isValidBranch) {
           return {
             restaurantId: branchRest.id,
             restaurantName: branchRest.name,
             id: branchRest.id,
           };
         } else {
-          // If branch is no longer accessible or invalid, clear stale override
+          // If branch is no longer accessible or belongs to a different organization/user, clear stale override!
           if (typeof window !== "undefined") {
             localStorage.removeItem("active_branch_id");
           }
@@ -68,27 +95,17 @@ export const useRestaurantId = () => {
       }
 
       // 2. Default fallback: primary profile restaurant ID
-      if (userProfile?.restaurant_id) {
-        const { data: restaurant, error: restError } = await supabase
-          .from("restaurants")
-          .select("id, name")
-          .eq("id", userProfile.restaurant_id)
-          .maybeSingle();
-
-        if (restError) throw restError;
-
-        if (restaurant) {
-          return {
-            restaurantId: restaurant.id,
-            restaurantName: restaurant.name,
-            id: restaurant.id,
-          };
-        }
+      if (primaryRestaurant) {
+        return {
+          restaurantId: primaryRestaurant.id,
+          restaurantName: primaryRestaurant.name,
+          id: primaryRestaurant.id,
+        };
       }
 
       return { restaurantId: null, restaurantName: null };
     },
-    staleTime: 1000 * 60 * 30, // 30 minutes
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   return {

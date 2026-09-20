@@ -40,9 +40,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+import { loadPDFTableEngine } from "@/utils/lazyExportLoaders";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { generateEditablePPTX, generateRichExcel } from "@/utils/exportUtils";
@@ -231,6 +229,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
   const handleExportPDF = async () => {
     setExporting("pdf");
     try {
+      const { jsPDF, autoTable } = await loadPDFTableEngine();
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
