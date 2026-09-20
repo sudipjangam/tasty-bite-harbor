@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useKitchenThrottle } from "@/hooks/useKitchenThrottle";
 import { useFeatureGate } from "@/hooks/useFeatureGate";
+import { useOnlineDelivery } from "@/hooks/useOnlineDelivery";
 
 interface KitchenLoadGaugeProps {
   compact?: boolean;
@@ -21,6 +22,7 @@ interface KitchenLoadGaugeProps {
 export const KitchenLoadGauge: React.FC<KitchenLoadGaugeProps> = ({
   compact = false,
 }) => {
+  const { isOnlineDeliveryEnabled } = useOnlineDelivery();
   const { isLocked: isThrottleLocked } = useFeatureGate("aggregators.surge_throttle");
   const { isLocked: isAggregatorsLocked } = useFeatureGate("aggregators.view");
 
@@ -35,8 +37,8 @@ export const KitchenLoadGauge: React.FC<KitchenLoadGaugeProps> = ({
     resumeStores,
   } = useKitchenThrottle();
 
-  // If online aggregators or kitchen throttle feature is not subscribed/enabled, do not render
-  if (isThrottleLocked && isAggregatorsLocked) {
+  // If online delivery is disabled in settings, or aggregators/throttle features are locked, do not render
+  if (!isOnlineDeliveryEnabled || (isThrottleLocked && isAggregatorsLocked)) {
     return null;
   }
 

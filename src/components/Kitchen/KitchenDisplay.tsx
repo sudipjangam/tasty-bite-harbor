@@ -1043,9 +1043,11 @@ const KitchenDisplay = () => {
           </div>
 
           {/* Mobile Kitchen Load Gauge */}
-          <div className="mb-2.5">
-            <KitchenLoadGauge compact />
-          </div>
+          {isOnlineDeliveryEnabled && (
+            <div className="mb-2.5">
+              <KitchenLoadGauge compact />
+            </div>
+          )}
 
           {/* Row 2: Station Filter & Quick Date Filter */}
           <div className="flex items-center gap-2">
@@ -1220,7 +1222,7 @@ const KitchenDisplay = () => {
               <HelpProvider />
 
               {/* Kitchen Load & Surge Throttle Meter */}
-              <KitchenLoadGauge compact />
+              {isOnlineDeliveryEnabled && <KitchenLoadGauge compact />}
 
               {/* Vernacular Voice Language Dropdown Selector */}
               <Select value={selectedLanguage} onValueChange={(val) => setLanguage(val)}>
@@ -1535,10 +1537,12 @@ const KitchenDisplay = () => {
       )}
 
       {/* 1-Click 86 Stock Auto-Kill Dialog */}
-      <Quick86Modal
-        isOpen={show86Modal}
-        onClose={() => setShow86Modal(false)}
-      />
+      {canShow86Button && (
+        <Quick86Modal
+          isOpen={show86Modal}
+          onClose={() => setShow86Modal(false)}
+        />
+      )}
 
       {/* Kitchen Vernacular Voice Settings Dialog */}
       <KitchenVoiceSettings

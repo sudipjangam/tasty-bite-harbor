@@ -807,7 +807,7 @@ const KitchenTV = () => {
 
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Kitchen Load Throttle Meter */}
-          <KitchenLoadGauge compact />
+          {isOnlineDeliveryEnabled && <KitchenLoadGauge compact />}
 
           {/* Vernacular Language Dropdown Selector */}
           <Select value={selectedLanguage} onValueChange={(val) => setLanguage(val)}>
