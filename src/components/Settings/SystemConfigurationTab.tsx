@@ -15,7 +15,7 @@ import { useOnlineDelivery } from '@/hooks/useOnlineDelivery';
 import { 
   Settings, Download, Upload, Database, Shield, 
   Loader2, Check, AlertTriangle, DollarSign, RefreshCw,
-  HardDrive, FileJson, Calendar, Star, Instagram, Save, Smartphone, Bike
+  HardDrive, FileJson, Calendar, Star, Instagram, Save, Smartphone, Bike, MessageCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -33,7 +33,13 @@ export function SystemConfigurationTab() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { restaurantId } = useRestaurantId();
-  const { isOnlineDeliveryEnabled, toggleOnlineDelivery, isToggling, connectedStores } = useOnlineDelivery();
+  const { 
+    isOnlineDeliveryEnabled, 
+    isPlanFeatureEnabled,
+    toggleOnlineDelivery, 
+    isToggling, 
+    connectedStores 
+  } = useOnlineDelivery();
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [selectedCurrency, setSelectedCurrency] = useState<string>('');
   const [isBackupLoading, setIsBackupLoading] = useState(false);
@@ -45,6 +51,12 @@ export function SystemConfigurationTab() {
   const [googleReviewUrl, setGoogleReviewUrl] = useState('');
   const [instagramUrl, setInstagramUrl] = useState('');
   const [isSavingSocial, setIsSavingSocial] = useState(false);
+
+  // WhatsApp custom sender state
+  const [waPhoneNumberId, setWaPhoneNumberId] = useState('');
+  const [waPhoneNumber, setWaPhoneNumber] = useState('');
+  const [waDisplayName, setWaDisplayName] = useState('');
+  const [isSavingWaSender, setIsSavingWaSender] = useState(false);
   
   // App Release state
   const [isPublishingRelease, setIsPublishingRelease] = useState(false);
@@ -56,6 +68,7 @@ export function SystemConfigurationTab() {
       loadRestaurantSettings();
       loadLastBackup();
       loadSocialLinks();
+      loadWhatsAppSender();
     }
   }, [restaurantId]);
 
@@ -119,6 +132,52 @@ export function SystemConfigurationTab() {
       toast({ title: "Error", description: err.message || "Failed to save social links", variant: "destructive" });
     } finally {
       setIsSavingSocial(false);
+    }
+  };
+
+  const loadWhatsAppSender = async () => {
+    if (!restaurantId) return;
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('whatsapp_phone_number_id, whatsapp_phone_number, whatsapp_display_name')
+      .eq('id', restaurantId)
+      .maybeSingle();
+    if (!error && data) {
+      const rest = data as any;
+      setWaPhoneNumberId(rest.whatsapp_phone_number_id || '');
+      setWaPhoneNumber(rest.whatsapp_phone_number || '');
+      setWaDisplayName(rest.whatsapp_display_name || '');
+    }
+  };
+
+  const handleSaveWhatsAppSender = async () => {
+    if (!restaurantId) return;
+    setIsSavingWaSender(true);
+    try {
+      const { error } = await supabase
+        .from('restaurants')
+        .update({
+          whatsapp_phone_number_id: waPhoneNumberId.trim() || null,
+          whatsapp_phone_number: waPhoneNumber.trim() || null,
+          whatsapp_display_name: waDisplayName.trim() || null,
+        } as any)
+        .eq('id', restaurantId);
+
+      if (error) throw error;
+      toast({
+        title: "WhatsApp Sender Saved ✅",
+        description: waPhoneNumberId.trim()
+          ? "Custom sender identity configured for your restaurant bills."
+          : "Reverted to Swadeshi Solutions default sender."
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to save WhatsApp sender settings",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSavingWaSender(false);
     }
   };
 
@@ -275,12 +334,17 @@ export function SystemConfigurationTab() {
               Online Delivery (Swiggy / Zomato)
             </CardTitle>
             <div className="flex items-center gap-3">
+              {!isPlanFeatureEnabled && (
+                <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-xs">
+                  Plan Locked
+                </Badge>
+              )}
               <span className="text-xs font-bold text-gray-500">
                 {isOnlineDeliveryEnabled ? "ENABLED" : "DISABLED"}
               </span>
               <Switch
                 checked={isOnlineDeliveryEnabled}
-                disabled={isToggling}
+                disabled={isToggling || (!isPlanFeatureEnabled && !isOnlineDeliveryEnabled)}
                 onCheckedChange={toggleOnlineDelivery}
               />
             </div>
@@ -488,6 +552,116 @@ export function SystemConfigurationTab() {
                 <>
                   <Save className="h-4 w-4 mr-2" />
                   Save Social Links
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* WhatsApp Custom Sender Identity */}
+      <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
+        <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl shadow-lg">
+                <MessageCircle className="h-6 w-6 text-white" />
+              </div>
+              WhatsApp Sender Identity
+            </CardTitle>
+            {waPhoneNumberId.trim() ? (
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 border-green-200 dark:border-green-800 px-3 py-1 text-xs font-semibold">
+                ✓ Custom Sender Active
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800 px-3 py-1 text-xs">
+                Platform Default (Swadeshi Solutions)
+              </Badge>
+            )}
+          </div>
+          <CardDescription className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
+            Send WhatsApp bills and receipts from your own restaurant's verified business number and name instead of the platform default.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-8">
+          <div className="space-y-6">
+            <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/60 text-sm text-emerald-900 dark:text-emerald-200">
+              <p className="font-semibold mb-1">📌 How to get your restaurant number connected:</p>
+              <ol className="list-decimal ml-5 space-y-1 text-xs text-emerald-800 dark:text-emerald-300">
+                <li>Provide a clean phone number (not currently registered on WhatsApp app) to Swadeshi Solutions support.</li>
+                <li>Swadeshi Solutions adds your number under the official Meta WhatsApp Business account with your restaurant display name.</li>
+                <li>Verify the 6-digit OTP sent to your phone, and paste your assigned <strong>Phone Number ID</strong> below.</li>
+              </ol>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Phone Number ID */}
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="wa-phone-number-id" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center justify-between">
+                  <span>Meta Phone Number ID</span>
+                  <span className="text-xs font-normal text-gray-500">Required to activate custom sender</span>
+                </Label>
+                <Input
+                  id="wa-phone-number-id"
+                  value={waPhoneNumberId}
+                  onChange={(e) => setWaPhoneNumberId(e.target.value)}
+                  placeholder="e.g. 104829104812345"
+                  className="h-12 font-mono bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-xl"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Provided by Meta WhatsApp Manager after phone verification. Leave blank to use Swadeshi Solutions default sender.
+                </p>
+              </div>
+
+              {/* Display Phone Number */}
+              <div className="space-y-2">
+                <Label htmlFor="wa-phone-number" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  WhatsApp Phone Number
+                </Label>
+                <Input
+                  id="wa-phone-number"
+                  value={waPhoneNumber}
+                  onChange={(e) => setWaPhoneNumber(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="h-12 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-xl"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  For your internal reference and display on receipts.
+                </p>
+              </div>
+
+              {/* Verified Display Name */}
+              <div className="space-y-2">
+                <Label htmlFor="wa-display-name" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Verified Business Display Name
+                </Label>
+                <Input
+                  id="wa-display-name"
+                  value={waDisplayName}
+                  onChange={(e) => setWaDisplayName(e.target.value)}
+                  placeholder="e.g. Kiwi Cafe"
+                  className="h-12 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-xl"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  The verified business name displayed to customers in WhatsApp chats.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              onClick={handleSaveWhatsAppSender}
+              disabled={isSavingWaSender}
+              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg"
+            >
+              {isSavingWaSender ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save WhatsApp Sender
                 </>
               )}
             </Button>

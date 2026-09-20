@@ -10,6 +10,8 @@ import { AggregatorStore } from "@/types/aggregators";
 export interface UseOnlineDeliveryResult {
   /** Whether online delivery (Swiggy / Zomato / aggregators) is enabled for the current restaurant */
   isOnlineDeliveryEnabled: boolean;
+  /** Whether the subscription plan allows online delivery features */
+  isPlanFeatureEnabled: boolean;
   /** Whether check is currently loading */
   isLoading: boolean;
   /** Connected aggregator stores for this restaurant */
@@ -99,25 +101,6 @@ export const useOnlineDelivery = (): UseOnlineDeliveryResult => {
     [stores]
   );
 
-  const hasSwiggy = useMemo(
-    () => connectedStores.some((s) => s.provider === "swiggy"),
-    [connectedStores]
-  );
-
-  const hasZomato = useMemo(
-    () => connectedStores.some((s) => s.provider === "zomato"),
-    [connectedStores]
-  );
-
-  const hasConnectedStore = connectedStores.length > 0;
-
-  const isExplicitlyEnabledInSettings = Boolean(
-    settingsData?.online_delivery_enabled ||
-      settingsData?.swiggy_enabled ||
-      settingsData?.zomato_enabled ||
-      settingsData?.aggregators_enabled
-  );
-
   // 6. Whether any aggregator / 86 delivery feature is granted by the plan (from Feature Permissions screen)
   const isPlanFeatureEnabled = useMemo(() => {
     if (isGateLoading) {
@@ -140,32 +123,69 @@ export const useOnlineDelivery = (): UseOnlineDeliveryResult => {
   ]);
 
   // Overall enabled status:
-  // Shows ONLY if enabled in Feature Permissions (e.g. Universal 86, Menu Sync, Swiggy/Zomato)
-  // OR if a connected store exists OR if explicitly enabled in restaurant settings.
-  // When 0/13 are checked (as in the Feature Permissions screenshot), it evaluates to FALSE and does not show.
+  // 1. Subscription feature gate: plan must allow aggregator features
+  // 2. Explicit restaurant setting: if user turns toggle OFF, it is DISABLED
+  // 3. If user turns toggle ON, it is ENABLED
+  // 4. If unset in settings: defaults to true if plan permits
   const isOnlineDeliveryEnabled = useMemo(() => {
     if (isGateLoading || isLoadingStores || isLoadingSettings) {
       return false;
     }
-    return isPlanFeatureEnabled || hasConnectedStore || isExplicitlyEnabledInSettings;
+    // Plan feature gate lock
+    if (!isPlanFeatureEnabled) {
+      return false;
+    }
+    // Master switch explicitly toggled off
+    if (settingsData?.online_delivery_enabled === false) {
+      return false;
+    }
+    // Master switch explicitly toggled on
+    if (settingsData?.online_delivery_enabled === true) {
+      return true;
+    }
+    // Legacy aggregators_enabled flag
+    if (settingsData?.aggregators_enabled === false) {
+      return false;
+    }
+    return true;
   }, [
     isGateLoading,
     isLoadingStores,
     isLoadingSettings,
     isPlanFeatureEnabled,
-    hasConnectedStore,
-    isExplicitlyEnabledInSettings,
+    settingsData,
   ]);
+
+  const hasSwiggy = useMemo(
+    () => isOnlineDeliveryEnabled && connectedStores.some((s) => s.provider === "swiggy"),
+    [isOnlineDeliveryEnabled, connectedStores]
+  );
+
+  const hasZomato = useMemo(
+    () => isOnlineDeliveryEnabled && connectedStores.some((s) => s.provider === "zomato"),
+    [isOnlineDeliveryEnabled, connectedStores]
+  );
 
   // 7. Mutation to toggle online delivery setting
   const toggleMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
       if (!restaurantId) throw new Error("No restaurant selected");
 
+      if (enabled && !isPlanFeatureEnabled) {
+        throw new Error("Online delivery features are not enabled for your subscription plan.");
+      }
+
       const currentSettings = settingsData || {};
       const updatedSettings = {
         ...currentSettings,
         online_delivery_enabled: enabled,
+        ...(enabled
+          ? { aggregators_enabled: true }
+          : {
+              aggregators_enabled: false,
+              swiggy_enabled: false,
+              zomato_enabled: false,
+            }),
       };
 
       const { error } = await supabase
@@ -182,10 +202,44 @@ export const useOnlineDelivery = (): UseOnlineDeliveryResult => {
       if (error) throw error;
       return enabled;
     },
-    onSuccess: (enabled) => {
-      queryClient.invalidateQueries({
+    onMutate: async (enabled: boolean) => {
+      await queryClient.cancelQueries({
         queryKey: ["restaurant-settings-online-delivery", restaurantId],
       });
+      const previousSettings = queryClient.getQueryData<Record<string, any>>([
+        "restaurant-settings-online-delivery",
+        restaurantId,
+      ]);
+      queryClient.setQueryData(
+        ["restaurant-settings-online-delivery", restaurantId],
+        (old: Record<string, any> | undefined) => ({
+          ...(old || {}),
+          online_delivery_enabled: enabled,
+          ...(enabled
+            ? { aggregators_enabled: true }
+            : {
+                aggregators_enabled: false,
+                swiggy_enabled: false,
+                zomato_enabled: false,
+              }),
+        })
+      );
+      return { previousSettings };
+    },
+    onError: (err: any, _variables, context) => {
+      if (context?.previousSettings !== undefined) {
+        queryClient.setQueryData(
+          ["restaurant-settings-online-delivery", restaurantId],
+          context.previousSettings
+        );
+      }
+      toast({
+        title: "Update Failed",
+        description: err.message || "Failed to update online delivery setting.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: (enabled) => {
       toast({
         title: enabled ? "Online Delivery Enabled" : "Online Delivery Disabled",
         description: enabled
@@ -193,11 +247,9 @@ export const useOnlineDelivery = (): UseOnlineDeliveryResult => {
           : "Online delivery features have been turned off for this restaurant.",
       });
     },
-    onError: (err: any) => {
-      toast({
-        title: "Update Failed",
-        description: err.message || "Failed to update online delivery setting.",
-        variant: "destructive",
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["restaurant-settings-online-delivery", restaurantId],
       });
     },
   });
@@ -211,6 +263,7 @@ export const useOnlineDelivery = (): UseOnlineDeliveryResult => {
 
   return {
     isOnlineDeliveryEnabled,
+    isPlanFeatureEnabled,
     isLoading: isGateLoading || isLoadingStores || isLoadingSettings,
     connectedStores,
     hasSwiggy,

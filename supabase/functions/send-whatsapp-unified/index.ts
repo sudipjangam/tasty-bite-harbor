@@ -177,8 +177,22 @@ Deno.serve(async (req: Request) => {
 
     // --- META CLOUD API PATH ---
     if (provider === "meta_cloud") {
-      const phoneNumberId = metaConfig.phone_number_id || Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
+      let phoneNumberId = metaConfig.phone_number_id || Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
       const accessToken = metaConfig.access_token || Deno.env.get("WHATSAPP_ACCESS_TOKEN");
+
+      // Check if restaurant has custom WhatsApp Phone Number ID assigned
+      if (restaurantId) {
+        const { data: restData } = await supabase
+          .from("restaurants")
+          .select("whatsapp_phone_number_id")
+          .eq("id", restaurantId)
+          .maybeSingle();
+
+        if (restData?.whatsapp_phone_number_id && restData.whatsapp_phone_number_id.trim()) {
+          phoneNumberId = restData.whatsapp_phone_number_id.trim();
+          console.log(`[unified] Using restaurant-specific WhatsApp Phone Number ID: ${phoneNumberId} for restaurant: ${restaurantId}`);
+        }
+      }
 
       if (!phoneNumberId || !accessToken) {
         return new Response(
