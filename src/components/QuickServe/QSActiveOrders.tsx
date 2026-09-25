@@ -517,7 +517,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                             </span>
                           </div>
                           <div>
-                            <p className="font-bold text-gray-800 dark:text-gray-100 text-sm truncate max-w-[160px]">
+                            <p className="font-bold text-gray-800 dark:text-gray-100 text-sm truncate max-w-[200px]">
                               {order.customer_name}
                             </p>
                             <div className="flex items-center gap-1.5 mt-0.5">

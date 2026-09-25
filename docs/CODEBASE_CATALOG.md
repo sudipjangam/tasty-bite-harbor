@@ -10,7 +10,7 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 | -------------------------- | ----------------------------------------------------------- |
 | `/`                      | `dashboard.view` (fallback staff landing)                 |
 | `/orders`                | `orders.view`                                             |
-| `/pos`                   | `orders.view`                                             |
+| `/pos`                   | Redirects to `/quickserve-pos`                             |
 | `/qsr-pos`               | `orders.view`                                             |
 | `/quickserve-pos`        | `orders.view`                                             |
 | `/menu`                  | `menu.view`                                               |
@@ -90,7 +90,6 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 - `NotFound.tsx`
 - `Orders.tsx`
 - `PermissionManagement.tsx`
-- `POS.tsx`
 - `PrivacyPolicy.tsx`
 - `PublicBillPage.tsx`
 - `PublicEnrollmentPage.tsx`

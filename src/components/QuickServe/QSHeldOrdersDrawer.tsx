@@ -99,7 +99,7 @@ export const QSHeldOrdersDrawer: React.FC<QSHeldOrdersDrawerProps> = ({
                           <ShoppingBag className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <p className="font-bold text-gray-800 dark:text-gray-100 text-sm flex items-center gap-1.5">
+                          <p className="font-bold text-gray-800 dark:text-gray-100 text-sm flex items-center gap-1.5 truncate max-w-[200px]">
                             <User className="w-3 h-3 text-gray-400" />
                             {order.customerName || "Walk-in Customer"}
                           </p>

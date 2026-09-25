@@ -33,7 +33,6 @@ import { PullToRefresh } from "@/components/ui/PullToRefresh";
 // ─── Lazy-loaded operations pages ────────────────────────────────────────────
 const QSRPos          = lazy(() => import("@/pages/QSRPos"));
 const QuickServePOS   = lazy(() => import("@/pages/QuickServePOS"));
-const POS             = lazy(() => import("@/pages/POS"));
 const Orders          = lazy(() => import("@/pages/Orders"));
 const Kitchen         = lazy(() => import("@/pages/Kitchen"));
 const MenuPage        = lazy(() => import("@/pages/Menu"));
@@ -282,14 +281,10 @@ export const OperationsMobileLayout = () => {
             }
           />
 
-          {/* Table POS */}
+          {/* Redirect old POS to QuickServe */}
           <Route
             path="/pos"
-            element={
-              <PermissionGuard permission="orders.view">
-                <LazyRoute><POS /></LazyRoute>
-              </PermissionGuard>
-            }
+            element={<Navigate to="/quickserve-pos" replace />}
           />
 
           {/* Orders */}

@@ -69,7 +69,7 @@ const SidebarNavigation = ({ allowedComponents = [] }: SidebarNavigationProps) =
   
   const navigationItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-    { icon: UtensilsCrossed, label: "POS", path: "/pos" },
+    { icon: UtensilsCrossed, label: "QuickServe POS", path: "/quickserve-pos" },
     { icon: UtensilsCrossed, label: "Orders", path: "/orders" },
     { icon: Globe, label: "Online Delivery", path: "/aggregators" },
     { icon: ChefHat, label: "Kitchen", path: "/kitchen" },

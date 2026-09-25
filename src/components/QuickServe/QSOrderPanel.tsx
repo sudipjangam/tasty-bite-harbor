@@ -256,7 +256,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
           >
             <div className="flex items-center gap-2.5">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800 dark:text-white/90 truncate">
+                <p className="text-sm font-bold text-gray-800 dark:text-white/90 truncate">
                   {item.isCustom && (
                     <span className="text-violet-500 mr-1">✦</span>
                   )}
@@ -338,7 +338,7 @@ export const QSOrderPanel: React.FC<QSOrderPanelProps> = ({
             {item.notes && item.notes.trim() !== "" && item.notes !== "[]" && (
               <div className="flex items-center gap-1 mt-1.5 ml-0.5 text-[11px] text-indigo-600 dark:text-indigo-400">
                 <MessageSquare className="w-3 h-3 shrink-0" />
-                <span className="truncate">{item.notes}</span>
+                <span className="line-clamp-1">{item.notes}</span>
               </div>
             )}
 

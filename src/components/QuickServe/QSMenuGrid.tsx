@@ -191,7 +191,7 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
           <button
             onClick={() => setSelectedCategory("all")}
             className={cn(
-              "px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all shrink-0 active:scale-95",
+              "px-4 py-2 rounded-2xl text-[13px] font-semibold whitespace-nowrap transition-all shrink-0 active:scale-95",
               selectedCategory === "all"
                 ? "bg-gradient-to-r from-orange-500 via-rose-500 to-pink-500 text-white shadow-lg shadow-orange-500/30 border border-white/20"
                 : "bg-white/80 dark:bg-white/5 backdrop-blur-sm text-gray-600 dark:text-white/50 border border-gray-200/60 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white/80 shadow-sm",
@@ -204,7 +204,7 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
               className={cn(
-                "px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all shrink-0 active:scale-95",
+                "px-4 py-2 rounded-2xl text-[13px] font-semibold whitespace-nowrap transition-all shrink-0 active:scale-95",
                 selectedCategory === cat.id
                   ? "bg-gradient-to-r from-orange-500 via-rose-500 to-pink-500 text-white shadow-lg shadow-orange-500/30 border border-white/20"
                   : "bg-white/80 dark:bg-white/5 backdrop-blur-sm text-gray-600 dark:text-white/50 border border-gray-200/60 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white/80 shadow-sm",
@@ -218,7 +218,7 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
 
       {/* ─── Menu Items Grid ─── */}
       <div className="flex-1 overflow-y-auto px-3 pb-24 md:pb-3">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
           {filteredItems.map((item) => {
             const cartCount = cartItemCounts[item.id] || 0;
             const isSoldOut = !item.is_available;
@@ -297,7 +297,8 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
                   <div className="space-y-1.5">
                     <p
                       className={cn(
-                        "text-sm font-semibold line-clamp-2 pr-6 leading-tight",
+                        "text-sm font-bold line-clamp-2 leading-tight min-h-[2.25rem] tracking-[-0.01em]",
+                        item.is_veg !== undefined ? "pr-7" : "pr-1",
                         isSoldOut
                           ? "text-gray-400 dark:text-white/30 line-through"
                           : "text-gray-800 dark:text-white/90",
@@ -307,7 +308,7 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
                     </p>
                     <p
                       className={cn(
-                        "text-lg font-black",
+                        "text-base font-extrabold",
                         isSoldOut
                           ? "text-gray-300 dark:text-white/20"
                           : "bg-gradient-to-r from-orange-600 via-rose-500 to-pink-500 bg-clip-text text-transparent",

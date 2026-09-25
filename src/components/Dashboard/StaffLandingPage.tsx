@@ -40,10 +40,10 @@ import type { StaffMember } from "@/types/staff";
 // All possible quick actions for staff
 const allQuickActions = [
   {
-    title: "POS",
+    title: "QuickServe POS",
     description: "Take new orders",
     icon: ShoppingCart,
-    path: "/pos",
+    path: "/quickserve-pos",
     permission: "orders.view",
     gradient: "from-emerald-500 to-teal-600",
   },
