@@ -47,7 +47,6 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     icon: 'Monitor',
     color: 'from-blue-500 to-indigo-600',
     features: [
-      { key: 'pos.basic', label: 'Basic POS', description: 'Core POS ordering functionality' },
       { key: 'pos.whatsapp_billing', label: 'WhatsApp Auto-Bill', description: 'Send automated WhatsApp bills to customers' },
       { key: 'pos.offline_mode', label: 'Offline Mode', description: 'Continue taking orders without internet' },
       { key: 'pos.advanced_discounts', label: 'Advanced Discounts', description: 'Percentage, flat, loyalty, coupon stacking' },

@@ -58,6 +58,7 @@ const buildComponentMap = (): Record<string, ComponentMapping> => {
   // ── Explicit aliases for app_components names that don't match category IDs ──
   // These handle names in the `app_components` DB table that differ from registry IDs
   const aliases: Record<string, string> = {
+    'pos': 'quickserve',
     'qsr pos': 'qsr-pos',
     'qsr-pos': 'qsr-pos',
     'quick serve': 'quickserve',
