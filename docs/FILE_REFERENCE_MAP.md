@@ -81,7 +81,7 @@ All routes below are under `SubscriptionGate` + `PermissionGuard`. Sidebar is vi
 
 | Route | Page File | Permission | Sidebar Label | Description |
 |-------|-----------|------------|---------------|-------------|
-| `/pos` | `pages/POS.tsx` | `orders.view` | **POS** | Full point-of-sale (table-based) |
+| `/pos` | `pages/QuickServePOS.tsx` | `orders.view` | **POS (Redirect)** | Redirects to `/quickserve-pos` |
 | `/orders` | `pages/Orders.tsx` | `orders.view` | **Orders** | Orders management list, edit, filter, export |
 | `/qsr-pos` | `pages/QSRPos.tsx` | `orders.view` | **QSR POS** | Quick service restaurant POS |
 | `/quickserve-pos` | `pages/QuickServePOS.tsx` | `orders.view` | **QuickServe POS** | Counter & takeaway POS |

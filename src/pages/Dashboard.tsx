@@ -104,11 +104,11 @@ const Dashboard = () => {
       permission: "orders.create" as const,
     },
     {
-      title: "POS",
-      description: "Point of sale",
+      title: "QuickServe POS",
+      description: "Counter & takeaway POS",
       icon: <Receipt className="h-6 w-6" />,
       onClick: () =>
-        handleNavigationWithPermission("/pos", "orders.create", "POS"),
+        handleNavigationWithPermission("/quickserve-pos", "orders.create", "QuickServe POS"),
       gradient: "from-blue-500 to-indigo-600",
       shadowColor: "shadow-blue-500/30",
       permission: "orders.create" as const,

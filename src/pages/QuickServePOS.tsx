@@ -1065,7 +1065,7 @@ const QuickServePOS: React.FC = () => {
           </div>
         </div>
 
-        <div className="relative flex items-center gap-1.5 px-4 pb-3">
+        <div className="relative flex items-center flex-wrap gap-1.5 sm:gap-1.5 px-4 pb-3">
           <button
             onClick={() => setShowActiveOrders(true)}
             className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-md rounded-xl px-3 py-2 border border-white/10 transition-all active:scale-95"
@@ -1123,7 +1123,7 @@ const QuickServePOS: React.FC = () => {
         </div>
 
         {/* Right: Order Panel (desktop only) */}
-        <div className="hidden md:flex flex-col w-80 lg:w-96 bg-white/60 dark:bg-white/5 backdrop-blur-xl border-l border-white/20 dark:border-white/5 min-h-0 overflow-hidden">
+        <div className="hidden md:flex flex-col w-72 lg:w-80 xl:w-96 bg-white/60 dark:bg-white/5 backdrop-blur-xl border-l border-white/20 dark:border-white/5 min-h-0 overflow-hidden">
           <QSCustomerInput
             customerName={customerName}
             customerPhone={customerPhone}

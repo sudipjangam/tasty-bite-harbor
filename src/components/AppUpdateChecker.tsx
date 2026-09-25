@@ -8,6 +8,8 @@ import { isNativeApp } from '@/utils/platform';
 declare const __APP_VERSION__: string;
 
 interface UpdateInfo {
+  enabled?: boolean;
+  is_active?: boolean;
   latest_version: string;
   required_version: string;
   download_url: string;
@@ -42,6 +44,14 @@ export const AppUpdateChecker = ({ children }: { children: React.ReactNode }) =>
         if (error || !data) return;
 
         const info = data.value as unknown as UpdateInfo;
+
+        // Skip update checks if OTA updates are paused by admin
+        const isEnabled = info.enabled ?? info.is_active ?? false;
+        if (!isEnabled) {
+          console.log('[AppUpdateChecker] OTA updates are paused by admin.');
+          return;
+        }
+
         setUpdateInfo(info);
         
         const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';

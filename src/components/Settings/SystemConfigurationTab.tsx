@@ -60,6 +60,13 @@ export function SystemConfigurationTab() {
   
   // App Release state
   const [isPublishingRelease, setIsPublishingRelease] = useState(false);
+  const [appUpdateConfig, setAppUpdateConfig] = useState<{
+    enabled: boolean;
+    latest_version: string;
+    required_version: string;
+    download_url: string;
+  } | null>(null);
+  const [isTogglingAppUpdate, setIsTogglingAppUpdate] = useState(false);
 
   // Load data
   useEffect(() => {
@@ -70,6 +77,7 @@ export function SystemConfigurationTab() {
       loadSocialLinks();
       loadWhatsAppSender();
     }
+    loadAppUpdateConfig();
   }, [restaurantId]);
 
   const loadCurrencies = async () => {
@@ -289,26 +297,89 @@ export function SystemConfigurationTab() {
     }
   };
 
+  const loadAppUpdateConfig = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('platform_config')
+        .select('value')
+        .eq('key', 'app_update_info')
+        .maybeSingle();
+
+      if (!error && data?.value) {
+        const val = data.value as any;
+        setAppUpdateConfig({
+          enabled: val.enabled ?? val.is_active ?? false,
+          latest_version: val.latest_version || '1.0.0',
+          required_version: val.required_version || '1.0.0',
+          download_url: val.download_url || "https://clmsoetktmvhazctlans.supabase.co/storage/v1/object/public/releases/swadeshisolutions.apk"
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load app update config:', err);
+    }
+  };
+
+  const handleToggleAppUpdate = async (checked: boolean) => {
+    setIsTogglingAppUpdate(true);
+    try {
+      const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';
+      const updatedConfig = {
+        enabled: checked,
+        latest_version: appUpdateConfig?.latest_version || currentVersion,
+        required_version: appUpdateConfig?.required_version || currentVersion,
+        download_url: appUpdateConfig?.download_url || "https://clmsoetktmvhazctlans.supabase.co/storage/v1/object/public/releases/swadeshisolutions.apk"
+      };
+
+      const { error } = await supabase
+        .from('platform_config')
+        .update({ value: updatedConfig })
+        .eq('key', 'app_update_info');
+
+      if (error) throw error;
+
+      setAppUpdateConfig(updatedConfig);
+      toast({
+        title: checked ? "OTA Updates Enabled 🟢" : "OTA Updates Paused 🔴",
+        description: checked 
+          ? "Mobile devices will now check and prompt for updates." 
+          : "Update prompts paused. Users will not see update screens while you test or debug.",
+      });
+    } catch (error: any) {
+      console.error('Toggle error:', error);
+      toast({
+        title: "Failed to change update status",
+        description: error.message || "Could not update platform config",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTogglingAppUpdate(false);
+    }
+  };
+
   const handlePublishRelease = async () => {
     setIsPublishingRelease(true);
     try {
       const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';
+      const updatedConfig = {
+        enabled: true,
+        latest_version: currentVersion,
+        required_version: currentVersion,
+        download_url: appUpdateConfig?.download_url || "https://clmsoetktmvhazctlans.supabase.co/storage/v1/object/public/releases/swadeshisolutions.apk"
+      };
+
       const { error } = await supabase
         .from('platform_config')
         .update({
-          value: {
-            latest_version: currentVersion,
-            required_version: currentVersion,
-            download_url: "https://clmsoetktmvhazctlans.supabase.co/storage/v1/object/public/releases/swadeshisolutions.apk"
-          }
+          value: updatedConfig
         })
         .eq('key', 'app_update_info');
 
       if (error) throw error;
       
+      setAppUpdateConfig(updatedConfig);
       toast({ 
         title: "Release Published 🚀", 
-        description: `Successfully set latest version to ${currentVersion}. Devices will now prompt for update.` 
+        description: `Version ${currentVersion} published and enabled. Outdated devices will be prompted for update.` 
       });
     } catch (error: any) {
       console.error('Publish error:', error);
@@ -716,42 +787,100 @@ export function SystemConfigurationTab() {
 
       {/* App Release Management */}
       {user?.role_has_full_access && (
-        <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl">
+        <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-white/30 dark:border-gray-700/30 rounded-3xl shadow-2xl overflow-hidden">
           <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
-            <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg">
-                <Smartphone className="h-6 w-6 text-white" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl shadow-lg">
+                  <Smartphone className="h-6 w-6 text-white" />
+                </div>
+                App Release Management
+              </CardTitle>
+              <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-900/70 px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <span className={`text-xs font-bold tracking-wider uppercase ${appUpdateConfig?.enabled ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                  {appUpdateConfig?.enabled ? "BROADCAST ACTIVE" : "UPDATES PAUSED"}
+                </span>
+                <Switch
+                  checked={appUpdateConfig?.enabled ?? false}
+                  disabled={isTogglingAppUpdate || isPublishingRelease}
+                  onCheckedChange={handleToggleAppUpdate}
+                />
               </div>
-              App Release Management
-            </CardTitle>
-            <CardDescription className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
-              Automate OTA (Over The Air) updates. Publish the current web dashboard version to all mobile apps.
+            </div>
+            <CardDescription className="text-gray-600 dark:text-gray-400 mt-2 text-base">
+              Control mobile app OTA (Over The Air) update prompts. Keep paused while building/testing debug APKs so customers are not affected.
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-8">
+          <CardContent className="p-8 space-y-6">
+            {/* Status Alert Banner */}
+            {appUpdateConfig?.enabled ? (
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800 flex items-start gap-3">
+                <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping mt-1.5 shrink-0" />
+                <div>
+                  <h4 className="font-bold text-emerald-900 dark:text-emerald-200 text-sm">Update Broadcast is LIVE 🟢</h4>
+                  <p className="text-emerald-700 dark:text-emerald-400 text-xs mt-0.5">
+                    Customer Android devices running an older version than <span className="font-mono font-bold">{appUpdateConfig?.required_version || '1.0.0'}</span> will receive update prompts upon opening the app.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <h4 className="font-bold text-amber-900 dark:text-amber-200 text-sm">Safe Mode: Update Notifications Paused 🔴</h4>
+                  <p className="text-amber-700 dark:text-amber-400 text-xs mt-0.5">
+                    No customer devices will receive update prompts or forced download screens. You can safely build, install debug APKs, and test on your devices without customer disruption.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Version Comparison Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Current Web Build</span>
+                <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1">
+                  {typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'}
+                </div>
+              </div>
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Published Latest Version</span>
+                <div className="text-xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+                  {appUpdateConfig?.latest_version || 'None'}
+                </div>
+              </div>
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Minimum Required Version</span>
+                <div className="text-xl font-black font-mono text-blue-600 dark:text-blue-400 mt-1">
+                  {appUpdateConfig?.required_version || 'None'}
+                </div>
+              </div>
+            </div>
+
+            {/* Publish Action Area */}
             <div className="p-6 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-2xl border border-emerald-100 dark:border-emerald-800 flex flex-col md:flex-row items-center justify-between gap-6">
               <div>
-                <h3 className="text-xl font-bold text-emerald-800 dark:text-emerald-300 mb-2">
-                  Current App Version: <span className="text-emerald-950 dark:text-emerald-100 font-mono bg-emerald-200/50 dark:bg-emerald-800/50 px-2 py-1 rounded">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'Unknown'}</span>
+                <h3 className="text-lg font-bold text-emerald-900 dark:text-emerald-200 mb-1">
+                  Ready to release new version to users?
                 </h3>
                 <p className="text-emerald-700 dark:text-emerald-400 text-sm max-w-lg">
-                  After you build a new APK and upload it to Supabase Storage (releases bucket), click the button below to update the database. 
-                  All Android devices running an older version will be forced to download the new update automatically.
+                  Ensure release APK is uploaded to Supabase Storage (<span className="font-mono text-xs">releases/swadeshisolutions.apk</span>). 
+                  Clicking below will publish version <span className="font-mono font-bold text-emerald-950 dark:text-white">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'}</span> and turn update broadcast <span className="font-bold">ON</span>.
                 </p>
               </div>
               <Button
                 onClick={handlePublishRelease}
-                disabled={isPublishingRelease}
-                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-6 px-8 rounded-xl shadow-lg shrink-0 text-lg w-full md:w-auto"
+                disabled={isPublishingRelease || isTogglingAppUpdate}
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-6 px-8 rounded-xl shadow-lg shrink-0 text-base w-full md:w-auto"
               >
                 {isPublishingRelease ? (
                   <>
-                    <Loader2 className="h-6 w-6 mr-3 animate-spin" />
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                     Publishing...
                   </>
                 ) : (
                   <>
-                    <Upload className="h-6 w-6 mr-3" />
+                    <Upload className="h-5 w-5 mr-2" />
                     Publish Update to Users
                   </>
                 )}

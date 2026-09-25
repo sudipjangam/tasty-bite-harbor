@@ -172,10 +172,13 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', 'SF Pro Display', sans-serif;
+    font-family: 'Poppins', 'Inter', 'SF Pro Display', sans-serif;
     background: #ffffff;
     background-attachment: fixed;
     transition: background-color 0.3s ease, color 0.3s ease;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .dark body {

@@ -109,8 +109,8 @@ const mobileNavItems: MobileNavItem[] = [
   },
   {
     id: "pos",
-    label: "POS",
-    path: "/pos",
+    label: "QuickServe",
+    path: "/quickserve-pos",
     icon: CreditCard,
     requiredPermissions: ["orders.view"],
     gradient: "from-emerald-500 to-teal-600",
