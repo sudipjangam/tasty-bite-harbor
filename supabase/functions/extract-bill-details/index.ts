@@ -86,23 +86,45 @@ If you cannot read a value clearly, use null for that field. For items array, in
 
     console.log("Sending request to Gemini API...");
     
-    const response = await genAI.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { 
-              inlineData: { 
-                mimeType: mimeType, 
-                data: base64Data 
-              } 
-            },
-            { text: prompt }
-          ]
-        }
-      ]
-    });
+    let response;
+    try {
+      response = await genAI.models.generateContent({
+        model: "gemini-3.7-flash",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { 
+                inlineData: { 
+                  mimeType: mimeType, 
+                  data: base64Data 
+                } 
+              },
+              { text: prompt }
+            ]
+          }
+        ]
+      });
+    } catch (modelErr: any) {
+      console.warn("Primary gemini-3.7-flash failed, attempting fallback to gemini-2.0-flash:", modelErr.message || modelErr);
+      response = await genAI.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { 
+                inlineData: { 
+                  mimeType: mimeType, 
+                  data: base64Data 
+                } 
+              },
+              { text: prompt }
+            ]
+          }
+        ]
+      });
+    }
 
     console.log("Received response from Gemini");
     

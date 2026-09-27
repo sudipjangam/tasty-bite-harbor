@@ -730,7 +730,7 @@ ALWAYS base your answers on this specific data. When asked for MTD, QTD, or YTD,
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
+          model: "gemini-3.7-flash",
           contents: contents,
           config: {
             systemInstruction: {
@@ -848,7 +848,7 @@ For each prediction, include a confidence level (0-100) and the key factors that
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.7-flash",
       contents: [
         {
           role: "user",
@@ -949,7 +949,7 @@ Only include items that need attention - don't include items with sufficient sto
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.7-flash",
       contents: [
         {
           role: "user",

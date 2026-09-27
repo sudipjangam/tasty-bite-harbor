@@ -119,16 +119,30 @@ You MUST respond with a single valid JSON object of the following format, with N
       }
     ];
 
-    console.log("Calling Gemini 3.5 Flash...");
-    const response = await genAI.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: contents,
-      config: {
-        systemInstruction: {
-          parts: [{ text: systemPrompt }]
+    console.log("Calling Gemini 3.7 Flash...");
+    let response;
+    try {
+      response = await genAI.models.generateContent({
+        model: "gemini-3.7-flash",
+        contents: contents,
+        config: {
+          systemInstruction: {
+            parts: [{ text: systemPrompt }]
+          }
         }
-      }
-    });
+      });
+    } catch (modelErr: any) {
+      console.warn("Primary gemini-3.7-flash failed, attempting fallback to gemini-2.0-flash:", modelErr.message || modelErr);
+      response = await genAI.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: contents,
+        config: {
+          systemInstruction: {
+            parts: [{ text: systemPrompt }]
+          }
+        }
+      });
+    }
 
     console.log("Received response from Gemini");
     let textContent = response.text || "";
