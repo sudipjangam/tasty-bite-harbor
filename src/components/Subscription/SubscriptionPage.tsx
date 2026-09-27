@@ -19,7 +19,18 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import CurrentPlanBanner from './CurrentPlanBanner';
-import PlanCard from './PlanCard';
+import PlanCard, { getTierKey } from './PlanCard';
+
+const TIER_ORDER: Record<string, number> = {
+  free: 0,
+  starter: 1,
+  growth: 2,
+  pro: 3,
+  professional: 3,
+  business: 4,
+  franchise: 5,
+  enterprise: 6,
+};
 
 const SubscriptionPage = () => {
   const navigate = useNavigate();
@@ -70,32 +81,52 @@ const SubscriptionPage = () => {
     'food_truck' | 'restaurant' | 'hotel' | 'all_in_one'
   >('restaurant');
   const [billingCycle, setBillingCycle] = useState<
-    'monthly' | 'quarterly' | 'half_yearly' | 'yearly'
-  >('monthly');
+    'quarterly' | 'half_yearly' | 'yearly' | 'monthly'
+  >('quarterly');
 
   const { data: plans = [] } = useQuery({
     queryKey: ['subscriptionPlans'],
     queryFn: fetchSubscriptionPlans,
   });
 
-  // Filter plans based on selection
-  const filteredPlans = plans.filter((plan: any) => {
-    const name = plan.name.toLowerCase();
+  // Filter plans based on selection and sort by tier hierarchy
+  const filteredPlans = plans
+    .filter((plan: any) => {
+      const name = plan.name.toLowerCase();
 
-    let typeMatch = false;
-    if (planType === 'food_truck') typeMatch = name.includes('food truck');
-    else if (planType === 'restaurant')
-      typeMatch = name.includes('restaurant') && !name.includes('hotel') && !name.includes('food truck');
-    else if (planType === 'hotel')
-      typeMatch = name.includes('hotel') && !name.includes('restaurant');
-    else if (planType === 'all_in_one')
-      typeMatch = name.includes('all-in-one') || (name.includes('restaurant') && name.includes('hotel'));
+      let typeMatch = false;
+      if (planType === 'food_truck') {
+        typeMatch = name.includes('food truck');
+      } else if (planType === 'restaurant') {
+        typeMatch =
+          name.includes('restaurant') &&
+          !name.includes('hotel') &&
+          !name.includes('food truck');
+      } else if (planType === 'hotel') {
+        typeMatch = name.includes('hotel') && !name.includes('restaurant');
+      } else if (planType === 'all_in_one') {
+        typeMatch =
+          name.includes('all-in-one') ||
+          (name.includes('restaurant') && name.includes('hotel'));
+      }
 
-    const isFree = plan.price === '0';
-    const intervalMatch = plan.interval === billingCycle;
+      const isTrial =
+        plan.price === '1' ||
+        plan.price === '0' ||
+        parseFloat(plan.price) <= 1 ||
+        name.includes('trial') ||
+        name.includes('free');
 
-    return typeMatch && (isFree || intervalMatch);
-  });
+      const intervalMatch = plan.interval === billingCycle;
+
+      // Free trial is always visible across all billing cycles; paid plans match selected cycle
+      return typeMatch && (isTrial || intervalMatch);
+    })
+    .sort((a: any, b: any) => {
+      const rankA = TIER_ORDER[getTierKey(a.name)] ?? 99;
+      const rankB = TIER_ORDER[getTierKey(b.name)] ?? 99;
+      return rankA - rankB;
+    });
 
   const scrollToPlans = () => {
     plansRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -246,26 +277,31 @@ const SubscriptionPage = () => {
             </div>
 
             {/* Billing Cycle Toggles */}
-            <div className="flex flex-wrap justify-center gap-1 mt-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit mx-auto">
+            <div className="flex flex-wrap justify-center gap-1.5 mt-5 bg-gray-100 dark:bg-gray-800/80 p-1.5 rounded-2xl w-fit mx-auto border border-gray-200 dark:border-gray-700/60 shadow-inner">
               {[
-                { id: 'monthly', label: 'Monthly' },
-                { id: 'quarterly', label: 'Quarterly', save: '10%' },
-                { id: 'half_yearly', label: 'Half-Yearly', save: '15%' },
-                { id: 'yearly', label: 'Yearly', save: '20%' },
+                { id: 'quarterly', label: '3 Months' },
+                { id: 'half_yearly', label: '6 Months', save: 'Save ~15%' },
+                { id: 'yearly', label: '1 Year', save: 'Save ~30% ⭐ Best Value' },
               ].map((cycle) => (
                 <button
                   key={cycle.id}
                   onClick={() => setBillingCycle(cycle.id as any)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                     billingCycle === cycle.id
-                      ? 'bg-white dark:bg-gray-700 text-purple-700 dark:text-purple-300 shadow-sm font-semibold'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-white dark:bg-gray-700 text-purple-700 dark:text-purple-300 shadow-md font-semibold'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-white/40 dark:hover:bg-gray-700/40'
                   }`}
                 >
-                  {cycle.label}
-                  {cycle.save && billingCycle === cycle.id && (
-                    <span className="ml-1 text-xs text-emerald-600 font-bold">
-                      -{cycle.save}
+                  <span>{cycle.label}</span>
+                  {cycle.save && (
+                    <span
+                      className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md ${
+                        billingCycle === cycle.id
+                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300'
+                          : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+                      }`}
+                    >
+                      {cycle.save}
                     </span>
                   )}
                 </button>

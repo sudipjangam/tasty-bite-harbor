@@ -25,41 +25,73 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
 
   const [planType, setPlanType] = useState<
     "food_truck" | "restaurant" | "hotel" | "all_in_one"
-  >("food_truck");
+  >("restaurant");
   const [billingCycle, setBillingCycle] = useState<
-    "monthly" | "quarterly" | "half_yearly" | "yearly"
-  >("monthly");
+    "quarterly" | "half_yearly" | "yearly" | "monthly"
+  >("quarterly");
 
   const { data: plans = [] } = useQuery({
     queryKey: ["subscriptionPlans"],
     queryFn: fetchSubscriptionPlans,
   });
 
+  const TIER_ORDER: Record<string, number> = {
+    free: 0,
+    starter: 1,
+    growth: 2,
+    pro: 3,
+    professional: 3,
+    business: 4,
+    franchise: 5,
+    enterprise: 6,
+  };
+
+  const getTier = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('free') || n.includes('trial')) return 'free';
+    if (n.includes('franchise')) return 'franchise';
+    if (n.includes('business')) return 'business';
+    if (n.includes('professional') || n.includes('pro')) return 'pro';
+    if (n.includes('growth')) return 'growth';
+    return 'starter';
+  };
+
   // Filter regular plans based on selection
-  const filteredPlans = plans.filter((plan) => {
-    const name = plan.name.toLowerCase();
+  const filteredPlans = plans
+    .filter((plan) => {
+      const name = plan.name.toLowerCase();
 
-    // 1. Filter by Plan Type
-    let typeMatch = false;
-    if (planType === "food_truck") typeMatch = name.includes("food truck");
-    else if (planType === "restaurant")
-      typeMatch =
-        name.includes("restaurant") &&
-        !name.includes("hotel") &&
-        !name.includes("food truck");
-    else if (planType === "hotel")
-      typeMatch = name.includes("hotel") && !name.includes("restaurant");
-    else if (planType === "all_in_one")
-      typeMatch =
-        name.includes("all-in-one") ||
-        (name.includes("restaurant") && name.includes("hotel"));
+      // 1. Filter by Plan Type
+      let typeMatch = false;
+      if (planType === "food_truck") typeMatch = name.includes("food truck");
+      else if (planType === "restaurant")
+        typeMatch =
+          name.includes("restaurant") &&
+          !name.includes("hotel") &&
+          !name.includes("food truck");
+      else if (planType === "hotel")
+        typeMatch = name.includes("hotel") && !name.includes("restaurant");
+      else if (planType === "all_in_one")
+        typeMatch =
+          name.includes("all-in-one") ||
+          (name.includes("restaurant") && name.includes("hotel"));
 
-    // 2. Filter by Interval (Always show free trials regardless of cycle selection)
-    const isFree = plan.price === "0";
-    const intervalMatch = plan.interval === billingCycle;
+      // 2. Filter by Interval (Always show free trials regardless of cycle selection)
+      const isTrial =
+        plan.price === "1" ||
+        plan.price === "0" ||
+        parseFloat(plan.price) <= 1 ||
+        name.includes("trial") ||
+        name.includes("free");
+      const intervalMatch = plan.interval === billingCycle;
 
-    return typeMatch && (isFree || intervalMatch);
-  });
+      return typeMatch && (isTrial || intervalMatch);
+    })
+    .sort((a, b) => {
+      const rankA = TIER_ORDER[getTier(a.name)] ?? 99;
+      const rankB = TIER_ORDER[getTier(b.name)] ?? 99;
+      return rankA - rankB;
+    });
 
   const onSubscribeClick = (planId: string, price: string, planName: string) => {
     if (!restaurantId) {
@@ -85,10 +117,34 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
   const renderPlanCard = (plan: any, discountRecord: any) => {
     const displayName = plan.name
       .replace(/ - (Monthly|Quarterly|Half-Yearly|Yearly|Half_Yearly)/gi, "")
-      .replace("Food Truck ", "");
+      .replace(/^(Food Truck|Restaurant \+ Hotel|Restaurant|Hotel|All-in-One)\s+/i, "")
+      .trim();
 
-    const isFree = plan.price === "0";
+    const isTrial =
+      plan.price === "1" ||
+      plan.price === "0" ||
+      parseFloat(plan.price) <= 1 ||
+      plan.name.toLowerCase().includes("trial");
+
     const isCurrentPlan = subscription?.plan_id === plan.id && isActive;
+    const isPro = plan.name.toLowerCase().includes("pro") || plan.name.toLowerCase().includes("professional");
+
+    const priceNum = parseFloat(plan.price) || 0;
+    let intervalLabel = formatInterval(plan.interval);
+    let perMonthBreakdown = "";
+
+    if (isTrial) {
+      intervalLabel = "14-day evaluation";
+    } else if (plan.interval === "quarterly") {
+      intervalLabel = "3 months";
+      perMonthBreakdown = `(~${formatPrice(Math.round(priceNum / 3))}/mo)`;
+    } else if (plan.interval === "half_yearly") {
+      intervalLabel = "6 months";
+      perMonthBreakdown = `(~${formatPrice(Math.round(priceNum / 6))}/mo)`;
+    } else if (plan.interval === "yearly") {
+      intervalLabel = "1 year";
+      perMonthBreakdown = `(~${formatPrice(Math.round(priceNum / 12))}/mo)`;
+    }
 
     return (
       <Card
@@ -98,9 +154,9 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
             ? "border-emerald-400 ring-2 ring-emerald-100"
             : discountRecord
               ? "border-rose-400 ring-2 ring-rose-100 scale-[1.02] shadow-lg"
-              : plan.name.toLowerCase().includes("pro")
-                ? "border-primary/50"
-                : "border-transparent"
+              : isPro
+                ? "border-purple-300 ring-2 ring-purple-100 shadow-md"
+                : "border-transparent hover:border-gray-200"
         }`}
       >
         {isCurrentPlan && (
@@ -113,19 +169,19 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
             <Sparkles className="w-3 h-3" /> Special Offer
           </div>
         )}
-        {!isCurrentPlan && !discountRecord && plan.name.toLowerCase().includes("pro") && (
-          <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-4 py-1 rounded-bl-xl text-xs font-bold uppercase tracking-wider">
-            Best Value
+        {!isCurrentPlan && !discountRecord && isPro && (
+          <div className="absolute top-0 right-0 bg-purple-600 text-white px-4 py-1 rounded-bl-xl text-xs font-bold uppercase tracking-wider">
+            ⭐ Hero Plan
           </div>
         )}
-        {!isCurrentPlan && !discountRecord && isFree && (
-          <div className="absolute top-0 right-0 bg-green-500 text-white px-4 py-1 rounded-bl-xl text-xs font-bold uppercase tracking-wider">
-            Free Trial
+        {!isCurrentPlan && !discountRecord && isTrial && (
+          <div className="absolute top-0 right-0 bg-emerald-600 text-white px-4 py-1 rounded-bl-xl text-xs font-bold uppercase tracking-wider">
+            ₹1 Evaluation
           </div>
         )}
 
         <div className="mb-6">
-          <h3 className="text-xl font-bold text-primary">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {displayName}
             {discountRecord && <span className="block text-sm font-normal text-rose-500 mt-1">Exclusive Discount Applied</span>}
           </h3>
@@ -153,15 +209,27 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
                 </p>
               </>
             ) : (
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold">{formatPrice(plan.price)}</span>
-                <span className="text-sm text-muted-foreground font-medium">
-                  / {isFree ? "14 days" : formatInterval(plan.interval)}
-                </span>
+              <div className="flex flex-col">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl font-extrabold">{formatPrice(plan.price)}</span>
+                  <span className="text-sm text-muted-foreground font-medium">
+                    / {intervalLabel}
+                  </span>
+                </div>
+                {perMonthBreakdown && (
+                  <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 mt-1">
+                    Billed upfront {perMonthBreakdown}
+                  </span>
+                )}
+                {isTrial && (
+                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mt-1">
+                    Full access evaluation • Instant activation
+                  </span>
+                )}
               </div>
             )}
           </div>
-          <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <p className="text-muted-foreground mt-3 text-sm leading-relaxed min-h-[38px]">
             {plan.description}
           </p>
         </div>
@@ -171,7 +239,7 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
             <ul className="space-y-3">
               {plan.features.map((feature: string, index: number) => (
                 <li key={index} className="flex items-start gap-2.5">
-                  <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                   <span className="text-sm text-gray-700 dark:text-gray-300">
                     {feature}
                   </span>
@@ -187,9 +255,9 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
               ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 cursor-default"
               : discountRecord
                 ? "bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-200 dark:shadow-none"
-              : plan.name.toLowerCase().includes("pro")
-                ? "bg-primary hover:bg-primary/90"
-                : "bg-secondary hover:bg-secondary/80 text-foreground"
+              : isPro
+                ? "bg-purple-600 hover:bg-purple-700 text-white"
+                : "bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900"
           }`}
           size="lg"
           onClick={() => onSubscribeClick(plan.id, discountRecord ? discountRecord.discounted_price.toString() : plan.price, plan.name)}
@@ -204,8 +272,8 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
             "✓ Current Plan"
           ) : discountRecord ? (
             "Claim Special Offer"
-          ) : isFree ? (
-            "Start Free Trial"
+          ) : isTrial ? (
+            "Start Free Trial (₹1)"
           ) : (
             "Subscribe Now"
           )}
@@ -284,10 +352,9 @@ const SubscriptionPlans = ({ restaurantId }: SubscriptionPlansProps) => {
           {/* Billing Cycle Toggles */}
           <div className="flex flex-wrap justify-center gap-2 mt-4 bg-secondary/30 p-1.5 rounded-full w-fit mx-auto">
             {[
-              { id: "monthly", label: "Monthly" },
-              { id: "quarterly", label: "Quarterly (-10%)" },
-              { id: "half_yearly", label: "Half-Yearly (-15%)" },
-              { id: "yearly", label: "Yearly (-20%)" },
+              { id: "quarterly", label: "3 Months" },
+              { id: "half_yearly", label: "6 Months (-15%)" },
+              { id: "yearly", label: "1 Year (-30% ⭐ Best Value)" },
             ].map((cycle) => (
               <button
                 key={cycle.id}
