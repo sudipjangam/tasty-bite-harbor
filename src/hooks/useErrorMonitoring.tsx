@@ -68,23 +68,22 @@ class ErrorMonitoringService {
   }
 
   private setupGlobalHandlers(): void {
-    // Handle uncaught errors
-    window.onerror = (message, source, lineno, colno, error) => {
-      this.captureError(error || new Error(String(message)), {
-        extra: { source, lineno, colno },
+    // BUG-15 fix: use addEventListener instead of overwriting window.onerror/onunhandledrejection
+    // This preserves Capacitor's and React's own error handlers
+    window.addEventListener('error', (event) => {
+      this.captureError(event.error || new Error(String(event.message)), {
+        extra: { source: event.filename, lineno: event.lineno, colno: event.colno },
       });
-      return false;
-    };
+    });
 
-    // Handle unhandled promise rejections
-    window.onunhandledrejection = (event) => {
+    window.addEventListener('unhandledrejection', (event) => {
       this.captureError(
         event.reason instanceof Error 
           ? event.reason 
           : new Error(String(event.reason)),
         { extra: { type: 'unhandledrejection' } }
       );
-    };
+    });
   }
 
   setContext(context: Partial<ErrorContext>): void {

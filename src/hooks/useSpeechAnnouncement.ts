@@ -169,8 +169,9 @@ export function useSpeechAnnouncement(): UseSpeechAnnouncementReturn {
       oscillator.start();
       oscillator.stop(audioContext.currentTime + 0.2);
 
-      // Short delay, then speak
+      // BUG-07 fix: close AudioContext after beep to prevent leak
       setTimeout(() => {
+        audioContext.close().catch(() => {});
         speak(message, lang);
       }, 300);
     } catch {

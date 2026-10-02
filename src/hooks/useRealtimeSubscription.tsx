@@ -35,8 +35,8 @@ export const useRealtimeSubscription = ({
       subscriptionOptions.filter = `${filter.column}=eq.${filter.value}`;
     }
     
-    // Channel names must be globally unique across all subscriptions
-    const channelId = `${table}-${filter ? `${filter.column}-${filter.value}` : 'all'}-${Math.random().toString(36).slice(2, 8)}`;
+    // BUG-10 fix: use crypto.randomUUID() instead of Math.random() to prevent channel collisions
+    const channelId = `${table}-${filter ? `${filter.column}-${filter.value}` : 'all'}-${crypto.randomUUID().slice(0, 12)}`;
     const channel = supabase
       .channel(channelId)
       .on('postgres_changes', subscriptionOptions, () => {

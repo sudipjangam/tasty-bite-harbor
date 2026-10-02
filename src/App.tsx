@@ -25,18 +25,21 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { supabase } from "@/integrations/supabase/client";
 import { isNativeApp } from "@/utils/platform";
 import { AppUpdateChecker } from "@/components/AppUpdateChecker";
+import { markBackgrounded, shouldLockOnResume, isBiometricEnabled } from "@/hooks/useBiometricAuth";
 
-// Create a client optimized to reduce memory footprint on mobile devices
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: !isNativeApp(), // Disable focus refetch storm on native Android
-      staleTime: 1000 * 60 * 3, // 3 minutes
-      gcTime: 1000 * 60 * 10, // 10 minutes garbage collection
-      retry: 1,
+// BUG-18 fix: defer isNativeApp() call — will be checked at render time, not import time
+function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        refetchOnWindowFocus: !isNativeApp(),
+        staleTime: 1000 * 60 * 3,
+        gcTime: 1000 * 60 * 10,
+        retry: 1,
+      },
     },
-  },
-});
+  });
+}
 
 // Real-time analytics wrapper component
 function AppWithRealtime() {
@@ -61,6 +64,11 @@ function AppWithRealtime() {
     if (isNativeApp()) {
       const listener = CapacitorApp.addListener("appStateChange", ({ isActive }) => {
         focusManager.setFocused(isActive);
+        // BUG-16 fix: wire biometric lock to Capacitor lifecycle
+        if (!isActive) {
+          markBackgrounded();
+        }
+        // Note: shouldLockOnResume check should be handled by BiometricGate component
       });
       return () => {
         listener.then((l) => l.remove());
@@ -86,13 +94,17 @@ function AppWithRealtime() {
 }
 
 function App() {
+  // BUG-18 fix: create queryClient inside component so isNativeApp() runs after Capacitor init
+  const [queryClient] = useState(() => createQueryClient());
+
   useEffect(() => {
-    // Listen for deep links (e.g. Supabase OAuth callback)
+    // BUG-09 fix: only listen for deep links on native — CapacitorApp on web can throw
+    if (!isNativeApp()) return;
+
     const listener = CapacitorApp.addListener('appUrlOpen', async (event) => {
       const url = new URL(event.url);
       if (url.protocol === 'com.swadeshisolutions.app:') {
         if (url.hash) {
-          // Parse the hash to extract tokens
           const hashStr = url.hash.startsWith('#') ? url.hash.substring(1) : url.hash;
           const hashParams = new URLSearchParams(hashStr);
           const accessToken = hashParams.get('access_token');

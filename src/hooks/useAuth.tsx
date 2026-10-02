@@ -3,10 +3,13 @@ import {
   useContext,
   useEffect,
   useState,
+  useRef,
+  useCallback,
   ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { withRetry, isNetworkError } from "@/utils/withRetry";
 import {
   Permission,
   UserProfile,
@@ -31,9 +34,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [userComponents, setUserComponents] = useState<string[]>([]);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+
+  // BUG-01 fix: stable ref for signOut so the timeout effect never has a stale closure
+  const signOutRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   useEffect(() => {
     // Set up auth state listener
@@ -72,19 +79,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const timeoutMs = timeoutHours * 60 * 60 * 1000;
 
     const sessionStartStr = localStorage.getItem("session_start_time");
-    let sessionStart = sessionStartStr ? parseInt(sessionStartStr, 10) : 0;
-
-    if (!sessionStart) {
-      sessionStart = Date.now();
-      localStorage.setItem("session_start_time", sessionStart.toString());
-    }
+    const sessionStart = sessionStartStr ? parseInt(sessionStartStr, 10) : Date.now();
 
     const checkSessionTimeout = async () => {
       const elapsed = Date.now() - sessionStart;
       if (elapsed >= timeoutMs) {
-        // Call the local signOut function
-        await signOut();
-        // Force reload to redirect to login and clear all state completely
+        // BUG-01 fix: call via ref so we never use a stale signOut closure
+        await signOutRef.current();
         window.location.href = "/auth";
       }
     };
@@ -98,26 +99,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [user]);
 
   const fetchUserProfile = async (userId: string, email?: string) => {
+    setAuthError(null);
     try {
-      // Fetch user profile with role information and custom role details
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select(
-          `
-          *,
-          roles:role_id (
-            id,
-            name,
-            description,
-            is_system,
-            has_full_access
-          )
-        `,
-        )
-        .eq("id", userId)
-        .single();
+      // BUG-17 fix: wrap profile fetch in retry for transient network failures
+      const profile = await withRetry(
+        async () => {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select(
+              `
+              *,
+              roles:role_id (
+                id,
+                name,
+                description,
+                is_system,
+                has_full_access
+              )
+            `,
+            )
+            .eq("id", userId)
+            .single();
+          if (error) throw error;
+          return data;
+        },
+        { maxRetries: 3, initialDelay: 1000, shouldRetry: isNetworkError },
+      );
 
       if (profile) {
+        // BUG-02 fix: always set session_start_time on successful login
+        localStorage.setItem("session_start_time", Date.now().toString());
+
         // Use role name from roles table
         const userRole =
           profile.roles?.name || profile.role_name_text || profile.role;
@@ -187,6 +199,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           .single();
 
         if (newProfile) {
+          localStorage.setItem("session_start_time", Date.now().toString());
           setUser({
             id: newProfile.id,
             email: email,
@@ -200,6 +213,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
+      // BUG-17 fix: surface error so UI can show retry button
+      setAuthError("Failed to load profile. Please check your connection.");
     }
   };
 
@@ -238,7 +253,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return currentRole?.toLowerCase() === role.toLowerCase();
   };
 
-  const signOut = async (): Promise<void> => {
+  const signOut = useCallback(async (): Promise<void> => {
     // Sign out from Supabase
     await supabase.auth.signOut();
 
@@ -250,6 +265,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUserComponents([]);
     setUserPermissions([]);
     setPermissionsLoaded(false);
+    setAuthError(null);
 
     // Clear any localStorage session data (but keep theme preference)
     const theme = localStorage.getItem("restaurant-pro-theme");
@@ -269,15 +285,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     if (theme) localStorage.setItem("restaurant-pro-theme", theme);
 
-  };
+  }, [queryClient]);
+
+  // BUG-01 fix: keep signOut ref current for the timeout effect
+  useEffect(() => { signOutRef.current = signOut; }, [signOut]);
 
   const value: AuthContextType = {
     user,
     loading,
+    authError,
     hasPermission,
     hasAnyPermission,
     isRole,
     signOut,
+    retryAuth: () => {
+      // BUG-17 fix: allow user to retry profile fetch
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          setLoading(true);
+          fetchUserProfile(session.user.id, session.user.email).finally(() => setLoading(false));
+        }
+      });
+    },
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

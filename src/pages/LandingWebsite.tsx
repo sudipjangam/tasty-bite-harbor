@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, useScroll, useSpring } from 'framer-motion';
 import { NavigationHeader } from "@/components/Landing/NavigationHeader";
 import { HeroSection } from "@/components/Landing/HeroSection";
 import { IntegrationsTicker } from "@/components/Landing/IntegrationsTicker";
@@ -21,8 +22,21 @@ import { StickyDemoBanner } from "@/components/Landing/StickyDemoBanner";
 import "@/styles/landing-animations.css";
 
 const LandingWebsite = () => {
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 30,
+    restDelta: 0.001,
+  });
+
   return (
-    <div className="landing-page-wrapper bg-white dark:bg-[#1A1A2E] overflow-x-hidden w-full max-w-full">
+    <div className="landing-page-wrapper bg-white dark:bg-[#1A1A2E] overflow-x-hidden w-full max-w-full relative">
+      {/* Top Global Scroll Progress Bar */}
+      <motion.div
+        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#FF6B6B] via-[#FFD93D] to-[#6BCB77] origin-left z-50 shadow-[0_0_12px_rgba(255,107,107,0.7)]"
+        style={{ scaleX }}
+      />
+
       {/* Navigation - Fixed at top */}
       <NavigationHeader />
       

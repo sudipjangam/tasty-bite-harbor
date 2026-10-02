@@ -307,6 +307,9 @@ export const useKitchenSounds = () => {
           osc.stop(time + duration);
           time += duration + gap;
         });
+        // BUG-07 fix: close AudioContext after all tones finish to prevent leak
+        const totalDuration = frequencies.length * (duration + gap);
+        setTimeout(() => { audioCtx.close().catch(() => {}); }, totalDuration * 1000 + 200);
       } catch (e) {
         console.warn("Error playing tone:", e);
       }

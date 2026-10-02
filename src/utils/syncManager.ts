@@ -14,6 +14,9 @@ import { v4 as uuidv4 } from "uuid";
 import { getDB, QueuedWrite, ConflictRecord } from "./offlineDB";
 import { supabase } from "@/integrations/supabase/client";
 
+// BUG-03 fix: Maximum retries before moving item to dead letter queue
+const MAX_RETRIES = 10;
+
 // ─── Enqueue ─────────────────────────────────────────────────────────────────
 
 /**
@@ -70,9 +73,24 @@ export async function flushQueue(
         const remaining = await db.count("writeQueue");
         onProgress?.(remaining);
       } catch (err) {
-        console.error(`[SyncManager] Failed to flush ${item.type}:`, err);
-        // Increment retry counter; leave in queue for next flush
-        await db.put("writeQueue", { ...item, retries: item.retries + 1 });
+        const nextRetries = item.retries + 1;
+        if (nextRetries >= MAX_RETRIES) {
+          // BUG-03 fix: evict to conflict log as dead letter instead of retrying forever
+          console.error(`[SyncManager] Max retries (${MAX_RETRIES}) exceeded for ${item.type}/${item.id}, moving to dead letter`);
+          const deadLetter: ConflictRecord = {
+            id: item.id,
+            type: item.type,
+            localTimestamp: item.timestamp,
+            serverTimestamp: 0,
+            resolvedAt: Date.now(),
+            payload: { ...item.payload, _deadLetterReason: String(err), _retries: nextRetries },
+          };
+          await db.put("conflictLog", deadLetter);
+          await db.delete("writeQueue", item.id);
+        } else {
+          console.error(`[SyncManager] Failed to flush ${item.type} (retry ${nextRetries}/${MAX_RETRIES}):`, err);
+          await db.put("writeQueue", { ...item, retries: nextRetries });
+        }
       }
     }
   } finally {
@@ -106,8 +124,9 @@ async function replayWrite(item: QueuedWrite): Promise<void> {
       break;
 
     case "table_status":
+      // BUG-04 fix: correct table name (was "tables", actual DB table is "restaurant_tables")
       await replayWithConflictCheck(
-        "tables",
+        "restaurant_tables",
         payload,
         timestamp,
         item.id,

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { QSOrderItem } from "@/components/QuickServe/QSOrderPanel";
 import { LoyaltyCustomerInfo } from "@/components/QuickServe/QSCustomerInput";
 
@@ -39,6 +39,9 @@ function saveHeldOrders(orders: HeldOrder[]) {
 
 export function useHeldOrders() {
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>(loadHeldOrders);
+  // BUG-05 fix: keep a ref in sync so resumeOrder can read synchronously
+  const heldOrdersRef = useRef(heldOrders);
+  useEffect(() => { heldOrdersRef.current = heldOrders; }, [heldOrders]);
 
   // Sync back to localStorage on any change
   useEffect(() => {
@@ -56,13 +59,12 @@ export function useHeldOrders() {
   }, []);
 
   const resumeOrder = useCallback((id: string): HeldOrder | null => {
-    let found: HeldOrder | null = null;
-    setHeldOrders((prev) => {
-      const idx = prev.findIndex((o) => o.id === id);
-      if (idx === -1) return prev;
-      found = prev[idx];
-      return prev.filter((o) => o.id !== id);
-    });
+    // Read from ref synchronously — state updater runs async in React 18
+    const current = heldOrdersRef.current;
+    const found = current.find((o) => o.id === id) ?? null;
+    if (found) {
+      setHeldOrders((prev) => prev.filter((o) => o.id !== id));
+    }
     return found;
   }, []);
 

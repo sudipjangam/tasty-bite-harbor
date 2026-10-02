@@ -1,40 +1,21 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
+import { motion } from 'framer-motion';
 import { 
   ShoppingCart, 
   Users, 
   BarChart3, 
   Package, 
   CalendarDays, 
-  DollarSign,
-  Sparkles,
-  Smartphone,
-  Shield,
-  Zap,
-  Cloud,
-  HeartHandshake
+  DollarSign, 
+  Sparkles, 
+  Smartphone, 
+  Shield, 
+  Zap, 
+  Cloud, 
+  HeartHandshake 
 } from 'lucide-react';
 
 export const FeaturesSection: React.FC = () => {
-  const [isVisible, setIsVisible] = useState(false);
-  const sectionRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, []);
-
   const features = [
     {
       icon: <ShoppingCart className="w-7 h-7" />,
@@ -125,7 +106,6 @@ export const FeaturesSection: React.FC = () => {
   return (
     <section 
       id="features" 
-      ref={sectionRef}
       className="py-24 bg-gradient-to-b from-white via-[#FFF8F0]/50 to-white dark:from-[#1A1A2E] dark:via-[#2D3A5F]/20 dark:to-[#1A1A2E] relative overflow-hidden"
     >
       {/* Background Decorations */}
@@ -133,8 +113,14 @@ export const FeaturesSection: React.FC = () => {
       <div className="absolute bottom-1/4 right-0 w-72 h-72 bg-[#6BCB77]/5 rounded-full blur-3xl" />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        {/* Section Header */}
-        <div className={`text-center max-w-3xl mx-auto mb-16 ${isVisible ? 'animate-fade-in-up' : 'opacity-0'}`}>
+        {/* Section Header with Scroll Reveal */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-3xl mx-auto mb-16"
+        >
           <span className="inline-block px-4 py-2 bg-[#2D3A5F]/10 dark:bg-[#2D3A5F]/30 text-[#2D3A5F] dark:text-white text-sm font-semibold rounded-full mb-4">
             POWERFUL FEATURES
           </span>
@@ -144,22 +130,25 @@ export const FeaturesSection: React.FC = () => {
           <p className="text-xl text-gray-600 dark:text-gray-300">
             A comprehensive platform built specifically for Indian restaurants and hotels
           </p>
-        </div>
+        </motion.div>
 
-        {/* Bento Grid */}
+        {/* Bento Grid with Framer Motion Staggered Scroll Entrance */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {features.map((feature, index) => (
-            <div
+            <motion.div
               key={index}
+              initial={{ opacity: 0, y: 35 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.15 }}
+              transition={{ duration: 0.5, delay: (index % 4) * 0.1 }}
+              whileHover={{ y: -8, transition: { duration: 0.2 } }}
               className={`
                 ${feature.size === 'large' ? 'md:col-span-2' : ''}
-                ${isVisible ? 'animate-fade-in-up' : 'opacity-0'}
               `}
-              style={{ animationDelay: `${index * 50}ms` }}
             >
               <div 
                 className="group h-full bg-white dark:bg-[#2D3A5F]/30 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 
-                          hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer
+                          hover:shadow-2xl transition-all duration-300 cursor-pointer
                           relative overflow-hidden"
               >
                 {/* Hover gradient overlay */}
@@ -195,12 +184,18 @@ export const FeaturesSection: React.FC = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
 
         {/* Additional Features List */}
-        <div className={`text-center mt-16 ${isVisible ? 'animate-fade-in-up animation-delay-500' : 'opacity-0'}`}>
+        <motion.div 
+          initial={{ opacity: 0, y: 25 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mt-16"
+        >
           <p className="text-lg text-gray-600 dark:text-gray-300 mb-4">
             And many more features to help you grow
           </p>
@@ -214,7 +209,7 @@ export const FeaturesSection: React.FC = () => {
               </span>
             ))}
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );

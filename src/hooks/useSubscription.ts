@@ -182,11 +182,10 @@ export const useSubscription = () => {
       return data as VerifyPaymentResponse;
     },
     onSuccess: () => {
-      // Invalidate all subscription-related queries
+      // BUG-11 fix: only invalidate subscription-related queries, not the entire cache
       queryClient.invalidateQueries({ queryKey: ['subscription'] });
       queryClient.invalidateQueries({ queryKey: ['subscriptionPlans'] });
       queryClient.invalidateQueries({ queryKey: ['plan-type'] });
-      queryClient.invalidateQueries();
     },
   });
 
@@ -235,7 +234,10 @@ export const useSubscription = () => {
         title: 'Free Trial Activated! 🎉',
         description: 'You have 14 days of full access. Enjoy!',
       });
-      queryClient.invalidateQueries();
+      // BUG-11 fix: targeted invalidation instead of blanket cache nuke
+      queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['subscriptionPlans'] });
+      queryClient.invalidateQueries({ queryKey: ['plan-type'] });
     },
     onError: (error) => {
       console.error('Free trial error:', error);

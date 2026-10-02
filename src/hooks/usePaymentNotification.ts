@@ -77,6 +77,7 @@ export function usePaymentNotification(): UsePaymentNotificationReturn {
       if (isSuccess) {
         // Success: Pleasant ascending tone (C5 → E5 → G5)
         const notes = [523.25, 659.25, 783.99];
+        const lastStopTime = audioContext.currentTime + 0.15 * notes.length + 0.3;
         notes.forEach((freq, i) => {
           const osc = audioContext.createOscillator();
           const gain = audioContext.createGain();
@@ -89,6 +90,8 @@ export function usePaymentNotification(): UsePaymentNotificationReturn {
           osc.start(audioContext.currentTime + 0.15 * i);
           osc.stop(audioContext.currentTime + 0.15 * (i + 1) + 0.3);
         });
+        // BUG-07 fix: close AudioContext after playback to prevent leak
+        setTimeout(() => { audioContext.close().catch(() => {}); }, (lastStopTime - audioContext.currentTime) * 1000 + 100);
       } else {
         // Failure: Descending tone
         const osc = audioContext.createOscillator();
@@ -100,6 +103,8 @@ export function usePaymentNotification(): UsePaymentNotificationReturn {
         gain.gain.value = 0.2;
         osc.start();
         osc.stop(audioContext.currentTime + 0.5);
+        // BUG-07 fix: close AudioContext after playback
+        setTimeout(() => { audioContext.close().catch(() => {}); }, 700);
       }
     } catch {
       // Audio context not available — silently fail

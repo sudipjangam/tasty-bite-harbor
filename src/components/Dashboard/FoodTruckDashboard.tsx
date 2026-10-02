@@ -31,6 +31,7 @@ import { DailySummaryDialog } from "@/components/QuickServe/DailySummaryDialog";
 import { WidgetPickerDialog } from "@/components/Dashboard/widgets/WidgetPickerDialog";
 import { WidgetRenderer } from "@/components/Dashboard/widgets/WidgetRenderer";
 import { useWidgetPreferences } from "@/hooks/useWidgetPreferences";
+import { AIComponentStudioDialog } from "@/components/Dashboard/widgets/AIComponentStudioDialog";
 
 interface DaySchedule {
   location: string;
@@ -58,6 +59,7 @@ const FoodTruckDashboard: React.FC = () => {
   const { symbol: currencySymbol } = useCurrencyContext();
   const [showDailySummary, setShowDailySummary] = useState(false);
   const [showWidgetPicker, setShowWidgetPicker] = useState(false);
+  const [showAIStudio, setShowAIStudio] = useState(false);
   const queryClient = useQueryClient();
   const { selectedWidgets, saveWidgets } = useWidgetPreferences(
     restaurantId,
@@ -576,6 +578,13 @@ const FoodTruckDashboard: React.FC = () => {
         onClose={() => setShowWidgetPicker(false)}
         selectedWidgets={selectedWidgets}
         onSave={saveWidgets}
+        onOpenAIStudio={() => setShowAIStudio(true)}
+      />
+
+      {/* AI Component Studio Dialog */}
+      <AIComponentStudioDialog
+        open={showAIStudio}
+        onOpenChange={setShowAIStudio}
       />
     </div>
   );

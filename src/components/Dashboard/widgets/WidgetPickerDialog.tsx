@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { RotateCcw, LayoutDashboard } from "lucide-react";
+import { RotateCcw, LayoutDashboard, Sparkles } from "lucide-react";
 import {
   WIDGET_CATALOG,
   MAX_WIDGETS,
@@ -23,6 +23,7 @@ interface WidgetPickerDialogProps {
   selectedWidgets: string[];
   onSave: (widgets: string[]) => void;
   defaultWidgets?: string[];
+  onOpenAIStudio?: () => void;
 }
 
 export const WidgetPickerDialog: React.FC<WidgetPickerDialogProps> = ({
@@ -31,6 +32,7 @@ export const WidgetPickerDialog: React.FC<WidgetPickerDialogProps> = ({
   selectedWidgets,
   onSave,
   defaultWidgets,
+  onOpenAIStudio,
 }) => {
   const [tempSelection, setTempSelection] = useState<string[]>(selectedWidgets);
 
@@ -76,6 +78,35 @@ export const WidgetPickerDialog: React.FC<WidgetPickerDialogProps> = ({
             </div>
           </DialogTitle>
         </DialogHeader>
+
+        {/* Call to action for AI Component Studio */}
+        {onOpenAIStudio && (
+          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-orange-500/10 via-rose-500/10 to-indigo-500/10 border border-orange-500/20">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-gradient-to-tr from-orange-500 to-rose-500 text-white shadow-sm">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-900 dark:text-white">
+                  Need a custom metric or report card?
+                </p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  Build custom widgets from your live data in minutes.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => {
+                onClose();
+                onOpenAIStudio();
+              }}
+              className="rounded-xl bg-gradient-to-r from-orange-500 to-rose-500 text-white text-xs h-8 px-3 shadow-sm hover:opacity-90"
+            >
+              Open AI Studio
+            </Button>
+          </div>
+        )}
 
         {/* Selection counter */}
         <div className="flex items-center justify-between px-1">

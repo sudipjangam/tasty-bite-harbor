@@ -251,10 +251,12 @@ export interface UserWithMetadata extends UserProfile {
 export interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
+  authError: string | null;
   hasPermission: (permission: Permission) => boolean;
   hasAnyPermission: (permissions: Permission[]) => boolean;
   isRole: (role: UserRole | string) => boolean;
   signOut: () => Promise<void>;
+  retryAuth: () => void;
 }
 
 export interface SubscriptionPlan {

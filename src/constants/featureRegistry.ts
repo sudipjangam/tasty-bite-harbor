@@ -398,6 +398,7 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
     features: [
       { key: 'ai.assistant', label: 'AI Assistant', description: 'Chat-based business insights' },
       { key: 'ai.analytics', label: 'AI Analytics', description: 'ML-powered predictions' },
+      { key: 'ai.custom_components', label: 'AI Component Studio', description: 'Build custom widgets, metric cards, and charts from live data' },
     ],
   },
 

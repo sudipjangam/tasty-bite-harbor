@@ -30,12 +30,18 @@ import { WidgetRenderer } from "@/components/Dashboard/widgets/WidgetRenderer";
 import { useWidgetPreferences } from "@/hooks/useWidgetPreferences";
 import { RESTAURANT_DEFAULT_WIDGETS } from "@/components/Dashboard/widgets/WidgetRegistry";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
+import { useCustomWidgets } from "@/hooks/useCustomWidgets";
+import { CustomDynamicWidget } from "@/components/Dashboard/widgets/CustomDynamicWidget";
+import { AIComponentStudioDialog } from "@/components/Dashboard/widgets/AIComponentStudioDialog";
+import { Badge } from "@/components/ui/badge";
 
 const Dashboard = () => {
   const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
   const { restaurantId } = useRestaurantId();
   const [showWidgetPicker, setShowWidgetPicker] = useState(false);
+  const [showAIStudio, setShowAIStudio] = useState(false);
+  const { activeWidgets: customWidgetsList, deleteWidget, quota } = useCustomWidgets();
   const { selectedWidgets, saveWidgets } = useWidgetPreferences(
     restaurantId,
     "restaurant",
@@ -313,22 +319,49 @@ const Dashboard = () => {
 
           {/* Customizable Dashboard Widgets */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-indigo-500" />
                 Dashboard Widgets
               </h2>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowWidgetPicker(true)}
-                className="rounded-xl border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-semibold gap-1.5"
-              >
-                <Zap className="h-3.5 w-3.5" />
-                Customize
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => setShowAIStudio(true)}
+                  className="rounded-xl bg-gradient-to-r from-orange-500 via-rose-500 to-indigo-600 hover:opacity-95 text-white shadow-sm text-xs font-semibold gap-1.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI Studio
+                  <Badge variant="secondary" className="ml-1 bg-white/20 text-white border-0 text-[10px] px-1.5 py-0">
+                    {quota.count}/{quota.maxLimit}
+                  </Badge>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowWidgetPicker(true)}
+                  className="rounded-xl border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-semibold gap-1.5"
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  Customize
+                </Button>
+              </div>
             </div>
 
+            {/* Custom User Generated Widgets */}
+            {customWidgetsList.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {customWidgetsList.map((customWidget) => (
+                  <CustomDynamicWidget
+                    key={customWidget.id}
+                    widget={customWidget}
+                    onDelete={deleteWidget}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Default / Core Configured Widgets */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {selectedWidgets.map((widgetId) => (
                 <WidgetRenderer
@@ -359,6 +392,13 @@ const Dashboard = () => {
           selectedWidgets={selectedWidgets}
           onSave={saveWidgets}
           defaultWidgets={RESTAURANT_DEFAULT_WIDGETS}
+          onOpenAIStudio={() => setShowAIStudio(true)}
+        />
+
+        {/* AI Component Studio Dialog */}
+        <AIComponentStudioDialog
+          open={showAIStudio}
+          onOpenChange={setShowAIStudio}
         />
       </div>
     </FeatureLock>

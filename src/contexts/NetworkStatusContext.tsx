@@ -17,6 +17,7 @@ import React, {
   useRef,
 } from "react";
 import { flushQueue, getPendingCount } from "@/utils/syncManager";
+import { isNativeApp } from "@/utils/platform";
 
 interface NetworkStatusContextType {
   isOnline: boolean;
@@ -68,12 +69,14 @@ export function NetworkStatusProvider({
     const handleOnline = () => {
       setIsOnline(true);
       triggerSync();
-      // Also register a background sync tag so the SW can retry even when tab is closed
-      try {
-        navigator.serviceWorker?.ready.then((reg) => {
-          (reg as any).sync?.register("sync-orders").catch(() => {});
-        });
-      } catch (_) {}
+      // BUG-08 fix: skip Service Worker sync on native Capacitor — no SW registered
+      if (!isNativeApp()) {
+        try {
+          navigator.serviceWorker?.ready.then((reg) => {
+            (reg as any).sync?.register("sync-orders").catch(() => {});
+          });
+        } catch (_) {}
+      }
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -88,12 +91,17 @@ export function NetworkStatusProvider({
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-    navigator.serviceWorker?.addEventListener("message", handleSWMessage);
+    // BUG-08 fix: only listen for SW messages on web
+    if (!isNativeApp()) {
+      navigator.serviceWorker?.addEventListener("message", handleSWMessage);
+    }
 
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
-      navigator.serviceWorker?.removeEventListener("message", handleSWMessage);
+      if (!isNativeApp()) {
+        navigator.serviceWorker?.removeEventListener("message", handleSWMessage);
+      }
     };
   }, [triggerSync, refreshCount]);
 

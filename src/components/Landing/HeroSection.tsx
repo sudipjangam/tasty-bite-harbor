@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import { motion, useScroll, useTransform, useSpring, useMotionValue } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
@@ -17,6 +18,38 @@ import { useNavigate } from "react-router-dom";
 export const HeroSection: React.FC = () => {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Scroll-driven 3D perspective transforms
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"],
+  });
+
+  const scrollRotateX = useTransform(scrollYProgress, [0, 1], [0, 18]);
+  const scrollScale = useTransform(scrollYProgress, [0, 1], [1, 0.94]);
+  const scrollY = useTransform(scrollYProgress, [0, 1], [0, 70]);
+  const floatY1 = useTransform(scrollYProgress, [0, 1], [0, -60]);
+  const floatY2 = useTransform(scrollYProgress, [0, 1], [0, -90]);
+
+  // Interactive mouse spring tilt
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const springRotateY = useSpring(mouseX, { stiffness: 120, damping: 20 });
+  const springRotateX = useSpring(mouseY, { stiffness: 120, damping: 20 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    mouseX.set(x * 14);
+    mouseY.set(y * -14);
+  };
+
+  const handleMouseLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
 
   useEffect(() => {
     setIsVisible(true);
@@ -33,6 +66,7 @@ export const HeroSection: React.FC = () => {
   return (
     <section
       id="hero"
+      ref={sectionRef}
       className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20"
     >
       {/* Animated Background */}
@@ -168,18 +202,33 @@ export const HeroSection: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Content - Dashboard Preview */}
+          {/* Right Content - Interactive 3D Scroll Dashboard Preview */}
           <div
             className={`relative ${isVisible ? "animate-fade-in-right animation-delay-300" : "opacity-0"}`}
+            style={{ perspective: 1200 }}
           >
-            {/* Dashboard Mockup */}
-            <div className="relative">
+            {/* Dashboard Mockup with 3D Scroll & Mouse Parallax */}
+            <motion.div
+              style={{
+                rotateX: scrollRotateX,
+                rotateY: springRotateY,
+                scale: scrollScale,
+                y: scrollY,
+                transformStyle: "preserve-3d",
+              }}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+              className="relative transition-shadow duration-300 will-change-transform cursor-pointer"
+            >
               {/* Main Dashboard Card */}
-              <div className="landing-glass-card rounded-3xl p-6 shadow-2xl">
+              <div className="landing-glass-card rounded-3xl p-6 shadow-2xl backdrop-blur-xl border border-white/50 dark:border-white/10 relative overflow-hidden">
+                {/* Subtle sheen highlight */}
+                <div className="absolute -top-24 -left-24 w-48 h-48 bg-white/20 dark:bg-white/5 rounded-full blur-2xl pointer-events-none" />
+
                 {/* Dashboard Header */}
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl landing-coral-gradient flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl landing-coral-gradient flex items-center justify-center shadow-md">
                       <Utensils className="w-5 h-5 text-white" />
                     </div>
                     <div>
@@ -271,9 +320,12 @@ export const HeroSection: React.FC = () => {
                 </div>
               </div>
 
-              {/* Floating Notification Cards */}
-              <div className="absolute -right-6 top-20 animate-float-slow animation-delay-700">
-                <div className="bg-white dark:bg-[#2D3A5F] rounded-xl p-3 shadow-xl border border-gray-100 dark:border-gray-700">
+              {/* Floating Notification Cards with Parallax Offsets */}
+              <motion.div
+                style={{ y: floatY1 }}
+                className="absolute -right-4 sm:-right-6 top-16 sm:top-20 animate-float-slow animation-delay-700 pointer-events-none"
+              >
+                <div className="bg-white/95 dark:bg-[#2D3A5F]/95 backdrop-blur-md rounded-xl p-3 shadow-xl border border-gray-100 dark:border-gray-700">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-[#6BCB77]/20 flex items-center justify-center">
                       <CheckCircle className="w-4 h-4 text-[#6BCB77]" />
@@ -288,10 +340,13 @@ export const HeroSection: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
-              <div className="absolute -left-6 bottom-24 animate-float animation-delay-1000">
-                <div className="bg-white dark:bg-[#2D3A5F] rounded-xl p-3 shadow-xl border border-gray-100 dark:border-gray-700">
+              <motion.div
+                style={{ y: floatY2 }}
+                className="absolute -left-4 sm:-left-6 bottom-20 sm:bottom-24 animate-float animation-delay-1000 pointer-events-none"
+              >
+                <div className="bg-white/95 dark:bg-[#2D3A5F]/95 backdrop-blur-md rounded-xl p-3 shadow-xl border border-gray-100 dark:border-gray-700">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-[#FFD93D]/20 flex items-center justify-center">
                       <Star className="w-4 h-4 text-[#FFD93D]" />
@@ -306,8 +361,8 @@ export const HeroSection: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </div>
         </div>
 

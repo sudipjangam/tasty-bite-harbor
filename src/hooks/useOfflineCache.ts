@@ -24,7 +24,7 @@ export function useOfflineCache() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("menu_items")
-        .select("*")
+        .select("id, restaurant_id, name, price, category, description, is_available")
         .eq("restaurant_id", restaurantId!);
       if (error) throw error;
       return data ?? [];
@@ -39,7 +39,7 @@ export function useOfflineCache() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("*")
+        .select("id, restaurant_id, name")
         .eq("restaurant_id", restaurantId!);
       if (error) throw error;
       return data ?? [];
@@ -54,7 +54,7 @@ export function useOfflineCache() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("restaurant_tables")
-        .select("*")
+        .select("id, restaurant_id, name, status, capacity")
         .eq("restaurant_id", restaurantId!);
       if (error) throw error;
       return data ?? [];
@@ -69,7 +69,7 @@ export function useOfflineCache() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("restaurants")
-        .select("*")
+        .select("id, name, address, phone")
         .eq("id", restaurantId!)
         .single();
       if (error) throw error;
