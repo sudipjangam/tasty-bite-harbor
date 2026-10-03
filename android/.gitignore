@@ -99,3 +99,5 @@ app/src/main/assets/public
 app/src/main/assets/capacitor.config.json
 app/src/main/assets/capacitor.plugins.json
 app/src/main/res/xml/config.xml
+# Exception: network_security_config.xml is manually maintained (security-critical)
+!app/src/main/res/xml/network_security_config.xml

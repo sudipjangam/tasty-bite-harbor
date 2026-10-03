@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Configuration — Swadeshi Solutions
+    Enforces HTTPS-only traffic. Cleartext (HTTP) is blocked on all targets.
+    Allows cleartext only for localhost (dev/testing via Capacitor Live Reload).
+-->
+<network-security-config>
+
+    <!-- Default: HTTPS only, trust system CAs only (no user-installed CAs for prod traffic) -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Allow cleartext for localhost — required for Capacitor live reload during development -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- Capacitor dev server default -->
+        <domain includeSubdomains="false">192.168.1.1</domain>
+    </domain-config>
+
+    <!-- Supabase — HTTPS enforced, trust system CAs -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">supabase.co</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+
+    <!-- Production domain -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">swadeshisolutions.co.in</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+
+</network-security-config>

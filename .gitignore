@@ -2,6 +2,10 @@
 public/Signingkey/
 *.keystore
 *.jks
+# Firebase service account keys - contain private RSA keys
+firebase-service-account.json
+# Local Android SDK paths
+android/local.properties
 
 # Scripts
 scripts/
@@ -59,3 +63,8 @@ graphify-out/
 .graph-it/
 push_output.txt
 firebase-service-account.json
+# Production data dumps - contain PII
+prod_data.sql
+# Scratch/temp files
+logcat_full.txt
+logcat_push.txt

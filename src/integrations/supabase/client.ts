@@ -27,17 +27,18 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// When using a proxy URL, override the realtime endpoint to connect directly to Supabase
-if (!rawSupabaseUrl.startsWith('http')) {
-  // @ts-ignore - accessing internal realtime client to set correct WSS endpoint
-  supabase.realtime.endPoint = `wss://clmsoetktmvhazctlans.supabase.co/realtime/v1/websocket`;
-}
-
 // Direct Supabase URL for OAuth flows.
 // Google OAuth requires the browser to redirect through Supabase's actual domain
 // for the callback (Google → supabase.co/auth/v1/callback → your app).
 // This step cannot be proxied, so we use the direct URL for OAuth initiation.
 export const SUPABASE_DIRECT_URL = 'https://clmsoetktmvhazctlans.supabase.co';
+
+// When using a proxy URL, override the realtime endpoint to connect directly to Supabase.
+// Derived from SUPABASE_DIRECT_URL to avoid duplicate hardcoding.
+if (!rawSupabaseUrl.startsWith('http')) {
+  // @ts-ignore - accessing internal realtime client to set correct WSS endpoint
+  supabase.realtime.endPoint = `${SUPABASE_DIRECT_URL.replace('https://', 'wss://')}/realtime/v1/websocket`;
+}
 
 // Re-export types from their proper locations for backwards compatibility
 export type { RoomFoodOrder, ReservationWithSpecialOccasion } from '@/types/rooms';

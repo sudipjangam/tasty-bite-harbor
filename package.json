@@ -14,6 +14,8 @@
     "cap:open": "npx cap open android",
     "build:apk": "npm run build && npm run cap:sync && cd android && .\\gradlew assembleDebug",
     "build:apk:release": "npm run build && npm run cap:sync && cd android && .\\gradlew assembleRelease",
+    "build:aab": "npm run build && npm run cap:sync && cd android && .\\gradlew bundleDebug",
+    "build:aab:release": "npm run build && npm run cap:sync && cd android && .\\gradlew bundleRelease",
     "publish:apk": "node scripts/publish-apk.js"
   },
   "dependencies": {

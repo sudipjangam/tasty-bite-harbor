@@ -7,8 +7,8 @@ android {
         applicationId "com.swadeshisolutions.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10100
-        versionName "1.0.100"
+        versionCode 10104
+        versionName "1.0.104"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -18,17 +18,33 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file("release-key.keystore")
-            storePassword "swadeshi123"
-            keyAlias "release"
-            keyPassword "swadeshi123"
+            // SECURITY: Credentials are read from environment variables or
+            // ~/.gradle/gradle.properties — NEVER hardcode passwords here.
+            // Set these in CI secrets or locally:
+            //   KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+            def keystorePath = System.getenv("KEYSTORE_PATH") ?: project.findProperty("KEYSTORE_PATH") ?: "release-key.keystore"
+            def keystorePass = System.getenv("KEYSTORE_PASSWORD") ?: project.findProperty("KEYSTORE_PASSWORD")
+            def keyAliasVal  = System.getenv("KEY_ALIAS")        ?: project.findProperty("KEY_ALIAS")        ?: "release"
+            def keyPass      = System.getenv("KEY_PASSWORD")     ?: project.findProperty("KEY_PASSWORD")
+
+            storeFile     keystorePath ? file(keystorePath) : null
+            storePassword keystorePass ?: ""
+            keyAlias      keyAliasVal
+            keyPassword   keyPass ?: ""
         }
     }
     buildTypes {
+        debug {
+            // Debug builds do NOT use the release signing config
+            debuggable true
+        }
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled true
+            shrinkResources false  // Cannot shrink WebView assets bundle
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+            // Ensure release builds are never debuggable
+            debuggable false
         }
     }
 }

@@ -1,21 +1,32 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Swadeshi Solutions — ProGuard/R8 Rules
+# R8 is enabled for release builds (minifyEnabled true in build.gradle)
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# ── Capacitor Core ─────────────────────────────────────────────────────────────
+-keep class com.getcapacitor.** { *; }
+-keepclassmembers class * extends com.getcapacitor.Plugin {
+   @com.getcapacitor.annotation.CapacitorPlugin <methods>;
+   @com.getcapacitor.PluginMethod <methods>;
+}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# ── WebView JavaScript Interface ───────────────────────────────────────────────
+# Required so Capacitor's JS bridge can call into Java from the WebView
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# ── AndroidX / Firebase ────────────────────────────────────────────────────────
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+-dontwarn com.google.firebase.**
+
+# ── Bluetooth Serial Plugin (Cordova) ─────────────────────────────────────────
+-keep class com.megster.cordova.** { *; }
+
+# ── Debugging stack traces (uncomment for crash reporting) ────────────────────
+# -keepattributes SourceFile,LineNumberTable
+# -renamesourcefileattribute SourceFile
+
+# ── Suppress warnings for reflection-heavy libraries ──────────────────────────
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**

@@ -20,7 +20,10 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: false,
     captureInput: true,
-    webContentsDebuggingEnabled: true,
+    // SECURITY: WebView debugging must be disabled in production.
+    // Enabling this allows any USB-connected device to attach Chrome DevTools
+    // to the release APK and read all DOM/localStorage/network traffic.
+    webContentsDebuggingEnabled: false,
   },
 };
 
