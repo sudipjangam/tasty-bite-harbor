@@ -13,6 +13,8 @@ import {
   isSameMonth,
   isWithinInterval,
   isBefore,
+  isAfter,
+  startOfDay,
   getDay,
 } from "date-fns"
 import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon } from "lucide-react"
@@ -23,6 +25,9 @@ interface DatePickerWithRangeProps {
   className?: string
   onDateRangeChange?: (range: DateRange | undefined) => void
   initialDateRange?: DateRange
+  disableFutureDates?: boolean
+  maxDate?: Date
+  minDate?: Date
 }
 
 const DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
@@ -31,6 +36,9 @@ export function DatePickerWithRange({
   className,
   onDateRangeChange,
   initialDateRange,
+  disableFutureDates = true,
+  maxDate,
+  minDate,
 }: DatePickerWithRangeProps) {
   const [date, setDate] = React.useState<DateRange | undefined>(
     initialDateRange || {
@@ -40,24 +48,39 @@ export function DatePickerWithRange({
   )
   const [isOpen, setIsOpen] = React.useState(false)
   const [currentMonth, setCurrentMonth] = React.useState(
-    date?.from || new Date()
+    initialDateRange?.from || new Date()
   )
   const [selectingEnd, setSelectingEnd] = React.useState(false)
+  const [hoveredDay, setHoveredDay] = React.useState<Date | null>(null)
   const [dropdownPos, setDropdownPos] = React.useState({ top: 0, left: 0 })
 
   const triggerRef = React.useRef<HTMLDivElement>(null)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
 
-  React.useEffect(() => {
-    onDateRangeChange?.(date)
-  }, [date, onDateRangeChange])
+  const effectiveMaxDate = maxDate || (disableFutureDates ? new Date() : undefined)
+
+  const isDayDisabled = (day: Date) => {
+    const dayStart = startOfDay(day).getTime()
+    if (effectiveMaxDate) {
+      const maxStart = startOfDay(effectiveMaxDate).getTime()
+      if (dayStart > maxStart) return true
+    }
+    if (minDate) {
+      const minStart = startOfDay(minDate).getTime()
+      if (dayStart < minStart) return true
+    }
+    return false
+  }
 
   // Sync external initialDateRange
   React.useEffect(() => {
-    if (initialDateRange?.from) {
-      setCurrentMonth(initialDateRange.from)
+    if (initialDateRange) {
+      setDate(initialDateRange)
+      if (initialDateRange.from) {
+        setCurrentMonth(initialDateRange.from)
+      }
     }
-  }, [initialDateRange?.from])
+  }, [initialDateRange?.from?.toISOString(), initialDateRange?.to?.toISOString()])
 
   // Calculate position when opening
   React.useLayoutEffect(() => {
@@ -74,40 +97,56 @@ export function DatePickerWithRange({
     }
   }, [isOpen])
 
-  // Close on outside click
+  // Close on outside click or Escape key
   React.useEffect(() => {
     if (!isOpen) return
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node
       const inTrigger = triggerRef.current?.contains(target)
       const inDropdown = dropdownRef.current?.contains(target)
-      if (!inTrigger && !inDropdown) setIsOpen(false)
+      if (!inTrigger && !inDropdown) {
+        setIsOpen(false)
+        setSelectingEnd(false)
+      }
     }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsOpen(false)
+        setSelectingEnd(false)
+      }
+    }
+
     document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [isOpen])
-
-  // Close on scroll/resize
-  React.useEffect(() => {
-    if (!isOpen) return
-    const close = () => setIsOpen(false)
-    window.addEventListener("scroll", close, true)
-    window.addEventListener("resize", close)
+    document.addEventListener("keydown", handleKeyDown)
     return () => {
-      window.removeEventListener("scroll", close, true)
-      window.removeEventListener("resize", close)
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("keydown", handleKeyDown)
     }
   }, [isOpen])
 
+  // Handle day click
   const handleDayClick = (day: Date) => {
+    if (isDayDisabled(day)) return
+
     if (!selectingEnd) {
+      // Step 1: User selected start date -> keep open, switch to select End date
       setDate({ from: day, to: undefined })
       setSelectingEnd(true)
+      // If month of selected date is different from view, update
+      if (!isSameMonth(day, currentMonth)) {
+        setCurrentMonth(day)
+      }
     } else {
-      if (date?.from && isBefore(day, date.from)) {
+      // Step 2: User selecting end date
+      if (date?.from && isBefore(day, startOfDay(date.from))) {
+        // If clicked date is before start date, restart range with this as start date
         setDate({ from: day, to: undefined })
+        setSelectingEnd(true)
       } else {
-        setDate({ from: date?.from, to: day })
+        // Valid end date selected -> commit range and close
+        const newRange: DateRange = { from: date?.from || day, to: day }
+        setDate(newRange)
+        onDateRangeChange?.(newRange)
         setSelectingEnd(false)
         setIsOpen(false)
       }
@@ -116,7 +155,9 @@ export function DatePickerWithRange({
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation()
-    setDate({ from: undefined, to: undefined })
+    const cleared = { from: undefined, to: undefined }
+    setDate(cleared)
+    onDateRangeChange?.(undefined)
     setSelectingEnd(false)
   }
 
@@ -146,8 +187,13 @@ export function DatePickerWithRange({
   const allDays = [...paddingDays, ...calendarDays, ...trailingDays]
 
   const isInRange = (day: Date) => {
-    if (!date?.from || !date?.to) return false
-    return isWithinInterval(day, { start: date.from, end: date.to })
+    if (date?.from && date?.to) {
+      return isWithinInterval(day, { start: date.from, end: date.to })
+    }
+    if (selectingEnd && date?.from && hoveredDay && !isBefore(hoveredDay, date.from)) {
+      return isWithinInterval(day, { start: date.from, end: hoveredDay })
+    }
+    return false
   }
   const isRangeStart = (day: Date) => !!(date?.from && isSameDay(day, date.from))
   const isRangeEnd = (day: Date) => !!(date?.to && isSameDay(day, date.to))
@@ -168,54 +214,84 @@ export function DatePickerWithRange({
         "w-[310px]"
       )}
     >
-      {/* Start / End header */}
-      <div className="flex items-center border-b border-gray-100 dark:border-white/10">
+      {/* Start / End header tabs */}
+      <div className="flex items-center border-b border-gray-100 dark:border-white/10 bg-slate-50/60 dark:bg-zinc-800/40">
         <div
           className={cn(
-            "flex-1 px-4 py-3 cursor-pointer transition-all duration-150",
-            !selectingEnd ? "bg-blue-50 dark:bg-blue-500/10" : "hover:bg-gray-50 dark:hover:bg-white/5"
+            "flex-1 px-3.5 py-2.5 cursor-pointer transition-all duration-150 border-b-2",
+            !selectingEnd
+              ? "border-blue-500 bg-blue-50/80 dark:bg-blue-500/15"
+              : "border-transparent hover:bg-gray-100/60 dark:hover:bg-white/5"
           )}
           onClick={() => setSelectingEnd(false)}
         >
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block">Start</span>
-          <span className={cn("text-sm font-bold", !selectingEnd ? "text-blue-600 dark:text-blue-400" : "text-foreground")}>
-            {date?.from ? format(date.from, "MM/dd/yyyy") : "—"}
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+            Start Date
+          </span>
+          <span className={cn("text-xs font-bold truncate block", !selectingEnd ? "text-blue-600 dark:text-blue-400" : "text-foreground")}>
+            {date?.from ? format(date.from, "MM/dd/yyyy") : "Select start"}
           </span>
         </div>
         <div
           className={cn(
-            "flex-1 px-4 py-3 cursor-pointer transition-all duration-150",
-            selectingEnd ? "bg-blue-50 dark:bg-blue-500/10" : "hover:bg-gray-50 dark:hover:bg-white/5"
+            "flex-1 px-3.5 py-2.5 cursor-pointer transition-all duration-150 border-b-2",
+            selectingEnd
+              ? "border-blue-500 bg-blue-50/80 dark:bg-blue-500/15"
+              : "border-transparent hover:bg-gray-100/60 dark:hover:bg-white/5"
           )}
-          onClick={() => setSelectingEnd(true)}
+          onClick={() => {
+            if (date?.from) {
+              setSelectingEnd(true)
+            }
+          }}
         >
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block text-right">End</span>
-          <span className={cn("text-sm font-bold block text-right", selectingEnd ? "text-blue-600 dark:text-blue-400" : "text-foreground")}>
-            {date?.to ? format(date.to, "MM/dd/yyyy") : "—"}
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-end gap-1">
+            End Date {selectingEnd && !date?.to && <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />}
+          </span>
+          <span className={cn("text-xs font-bold block text-right truncate", selectingEnd ? "text-blue-600 dark:text-blue-400" : "text-foreground")}>
+            {date?.to ? format(date.to, "MM/dd/yyyy") : selectingEnd ? "Select end" : "—"}
           </span>
         </div>
         <button
           onClick={handleClear}
-          className="p-2 mr-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
-          title="Clear"
+          className="p-2 mx-1 rounded-full hover:bg-gray-200/60 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+          title="Clear dates"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
+      {/* Helper guide text */}
+      <div className="px-4 py-1.5 bg-blue-500/5 border-b border-gray-100 dark:border-white/5 text-[11px] text-muted-foreground font-medium flex items-center justify-between">
+        <span>{!selectingEnd ? "👉 Step 1: Pick start date" : "👉 Step 2: Pick end date"}</span>
+        {selectingEnd && date?.from && (
+          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">
+            From {format(date.from, "MMM d")}
+          </span>
+        )}
+      </div>
+
       {/* Month nav */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between px-4 py-2.5">
         <h3 className="text-sm font-bold text-foreground">{format(currentMonth, "MMMM yyyy")}</h3>
         <div className="flex items-center gap-1">
           <button
+            type="button"
             onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
           <button
+            type="button"
+            disabled={effectiveMaxDate ? startOfMonth(currentMonth) >= startOfMonth(effectiveMaxDate) : false}
             onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+            className={cn(
+              "p-1.5 rounded-lg transition-colors text-muted-foreground hover:text-foreground",
+              effectiveMaxDate && startOfMonth(currentMonth) >= startOfMonth(effectiveMaxDate)
+                ? "opacity-30 cursor-not-allowed pointer-events-none"
+                : "hover:bg-gray-100 dark:hover:bg-white/10"
+            )}
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -239,10 +315,16 @@ export function DatePickerWithRange({
           const rangeEnd = isRangeEnd(day)
           const today = isToday(day)
           const curMonth = isCurrentMonth(day)
+          const disabled = isDayDisabled(day)
 
           return (
             <div
               key={i}
+              onMouseEnter={() => {
+                if (selectingEnd && !disabled) {
+                  setHoveredDay(day)
+                }
+              }}
               className={cn(
                 "relative flex items-center justify-center",
                 inRange && !rangeStart && !rangeEnd && "bg-blue-100/60 dark:bg-blue-500/15",
@@ -253,12 +335,16 @@ export function DatePickerWithRange({
               )}
             >
               <button
+                type="button"
+                disabled={disabled}
                 onClick={() => handleDayClick(day)}
                 className={cn(
                   "w-9 h-9 rounded-full text-sm font-medium transition-all duration-150 relative z-10",
-                  curMonth ? "text-foreground" : "text-muted-foreground/40",
-                  "hover:bg-blue-100 dark:hover:bg-blue-500/20",
-                  today && !rangeStart && !rangeEnd && "ring-1 ring-blue-400 dark:ring-blue-500",
+                  disabled && "opacity-25 cursor-not-allowed pointer-events-none hover:bg-transparent",
+                  !disabled && curMonth && "text-foreground",
+                  !disabled && !curMonth && "text-muted-foreground/40",
+                  !disabled && "hover:bg-blue-100 dark:hover:bg-blue-500/20",
+                  today && !rangeStart && !rangeEnd && "ring-1 ring-blue-400 dark:ring-blue-500 font-bold",
                   (rangeStart || rangeEnd) &&
                     "bg-blue-500 text-white font-bold hover:bg-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400 shadow-md shadow-blue-500/30"
                 )}
@@ -278,7 +364,12 @@ export function DatePickerWithRange({
       {/* Trigger */}
       <div
         ref={triggerRef}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!isOpen) {
+            setSelectingEnd(false)
+          }
+          setIsOpen(!isOpen)
+        }}
         className={cn(
           "flex items-center gap-2 px-3 py-2 min-w-[240px] sm:min-w-[280px] rounded-xl cursor-pointer select-none transition-all duration-200",
           "bg-white/10 dark:bg-white/5 backdrop-blur-xl",
@@ -294,10 +385,10 @@ export function DatePickerWithRange({
             date.to ? (
               <>{format(date.from, "MM/dd/yyyy")} - {format(date.to, "MM/dd/yyyy")}</>
             ) : (
-              <>{format(date.from, "MM/dd/yyyy")} - Select end</>
+              <>{format(date.from, "MM/dd/yyyy")} - Select end date</>
             )
           ) : (
-            <span className="text-muted-foreground">Please Select...</span>
+            <span className="text-muted-foreground">Select custom range...</span>
           )}
         </span>
       </div>

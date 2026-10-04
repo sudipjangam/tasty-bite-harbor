@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 interface StatCardProps {
   title: string;
+  subtitle?: string;
   value: string;
   icon: LucideIcon;
   trend: string;
@@ -149,6 +150,7 @@ const MiniSparkline = ({
 
 const StatCard = ({
   title,
+  subtitle,
   value,
   icon: Icon,
   trend,
@@ -243,10 +245,17 @@ const StatCard = ({
         {/* Bottom: value + title + sparkline */}
         <div className="mt-auto pt-3">
           <div className="flex items-end justify-between">
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] sm:text-[11px] font-semibold text-white/60 tracking-[0.1em] uppercase mb-1 truncate">
-                {title}
-              </p>
+            <div className="flex-1 min-w-0 pr-1">
+              <div className="mb-1">
+                <p className="text-[11px] sm:text-xs font-bold text-white/90 tracking-wide uppercase leading-tight line-clamp-1">
+                  {title}
+                </p>
+                {subtitle && (
+                  <p className="text-[10px] font-medium text-white/70 tracking-normal mt-0.5 leading-tight line-clamp-1">
+                    {subtitle}
+                  </p>
+                )}
+              </div>
               <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight drop-shadow-sm leading-none">
                 {animatedValue}
               </h3>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
-import { BrowserRouter as Router } from "react-router-dom";
+import { BrowserRouter as Router, useNavigate, useLocation } from "react-router-dom";
 import { Toaster } from "./components/ui/toaster";
 import "./App.css";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -48,6 +48,8 @@ function AppWithRealtime() {
   usePermissions(); // Request system permissions on startup
   usePushNotifications(); // Register for Push Notifications and upload token to Supabase
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // Only register service worker in web browser — native Capacitor handles asset caching
@@ -75,6 +77,31 @@ function AppWithRealtime() {
       };
     }
   }, []);
+
+  // Android hardware back button handler
+  useEffect(() => {
+    if (!isNativeApp()) return;
+
+    const backListener = CapacitorApp.addListener("backButton", ({ canGoBack }) => {
+      const rootPaths = ["/", "/dashboard", "/auth", "/login", "/staff-login"];
+      const currentPath = location.pathname.toLowerCase();
+
+      if (rootPaths.includes(currentPath)) {
+        // Exit app on top-level root screens
+        CapacitorApp.exitApp();
+      } else if (canGoBack || window.history.length > 1) {
+        // Pop back inside app
+        navigate(-1);
+      } else {
+        // Fallback to dashboard
+        navigate("/dashboard");
+      }
+    });
+
+    return () => {
+      backListener.then((l) => l.remove()).catch(console.error);
+    };
+  }, [navigate, location.pathname]);
 
   return (
     <div className="min-h-screen w-full overflow-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-300">

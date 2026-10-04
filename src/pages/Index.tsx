@@ -339,7 +339,7 @@ const Index = () => {
                     </h2>
                     <p className="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-2">
                       <span className="inline-block w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                      Key performance metrics • Last 30 days
+                      Key performance metrics & real-time store pulse
                     </p>
                   </div>
                 </div>

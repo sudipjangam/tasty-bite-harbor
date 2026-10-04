@@ -28,6 +28,7 @@ import { thermalPrinterService } from "@/services/thermalPrinterService";
 import { nativePrinterBridge } from "@/services/nativePrinterBridge";
 import { resolveInvoiceTemplate } from "@/utils/resolveInvoiceTemplate";
 import type { PaymentDialogProps } from "@/components/Orders/POS/PaymentDialog/types";
+import type { OrderItem } from "@/types/orders";
 import {
   X,
   Check,
@@ -50,6 +51,11 @@ import {
   Share2,
   Gift,
   AlertCircle,
+  Pencil,
+  Plus,
+  Minus,
+  Trash2,
+  Search,
 } from "lucide-react";
 import QRCode from "qrcode";
 
@@ -248,9 +254,31 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   orderId,
   isNonChargeable = false,
   serverName,
+  onEditOrder,
+  onOrderUpdated,
 }) => {
   // ── Step state ────────────────────────────────────────────────────────────
   const [step, setStep] = useState<MobilePayStep>("confirm");
+
+  // ── Local Items state (for inline editing price & adding items) ───────────
+  const [localItems, setLocalItems] = useState<OrderItem[]>(orderItems);
+  const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+  const [tempItemPrice, setTempItemPrice] = useState<string>("");
+  const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [menuSearchQuery, setMenuSearchQuery] = useState("");
+  const [customItemName, setCustomItemName] = useState("");
+  const [customItemPrice, setCustomItemPrice] = useState("");
+  const [customItemQty, setCustomItemQty] = useState(1);
+  const [addItemTab, setAddItemTab] = useState<"menu" | "custom">("menu");
+
+  // ── Net Total Override state (like web app) ──────────────────────────────
+  const [customTotalOverride, setCustomTotalOverride] = useState<number | null>(null);
+  const [isEditingTotal, setIsEditingTotal] = useState(false);
+  const [tempTotalInput, setTempTotalInput] = useState<string>("");
+
+  useEffect(() => {
+    setLocalItems(orderItems);
+  }, [orderItems]);
 
   // ── Customer state ────────────────────────────────────────────────────────
   const [customerName, setCustomerName] = useState("");
@@ -376,11 +404,145 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     customerRecord?.loyalty_points ? customerRecord.loyalty_points * pointsValue : 0
   );
 
+  // ── Menu items query for adding items on the fly ──────────────────────────
+  const { data: menuItems = [] } = useQuery({
+    queryKey: ["mobile-pos-menu-items", restaurantInfo?.id],
+    queryFn: async () => {
+      if (!restaurantInfo?.id) return [];
+      const { data } = await supabase
+        .from("menu_items")
+        .select("id, name, price, category")
+        .eq("restaurant_id", restaurantInfo.id)
+        .eq("is_available", true)
+        .order("name");
+      return data || [];
+    },
+    enabled: isOpen && !!restaurantInfo?.id,
+  });
+
+  const filteredMenuItems = useMemo(() => {
+    if (!menuSearchQuery.trim()) return menuItems.slice(0, 15);
+    const q = menuSearchQuery.toLowerCase();
+    return menuItems.filter((m: any) =>
+      m.name.toLowerCase().includes(q) || (m.category && m.category.toLowerCase().includes(q))
+    ).slice(0, 25);
+  }, [menuItems, menuSearchQuery]);
+
+  // ── Item edit handlers ───────────────────────────────────────────────────
+  const getItemUnitPrice = useCallback((item: OrderItem) => {
+    return item.customPrice !== undefined ? item.customPrice : item.price;
+  }, []);
+
+  const handleStartEditItemPrice = (idx: number, currentPrice: number) => {
+    setEditingItemIdx(idx);
+    setTempItemPrice(currentPrice.toString());
+  };
+
+  const handleSaveItemPrice = (idx: number) => {
+    const val = parseFloat(tempItemPrice);
+    if (!isNaN(val) && val >= 0) {
+      setLocalItems((prev) => {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], customPrice: val, price: val };
+        return copy;
+      });
+      toast({ title: "Price updated ✓" });
+    }
+    setEditingItemIdx(null);
+    setTempItemPrice("");
+  };
+
+  const handleUpdateQuantity = (idx: number, delta: number) => {
+    setLocalItems((prev) => {
+      const copy = [...prev];
+      const newQty = copy[idx].quantity + delta;
+      if (newQty <= 0) {
+        return copy.filter((_, i) => i !== idx);
+      }
+      copy[idx] = { ...copy[idx], quantity: newQty };
+      return copy;
+    });
+  };
+
+  const handleRemoveItem = (idx: number) => {
+    setLocalItems((prev) => prev.filter((_, i) => i !== idx));
+    toast({ title: "Item removed from bill" });
+  };
+
+  const handleAddMenuItem = (item: { id: string; name: string; price: number }) => {
+    setLocalItems((prev) => {
+      const existingIdx = prev.findIndex((i) => i.name.toLowerCase() === item.name.toLowerCase());
+      if (existingIdx >= 0) {
+        const copy = [...prev];
+        copy[existingIdx] = { ...copy[existingIdx], quantity: copy[existingIdx].quantity + 1 };
+        return copy;
+      }
+      return [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          menuItemId: item.id,
+          name: item.name,
+          price: Number(item.price),
+          quantity: 1,
+        },
+      ];
+    });
+    toast({ title: `Added ${item.name} ✓` });
+  };
+
+  const handleAddCustomItem = () => {
+    const name = customItemName.trim();
+    const price = parseFloat(customItemPrice);
+    if (!name) {
+      toast({ title: "Enter item name", variant: "destructive" });
+      return;
+    }
+    if (isNaN(price) || price < 0) {
+      toast({ title: "Enter valid price", variant: "destructive" });
+      return;
+    }
+    setLocalItems((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        name,
+        price,
+        quantity: Math.max(1, customItemQty),
+        isCustomExtra: true,
+      },
+    ]);
+    setCustomItemName("");
+    setCustomItemPrice("");
+    setCustomItemQty(1);
+    setShowAddItemModal(false);
+    toast({ title: `Added ${name} ✓` });
+  };
+
+  const handleStartEditTotal = () => {
+    setIsEditingTotal(true);
+    setTempTotalInput(finalTotal.toFixed(2));
+  };
+
+  const handleSaveTotal = () => {
+    const val = parseFloat(tempTotalInput);
+    if (!isNaN(val) && val >= 0) {
+      setCustomTotalOverride(val);
+      toast({
+        title: "Total Price Overridden",
+        description: `Bill total set to ${currencySymbol}${val.toFixed(2)}`,
+      });
+    }
+    setIsEditingTotal(false);
+  };
+
   // ── Totals ────────────────────────────────────────────────────────────────
   const subtotal = useMemo(() =>
-    orderItems.reduce((sum, item) =>
-      sum + (item.calculatedPrice ?? item.price * item.quantity), 0),
-    [orderItems]
+    localItems.reduce((sum, item) => {
+      const unitP = item.customPrice !== undefined ? item.customPrice : (item.calculatedPrice ?? item.price);
+      return sum + unitP * item.quantity;
+    }, 0),
+    [localItems]
   );
 
   const promoDiscountAmt = useMemo(() =>
@@ -397,7 +559,11 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     [subtotal, promoDiscountAmt, manualDiscountPct, manualCash, loyaltyDiscount]
   );
 
-  const finalTotal = isNonChargeable ? 0 : total;
+  const finalTotal = isNonChargeable
+    ? 0
+    : customTotalOverride !== null
+    ? customTotalOverride
+    : total;
 
   // ── Build UPI QR URL ──────────────────────────────────────────────────────
   const upiQrUrl = useMemo(() => {
@@ -491,8 +657,19 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       setShowPrinterModal(false);
       setPendingPrintAfterConnect(false);
       hasPrintedRef.current = false;
+      setCustomTotalOverride(null);
+      setEditingItemIdx(null);
+      setTempItemPrice("");
+      setShowAddItemModal(false);
+      setIsEditingTotal(false);
+      setTempTotalInput("");
+      setMenuSearchQuery("");
+      setCustomItemName("");
+      setCustomItemPrice("");
+      setCustomItemQty(1);
+      setLocalItems(orderItems);
     }
-  }, [isOpen]);
+  }, [isOpen, orderItems]);
 
   // Cleanup timer on component unmount
   useEffect(() => {
@@ -636,7 +813,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         customerName: customerName || undefined,
         customerMobile: customerMobile || undefined,
         serverName: serverName || undefined,
-        items: orderItems,
+        items: localItems.map((i) => ({
+          ...i,
+          price: getItemUnitPrice(i),
+        })),
         subtotal,
         cgst: 0,
         sgst: 0,
@@ -652,7 +832,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       isPrintingRef.current = false;
       setIsPrinting(false);
     }
-  }, [restaurantInfo, paymentSettings, tableNumber, customerName, customerMobile, serverName, orderItems, subtotal, totalDiscount, finalTotal, currencySymbol, toast]);
+  }, [restaurantInfo, paymentSettings, tableNumber, customerName, customerMobile, serverName, localItems, getItemUnitPrice, subtotal, totalDiscount, finalTotal, currencySymbol, toast]);
 
   // ── After printer connects inline ─────────────────────────────────────────
   const handlePrinterConnected = useCallback(async () => {
@@ -680,7 +860,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         restaurantName: restaurantInfo?.name || "Restaurant",
         restaurantAddress: restaurantInfo?.address,
         restaurantPhone: restaurantInfo?.phone,
-        items: orderItems.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
+        items: localItems.map((i) => ({ name: i.name, quantity: i.quantity, price: getItemUnitPrice(i) })),
         subtotal,
         total: finalTotal,
         discount: totalDiscount > 0 ? totalDiscount : undefined,
@@ -726,7 +906,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     } finally {
       setIsSendingWA(false);
     }
-  }, [customerMobile, customerName, restaurantInfo, orderItems, subtotal, finalTotal, totalDiscount, tableNumber, currencySymbol, getBillUrl, toast]);
+  }, [customerMobile, customerName, restaurantInfo, localItems, getItemUnitPrice, subtotal, finalTotal, totalDiscount, tableNumber, currencySymbol, getBillUrl, toast]);
 
   // ── Native share sheet ────────────────────────────────────────────────────
   const handleNativeShare = useCallback(async () => {
@@ -740,7 +920,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         tableNumber ? `Table: ${tableNumber}` : "",
         customerName ? `Customer: ${customerName}` : "",
         "",
-        ...orderItems.map((i) => `${i.name} ×${i.quantity} — ${currencySymbol}${(i.price * i.quantity).toFixed(2)}`),
+        ...localItems.map((i) => `${i.name} ×${i.quantity} — ${currencySymbol}${(getItemUnitPrice(i) * i.quantity).toFixed(2)}`),
         "",
         totalDiscount > 0 ? `Discount: -${currencySymbol}${totalDiscount.toFixed(2)}` : "",
         `*Total: ${currencySymbol}${finalTotal.toFixed(2)}*`,
@@ -752,7 +932,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         toast({ title: "Share failed", description: e?.message, variant: "destructive" });
       }
     }
-  }, [restaurantInfo, tableNumber, customerName, orderItems, currencySymbol, totalDiscount, finalTotal, toast]);
+  }, [restaurantInfo, tableNumber, customerName, localItems, getItemUnitPrice, currencySymbol, totalDiscount, finalTotal, toast]);
 
   // ── Core payment processing ───────────────────────────────────────────────
   const processPayment = useCallback(async (
@@ -778,6 +958,15 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
       const { data: { user } } = await supabase.auth.getUser();
 
+      const serializedItems = localItems.map((i) => ({
+        id: i.id || crypto.randomUUID(),
+        name: i.name,
+        quantity: i.quantity,
+        price: getItemUnitPrice(i),
+        ...(i.customPrice !== undefined && { customPrice: i.customPrice }),
+        ...(i.notes && { notes: i.notes }),
+      }));
+
       if (orderId) {
         // First try: treat orderId as a kitchen_orders.id
         const { data: ko } = await supabase
@@ -790,7 +979,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         // Use the linked order_id when available; otherwise treat orderId as orders.id.
         const targetOrderId = ko?.order_id ?? orderId;
 
-        // Only update kitchen_order status if it actually IS a kitchen_orders row
+        // Update kitchen_order with completed status and updated items/total
         if (ko) {
           await supabase.from("kitchen_orders").update({
             status: "completed",
@@ -798,6 +987,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
             payment_method: finalPaymentMethod,
             total_amount: finalTotal,
             bumped_at: new Date().toISOString(),
+            items: serializedItems,
             ...(customerName.trim() && { customer_name: customerName.trim() }),
             ...(customerMobile && { customer_phone: customerMobile }),
           }).eq("id", orderId);
@@ -808,6 +998,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
             payment_method: finalPaymentMethod,
             total_amount: finalTotal,
             bumped_at: new Date().toISOString(),
+            items: serializedItems,
             ...(customerName.trim() && { customer_name: customerName.trim() }),
             ...(customerMobile && { customer_phone: customerMobile }),
           }).eq("order_id", orderId);
@@ -819,6 +1010,8 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
             payment_method: finalPaymentMethod,
             status: "completed",
             total: finalTotal,
+            subtotal: subtotal,
+            items: serializedItems,
             updated_at: new Date().toISOString(),
             discount_amount: isNonChargeable ? subtotal : totalDiscount,
             discount_percentage: isNonChargeable ? 100 : effectiveDiscountPct,
@@ -831,6 +1024,8 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
             ...(customerMobile && { customer_phone: customerMobile }),
           }).eq("id", targetOrderId);
         }
+
+        onOrderUpdated?.();
 
         // Log transaction
         if (!isNonChargeable) {
@@ -924,6 +1119,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     }
   }, [
     restaurantInfo, orderId, isNonChargeable, customerName, customerMobile, customerRecord,
+    localItems, getItemUnitPrice, onOrderUpdated,
     subtotal, totalDiscount, finalTotal, manualDiscountPct, manualCash,
     appliedPromo, promoDiscountAmt, ncReason, tableNumber, pointsToRedeem, loyaltyDiscount,
     currencySymbol, syncCustomerToCRM, invalidateQueries, onSuccess, onClose, toast,
@@ -985,23 +1181,162 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto px-4 py-5" style={{ backgroundColor: '#f8fafc' }}>
               
-              {/* Order Summary - Solid Card */}
-              <div className="mb-4 relative z-10 rounded-2xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 shadow-md overflow-hidden">
-                <div className="px-4 py-3 bg-blue-100/50 dark:bg-blue-900/30 border-b border-blue-200 dark:border-blue-900/40">
-                  <p className="text-xs font-medium text-blue-700 dark:text-blue-400 tracking-wider uppercase">Order Summary</p>
+              {/* Order Summary - Solid Card with Inline Price Edit & Add Items */}
+              <div className="mb-4 relative z-10 rounded-2xl border border-blue-200 dark:border-blue-900/50 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
+                {/* Header with Title, Reset button & Add Item button */}
+                <div className="px-4 py-2.5 bg-blue-50 dark:bg-blue-950/40 border-b border-blue-200 dark:border-blue-900/40 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-blue-700 dark:text-blue-300 tracking-wider uppercase">Order Summary</p>
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                      {localItems.reduce((acc, it) => acc + it.quantity, 0)} items
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {(customTotalOverride !== null || localItems.some((i) => i.customPrice !== undefined)) && (
+                      <button
+                        onClick={() => {
+                          setLocalItems(orderItems);
+                          setCustomTotalOverride(null);
+                          toast({ title: "Reset prices to original" });
+                        }}
+                        className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:underline"
+                      >
+                        Reset Prices
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowAddItemModal(true)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-xs font-semibold shadow-xs hover:bg-indigo-700 active:scale-95 transition-all"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add Item
+                    </button>
+                  </div>
                 </div>
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {orderItems.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{item.name}</p>
-                        <p className="text-xs font-semibold text-slate-500 mt-0.5">Qty: {item.quantity}</p>
-                      </div>
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100 ml-3">
-                        {currencySymbol}{(item.price * item.quantity).toFixed(2)}
-                      </p>
+
+                {/* Table Header: Item | Qty | Price (Edit) */}
+                <div className="grid grid-cols-12 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 px-3.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 tracking-wider">
+                  <span className="col-span-6">Item</span>
+                  <span className="col-span-3 text-center">Qty</span>
+                  <span className="col-span-3 text-right">Price (Edit)</span>
+                </div>
+
+                {/* Items List */}
+                <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[220px] overflow-y-auto">
+                  {localItems.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-400">
+                      No items in order. Tap &quot;+ Add Item&quot; to add items.
                     </div>
-                  ))}
+                  ) : (
+                    localItems.map((item, idx) => {
+                      const unitPrice = getItemUnitPrice(item);
+                      const isEditingThis = editingItemIdx === idx;
+
+                      return (
+                        <div key={`${item.id || idx}-${idx}`} className="grid grid-cols-12 items-center px-3.5 py-2.5 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                          {/* Item name + badges */}
+                          <div className="col-span-6 min-w-0 pr-1">
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
+                              {item.name}
+                            </p>
+                            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                              {item.customPrice !== undefined && (
+                                <span className="text-[9px] font-bold px-1 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                                  edited
+                                </span>
+                              )}
+                              {(item as any).isCustomExtra && (
+                                <span className="text-[9px] font-bold px-1 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                                  extra
+                                </span>
+                              )}
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                @{currencySymbol}{unitPrice.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Quantity control */}
+                          <div className="col-span-3 flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => handleUpdateQuantity(idx, -1)}
+                              className="h-6 w-6 rounded-md flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 active:scale-95 transition-all"
+                              title="Decrease quantity"
+                            >
+                              {item.quantity === 1 ? (
+                                <Trash2 className="h-3 w-3 text-rose-500" />
+                              ) : (
+                                <Minus className="h-3 w-3" />
+                              )}
+                            </button>
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 min-w-[18px] text-center">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => handleUpdateQuantity(idx, 1)}
+                              className="h-6 w-6 rounded-md flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 active:scale-95 transition-all"
+                              title="Increase quantity"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+
+                          {/* Price with inline edit */}
+                          <div className="col-span-3 text-right">
+                            {isEditingThis ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="text-[10px] font-bold text-slate-500">{currencySymbol}</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  inputMode="decimal"
+                                  autoFocus
+                                  value={tempItemPrice}
+                                  onChange={(e) => setTempItemPrice(e.target.value)}
+                                  onBlur={() => handleSaveItemPrice(idx)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      handleSaveItemPrice(idx);
+                                    }
+                                    if (e.key === "Escape") {
+                                      setEditingItemIdx(null);
+                                    }
+                                  }}
+                                  className="w-16 px-1 py-0.5 text-right font-bold text-xs bg-indigo-50 dark:bg-indigo-950/60 border-2 border-indigo-500 rounded outline-none text-slate-900 dark:text-white"
+                                />
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleStartEditItemPrice(idx, unitPrice)}
+                                className="group inline-flex items-center gap-1 font-bold text-xs text-slate-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 active:scale-95 transition-transform"
+                                title="Click to edit price"
+                              >
+                                <span>
+                                  {currencySymbol}{(unitPrice * item.quantity).toFixed(2)}
+                                </span>
+                                <Pencil className="h-3 w-3 text-indigo-500 opacity-60 group-hover:opacity-100 transition-opacity" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Subtotal and Quick Add footer */}
+                <div className="p-3 bg-slate-50 dark:bg-slate-850 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+                  <button
+                    onClick={() => setShowAddItemModal(true)}
+                    className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add bottle, drinks or extras...
+                  </button>
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Subtotal: <span className="text-slate-900 dark:text-white">{currencySymbol}{subtotal.toFixed(2)}</span>
+                  </p>
                 </div>
               </div>
 
@@ -1197,7 +1532,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                 </div>
               )}
 
-              {/* Bill summary - Solid Dark Card */}
+              {/* Bill summary - Solid Dark Card with Net Total Override */}
               <div className="mb-4 relative z-10 rounded-2xl bg-slate-900 dark:bg-slate-900 p-5 flex flex-col gap-2.5 shadow-lg border border-slate-800">
                 <div className="flex justify-between text-xs font-semibold text-slate-300">
                   <span>Subtotal</span>
@@ -1217,9 +1552,66 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                 )}
                 <div className="h-px bg-slate-800 my-2" />
                 <div className="flex justify-between items-end text-white">
-                  <span className="text-xs font-medium uppercase tracking-wider text-slate-400">{isNonChargeable ? "Amount (NC)" : "Total Amount"}</span>
-                  <span className="text-3xl font-bold leading-none">{currencySymbol}{finalTotal.toFixed(2)}</span>
+                  <div>
+                    <span className="text-xs font-medium uppercase tracking-wider text-slate-400 block">
+                      {isNonChargeable ? "Amount (NC)" : "Net Total (Tap to override)"}
+                    </span>
+                    {!isNonChargeable && (
+                      <span className="text-[10px] text-indigo-300 font-medium">
+                        Tap amount to type custom price
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    {isNonChargeable ? (
+                      <span className="text-2xl font-bold text-emerald-400">{currencySymbol}0.00</span>
+                    ) : isEditingTotal ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-bold text-slate-400">{currencySymbol}</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          inputMode="decimal"
+                          autoFocus
+                          value={tempTotalInput}
+                          onChange={(e) => setTempTotalInput(e.target.value)}
+                          onBlur={handleSaveTotal}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveTotal();
+                            if (e.key === "Escape") setIsEditingTotal(false);
+                          }}
+                          className="w-24 px-2 py-1 text-right font-extrabold text-xl bg-white text-slate-900 rounded-lg outline-none"
+                        />
+                        <button onClick={handleSaveTotal} className="p-1.5 bg-emerald-500 rounded-lg text-white">
+                          <Check className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleStartEditTotal}
+                        className="inline-flex items-center gap-1.5 group active:scale-95 transition-transform"
+                      >
+                        <span className="text-3xl font-bold leading-none text-white">
+                          {currencySymbol}{finalTotal.toFixed(2)}
+                        </span>
+                        {!isNonChargeable && <Pencil className="h-4 w-4 text-indigo-400 opacity-70 group-hover:opacity-100" />}
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {customTotalOverride !== null && (
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px] text-amber-400">
+                    <span>Custom price override active</span>
+                    <button
+                      onClick={() => setCustomTotalOverride(null)}
+                      className="underline hover:text-amber-300 font-semibold"
+                    >
+                      Reset to calculated
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1548,6 +1940,194 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
           </div>
         )}
       </div>
+
+      {/* ─── ADD ITEM MODAL / BOTTOM SHEET ───────────────────────────── */}
+      {showAddItemModal && (
+        <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4">
+          <div className="w-full sm:max-w-md bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in slide-in-from-bottom duration-200">
+            {/* Modal Header */}
+            <div className="px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Add Item to Bill</h2>
+              <button
+                onClick={() => setShowAddItemModal(false)}
+                className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Tabs: From Menu vs Custom Item */}
+            <div className="grid grid-cols-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 mx-4 mt-3 rounded-xl gap-1">
+              <button
+                onClick={() => setAddItemTab("menu")}
+                className={`py-2 text-xs font-semibold rounded-lg transition-all ${
+                  addItemTab === "menu"
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400"
+                }`}
+              >
+                From Menu
+              </button>
+              <button
+                onClick={() => setAddItemTab("custom")}
+                className={`py-2 text-xs font-semibold rounded-lg transition-all ${
+                  addItemTab === "custom"
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400"
+                }`}
+              >
+                Custom / Extra Item
+              </button>
+            </div>
+
+            {/* Tab 1: Menu Items Search & Add */}
+            {addItemTab === "menu" && (
+              <div className="flex-1 flex flex-col overflow-hidden p-4 gap-3">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                  <Search className="h-4 w-4 text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={menuSearchQuery}
+                    onChange={(e) => setMenuSearchQuery(e.target.value)}
+                    placeholder="Search water, drinks, dessert..."
+                    className="flex-1 bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 outline-none placeholder:text-slate-400"
+                    autoFocus
+                  />
+                  {menuSearchQuery && (
+                    <button onClick={() => setMenuSearchQuery("")} className="text-slate-400 hover:text-slate-600">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 pr-1">
+                  {filteredMenuItems.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-400">
+                      No matching menu items found.
+                    </div>
+                  ) : (
+                    filteredMenuItems.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="py-2.5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/40 px-2 rounded-lg transition-colors"
+                      >
+                        <div className="min-w-0 flex-1 pr-2">
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{item.name}</p>
+                          <p className="text-[11px] font-semibold text-slate-500">
+                            {currencySymbol}{Number(item.price).toFixed(2)}
+                            {item.category && <span className="ml-1.5 text-slate-400">({item.category})</span>}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleAddMenuItem(item)}
+                          className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 text-xs font-bold hover:bg-indigo-100 active:scale-95 transition-all flex items-center gap-1"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Tab 2: Custom / Quick Extra (e.g. Water bottle, Special Request) */}
+            {addItemTab === "custom" && (
+              <div className="p-4 flex flex-col gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                    Item Name
+                  </label>
+                  <input
+                    type="text"
+                    value={customItemName}
+                    onChange={(e) => setCustomItemName(e.target.value)}
+                    placeholder="e.g. Water Bottle 1L, Cold Drink..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                      Price ({currencySymbol})
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={customItemPrice}
+                      onChange={(e) => setCustomItemPrice(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                      Quantity
+                    </label>
+                    <div className="flex items-center gap-1 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 px-2 py-1">
+                      <button
+                        onClick={() => setCustomItemQty((q) => Math.max(1, q - 1))}
+                        className="h-6 w-6 rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        value={customItemQty}
+                        onChange={(e) => setCustomItemQty(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="flex-1 text-center bg-transparent font-bold text-xs text-slate-800 dark:text-slate-100 outline-none"
+                      />
+                      <button
+                        onClick={() => setCustomItemQty((q) => q + 1)}
+                        className="h-6 w-6 rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick suggestions chips */}
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Quick Suggestions</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { name: "Water Bottle (1L)", price: "20" },
+                      { name: "Soft Drink / Can", price: "40" },
+                      { name: "Disposable Packaging", price: "10" },
+                      { name: "Extra Dip / Sauce", price: "15" },
+                    ].map((s) => (
+                      <button
+                        key={s.name}
+                        onClick={() => {
+                          setCustomItemName(s.name);
+                          setCustomItemPrice(s.price);
+                        }}
+                        className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-600 transition-colors font-medium border border-slate-200/60 dark:border-slate-700/60"
+                      >
+                        {s.name} ({currencySymbol}{s.price})
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleAddCustomItem}
+                  disabled={!customItemName.trim() || !customItemPrice}
+                  className="mt-2 w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-xs shadow-md hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  Add Custom Item to Bill
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ─── INLINE PRINTER QUICK-CONNECT MODAL ────────────────────────── */}
       {showPrinterModal && (

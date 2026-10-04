@@ -8,9 +8,10 @@ import { EnhancedSkeleton } from "@/components/ui/enhanced-skeleton";
 interface NCStatsCardProps {
   startDate?: Date;
   endDate?: Date;
+  periodLabel?: string;
 }
 
-export const NCStatsCard = ({ startDate, endDate }: NCStatsCardProps) => {
+export const NCStatsCard = ({ startDate, endDate, periodLabel }: NCStatsCardProps) => {
   const { data: metrics, isLoading } = useNCMetrics({ startDate, endDate });
   const { symbol: currencySymbol } = useCurrencyContext();
 
@@ -54,7 +55,7 @@ export const NCStatsCard = ({ startDate, endDate }: NCStatsCardProps) => {
               <CurrencyDisplay amount={totalNCValue} showTooltip={false} />
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
-              Total NC value ({ncOrderCount} order{ncOrderCount !== 1 ? "s" : ""})
+              {periodLabel ? `${periodLabel} • ` : ""}Total NC value ({ncOrderCount} order{ncOrderCount !== 1 ? "s" : ""})
             </p>
           </div>
 

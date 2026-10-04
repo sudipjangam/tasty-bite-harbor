@@ -477,7 +477,7 @@ const OrdersView = ({
                 <div className="relative z-10">
                   <div className="text-[10px] font-bold tracking-widest uppercase text-white/70 mb-2">Completed</div>
                   <div className="text-[28px] md:text-[30px] font-extrabold font-mono leading-none tracking-tight">{orderStats.completedOrders}</div>
-                  <div className="text-[11px] text-white/65 mt-1.5 font-medium">Today so far</div>
+                  <div className="text-[11px] text-white/65 mt-1.5 font-medium">{dateFilter === "today" ? "Today so far" : `${getDateFilterLabel()} completed`}</div>
                 </div>
               </div>
 
@@ -504,7 +504,7 @@ const OrdersView = ({
                     <div className="text-[28px] md:text-[30px] font-extrabold font-mono leading-none tracking-tight">
                       {currencySymbol}{orderStats.totalRevenue.toLocaleString()}
                     </div>
-                    <div className="text-[11px] text-white/65 mt-1.5 font-medium">Pending collection</div>
+                    <div className="text-[11px] text-white/65 mt-1.5 font-medium">{dateFilter === "today" ? "Today so far" : `${getDateFilterLabel()} total`}</div>
                   </div>
                 </div>
               )}

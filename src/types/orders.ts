@@ -36,6 +36,7 @@ export interface OrderItem {
   isCustomExtra?: boolean;   // True for ad-hoc items added manually
   modifiers?: string[];
   notes?: string;
+  customPrice?: number;   // Price override for this specific order
 }
 
 export interface TableData {

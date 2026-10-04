@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { subDays } from "date-fns";
+import { subDays, startOfMonth, subMonths } from "date-fns";
 import { useRealtimeSubscription } from "./useRealtimeSubscription";
 import { useRestaurantId } from "./useRestaurantId";
 
@@ -21,23 +21,26 @@ export const useStatsData = () => {
         throw new Error("No restaurant found for user");
       }
 
-      // Fetch orders from last 30 days from all sources
-      const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
+      // Fetch from start of previous month (or 60 days ago) to cover full current month + full previous month for accurate trends
+      const startOfPrevMonth = startOfMonth(subMonths(new Date(), 1)).toISOString();
+      const sixtyDaysAgo = subDays(new Date(), 60).toISOString();
+      const cutoffDate = startOfPrevMonth < sixtyDaysAgo ? startOfPrevMonth : sixtyDaysAgo;
 
+      // Always include any currently active orders (pending, preparing, ready, held) regardless of created date
       const { data: orders, error } = await supabase
         .from("orders")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .gte("created_at", thirtyDaysAgo);
+        .or(`created_at.gte.${cutoffDate},status.in.(pending,preparing,ready,held)`);
 
       if (error) throw error;
 
-      // Fetch room billings for revenue calculation (last 30 days)
+      // Fetch room billings for revenue calculation
       const { data: roomBillings } = await supabase
         .from("room_billings")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .gte("created_at", thirtyDaysAgo);
+        .gte("created_at", cutoffDate);
 
       // Transform room billings to match orders structure for easier processing
       const roomBillingsAsOrders = (roomBillings || []).map((billing) => ({
