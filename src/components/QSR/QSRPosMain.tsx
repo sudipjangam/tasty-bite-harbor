@@ -342,6 +342,20 @@ export const QSRPosMain: React.FC = () => {
     return counts;
   }, [orderItems]);
 
+  // Memoized payment dialog items to prevent creating new array reference on every render
+  const paymentDialogItems = useMemo(() => {
+    const sourceItems = orderItems.length > 0 ? orderItems : paymentOrderItems;
+    return sourceItems.map((item) => ({
+      id: item.id,
+      menuItemId: item.menuItemId,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      notes: item.notes,
+      modifiers: item.modifiers,
+    }));
+  }, [orderItems, paymentOrderItems]);
+
   // Mode change handler - clear table and cart when switching modes
   const handleModeChange = useCallback(
     (mode: QSROrderMode) => {
@@ -1205,17 +1219,21 @@ export const QSRPosMain: React.FC = () => {
         // Check if this is post-pay (order already in kitchen)
         if (effectiveKitchenOrderId) {
           // POST-PAY: Order already in kitchen — update existing order, don't create a new one
-          const orderTotal = (orderItems.length > 0 ? orderItems : paymentOrderItems).reduce(
-            (sum, item) => sum + item.price * item.quantity, 0
-          );
-          const activeItems = orderItems.length > 0 ? orderItems : paymentOrderItems;
+          const activeItems = (paymentDetails?.items && paymentDetails.items.length > 0)
+            ? paymentDetails.items
+            : (orderItems.length > 0 ? orderItems : paymentOrderItems);
+          const orderTotal = paymentDetails?.total !== undefined
+            ? paymentDetails.total
+            : activeItems.reduce(
+                (sum, item) => sum + ((item as any).calculatedPrice ?? (item as any).customPrice ?? item.price) * item.quantity, 0
+              );
           const isNC = currentMode === "nc";
 
           // Prepare updated kitchen items
           const kitchenItems = activeItems.map((item) => ({
             name: item.name,
             quantity: item.quantity,
-            price: item.price,
+            price: (item as any).calculatedPrice ?? (item as any).customPrice ?? item.price,
             menuItemId: item.menuItemId,
             notes: item.notes ? [item.notes] : [],
           }));
@@ -1225,6 +1243,7 @@ export const QSRPosMain: React.FC = () => {
             .from("kitchen_orders")
             .update({
               items: kitchenItems,
+              total_amount: isNC ? 0 : orderTotal,
               bumped_at: new Date().toISOString(),
               status: "completed",
               ...(finalCustomerName && { customer_name: finalCustomerName }),
@@ -1243,7 +1262,12 @@ export const QSRPosMain: React.FC = () => {
 
           // Prepare formatted items for orders table
           const orderItemsFormatted = activeItems.map(
-            (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+            (item) => formatOrderItemString(
+              item.quantity,
+              item.name,
+              (item as any).calculatedPrice ?? (item as any).customPrice ?? item.price,
+              item.notes
+            )
           );
 
           if (linkedOrderId) {
@@ -1305,8 +1329,11 @@ export const QSRPosMain: React.FC = () => {
           // Clear cart items
           setOrderItems([]);
           setRecalledKitchenOrderId(null);
-        } else if (orderItems.length > 0 && restaurantId) {
+        } else if ((orderItems.length > 0 || (paymentDetails?.items && paymentDetails.items.length > 0)) && restaurantId) {
           // PRE-PAY: No existing kitchen order — create order directly as completed
+          const activeItems = (paymentDetails?.items && paymentDetails.items.length > 0)
+            ? paymentDetails.items
+            : orderItems;
           const orderSource =
             currentMode === "dine_in" && currentTable
               ? tableLabel(currentTable.name)
@@ -1326,11 +1353,19 @@ export const QSRPosMain: React.FC = () => {
               ? "Delivery Customer"
               : "Walk-in Customer");
 
+          const orderTotal = paymentDetails?.total !== undefined
+            ? paymentDetails.total
+            : activeItems.reduce(
+                (sum, item) => sum + ((item as any).calculatedPrice ?? (item as any).customPrice ?? item.price) * item.quantity,
+                0,
+              );
+          const isNC = currentMode === "nc";
+
           // Prepare kitchen items
-          const kitchenItems = orderItems.map((item) => ({
+          const kitchenItems = activeItems.map((item) => ({
             name: item.name,
             quantity: item.quantity,
-            price: item.price,
+            price: (item as any).calculatedPrice ?? (item as any).customPrice ?? item.price,
             menuItemId: item.menuItemId,
             notes: item.notes ? [item.notes] : [],
           }));
@@ -1343,6 +1378,7 @@ export const QSRPosMain: React.FC = () => {
               source: `QSR-${orderSource}`,
               status: "completed", // Already completed since paid
               items: kitchenItems,
+              total_amount: isNC ? 0 : orderTotal,
               order_type: currentMode === "nc" ? "takeaway" : currentMode,
               customer_name: paymentCustomerName,
               server_name: attendantName,
@@ -1354,16 +1390,14 @@ export const QSRPosMain: React.FC = () => {
 
           if (kitchenError) throw kitchenError;
 
-          // Create order record as completed
-          const orderTotal = orderItems.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0,
-          );
-          const isNC = currentMode === "nc";
-
           // Prepare items array for orders table
-          const orderItemsFormatted = orderItems.map(
-            (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+          const orderItemsFormatted = activeItems.map(
+            (item) => formatOrderItemString(
+              item.quantity,
+              item.name,
+              (item as any).calculatedPrice ?? (item as any).customPrice ?? item.price,
+              item.notes
+            )
           );
 
           const { data: createdOrder, error: orderError } = await supabase
@@ -1405,7 +1439,7 @@ export const QSRPosMain: React.FC = () => {
               restaurant_id: restaurantId,
               order_id: createdOrder?.id || null,
               kitchen_order_id: kitchenOrder?.id || null,
-              amount: paymentDetails?.total ?? orderTotal,
+              amount: orderTotal,
               payment_method: finalMethod,
               status: finalPaymentStatus === "pending" ? "pending" : "completed",
               customer_name: paymentCustomerName || null,
@@ -1955,18 +1989,7 @@ export const QSRPosMain: React.FC = () => {
       <AdaptivePaymentDialog
         isOpen={showPaymentDialog}
         onClose={handlePaymentDialogClose}
-        orderItems={(orderItems.length > 0
-          ? orderItems
-          : paymentOrderItems
-        ).map((item) => ({
-          id: item.id,
-          menuItemId: item.menuItemId,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          notes: item.notes,
-          modifiers: item.modifiers,
-        }))}
+        orderItems={paymentDialogItems}
         onSuccess={handlePaymentSuccess}
         tableNumber={selectedTable?.name || ""}
         onEditOrder={handlePaymentDialogClose}

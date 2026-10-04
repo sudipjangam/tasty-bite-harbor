@@ -18,6 +18,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useCRMSync } from "@/hooks/useCRMSync";
 import { useBillSharing } from "@/hooks/useBillSharing";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -261,7 +262,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   const [step, setStep] = useState<MobilePayStep>("confirm");
 
   // ── Local Items state (for inline editing price & adding items) ───────────
-  const [localItems, setLocalItems] = useState<OrderItem[]>(orderItems);
+  const [localItems, setLocalItems] = useState<OrderItem[]>(orderItems || []);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [tempItemPrice, setTempItemPrice] = useState<string>("");
   const [showAddItemModal, setShowAddItemModal] = useState(false);
@@ -275,10 +276,6 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   const [customTotalOverride, setCustomTotalOverride] = useState<number | null>(null);
   const [isEditingTotal, setIsEditingTotal] = useState(false);
   const [tempTotalInput, setTempTotalInput] = useState<string>("");
-
-  useEffect(() => {
-    setLocalItems(orderItems);
-  }, [orderItems]);
 
   // ── Customer state ────────────────────────────────────────────────────────
   const [customerName, setCustomerName] = useState("");
@@ -309,6 +306,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   const [showPrinterModal, setShowPrinterModal] = useState(false);
   const [pendingPrintAfterConnect, setPendingPrintAfterConnect] = useState(false);
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPaymentDetailsRef = useRef<PaymentSuccessDetails | null>(null);
   const hasPrintedRef = useRef(false);
 
   const { symbol: currencySymbol } = useCurrencyContext();
@@ -317,10 +315,18 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   const { syncCustomerToCRM } = useCRMSync();
   const { getBillUrl } = useBillSharing();
 
+  // ── Restaurant ID hook (handles branch switches & franchise) ─────────────
+  const { restaurantId: currentRestaurantId, restaurantName: currentRestaurantName } = useRestaurantId();
+
   // ── Queries ───────────────────────────────────────────────────────────────
   const { data: restaurantInfo } = useQuery({
-    queryKey: ["restaurant-info"],
+    queryKey: ["restaurant-info", currentRestaurantId],
     queryFn: async () => {
+      if (currentRestaurantId) {
+        const { data } = await supabase
+          .from("restaurants").select("*").eq("id", currentRestaurantId).maybeSingle();
+        if (data) return data;
+      }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
       const { data: profile } = await supabase
@@ -333,68 +339,70 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     enabled: isOpen,
   });
 
+  const activeRestaurantId = currentRestaurantId || restaurantInfo?.id;
+
   // ── Cache restaurant info to localStorage so print always has correct name ──
   useEffect(() => {
-    if (restaurantInfo?.name) {
+    if (restaurantInfo?.name || currentRestaurantName) {
       try {
-        localStorage.setItem("cached_restaurant_name", restaurantInfo.name);
-        localStorage.setItem("cached_restaurant_address", restaurantInfo.address || "");
-        localStorage.setItem("cached_restaurant_phone", restaurantInfo.phone || "");
-        localStorage.setItem("cached_restaurant_gstin", restaurantInfo.gstin || "");
-        localStorage.setItem("cached_restaurant_upi_id", (restaurantInfo as any).upi_id || "");
+        localStorage.setItem("cached_restaurant_name", currentRestaurantName || restaurantInfo?.name || "");
+        localStorage.setItem("cached_restaurant_address", restaurantInfo?.address || "");
+        localStorage.setItem("cached_restaurant_phone", restaurantInfo?.phone || "");
+        localStorage.setItem("cached_restaurant_gstin", restaurantInfo?.gstin || "");
+        localStorage.setItem("cached_restaurant_upi_id", (restaurantInfo as any)?.upi_id || "");
       } catch {}
     }
-  }, [restaurantInfo]);
+  }, [restaurantInfo, currentRestaurantName]);
 
   const { data: paymentSettings } = useQuery({
-    queryKey: ["payment-settings", restaurantInfo?.id],
+    queryKey: ["payment-settings", activeRestaurantId],
     queryFn: async () => {
-      if (!restaurantInfo?.id) return null;
+      if (!activeRestaurantId) return null;
       const { data } = await supabase
         .from("payment_settings")
         .select("*")
-        .eq("restaurant_id", restaurantInfo.id)
+        .eq("restaurant_id", activeRestaurantId)
         .eq("is_active", true)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       return data;
     },
-    enabled: !!restaurantInfo?.id,
+    enabled: !!activeRestaurantId,
   });
 
   const { data: activePromotions = [] } = useQuery({
-    queryKey: ["active-promotions", restaurantInfo?.id],
+    queryKey: ["active-promotions", activeRestaurantId],
     queryFn: async () => {
-      if (!restaurantInfo?.id) return [];
+      if (!activeRestaurantId) return [];
       const today = new Date().toISOString().split("T")[0];
       const { data } = await supabase
         .from("promotion_campaigns")
         .select("*")
-        .eq("restaurant_id", restaurantInfo.id)
+        .eq("restaurant_id", activeRestaurantId)
         .eq("is_active", true)
         .not("promotion_code", "is", null)
         .lte("start_date", today)
         .gte("end_date", today);
       return data || [];
     },
-    enabled: !!restaurantInfo?.id,
+    enabled: !!activeRestaurantId,
   });
 
   // ── Loyalty program settings ──────────────────────────────────────────────
   const { data: loyaltyProgram } = useQuery({
-    queryKey: ["loyalty-program", restaurantInfo?.id],
+    queryKey: ["loyalty-program", activeRestaurantId],
     queryFn: async () => {
-      if (!restaurantInfo?.id) return null;
+      if (!activeRestaurantId) return null;
       const { data } = await supabase
         .from("loyalty_programs")
         .select("*")
-        .eq("restaurant_id", restaurantInfo.id)
+        .eq("restaurant_id", activeRestaurantId)
         .eq("is_enabled", true)
         .maybeSingle();
       return data;
     },
-    enabled: !!restaurantInfo?.id,
+    enabled: !!activeRestaurantId,
   });
 
   // ── Points to currency conversion (1 point = ₹0.10 default) ─────────────
@@ -404,33 +412,36 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     customerRecord?.loyalty_points ? customerRecord.loyalty_points * pointsValue : 0
   );
 
-  // ── Menu items query for adding items on the fly ──────────────────────────
+  // ── Menu items query for adding items on the fly (uses qsr-menu-items cache) ──
   const { data: menuItems = [] } = useQuery({
-    queryKey: ["mobile-pos-menu-items", restaurantInfo?.id],
+    queryKey: ["qsr-menu-items", activeRestaurantId],
     queryFn: async () => {
-      if (!restaurantInfo?.id) return [];
+      if (!activeRestaurantId) return [];
       const { data } = await supabase
         .from("menu_items")
-        .select("id, name, price, category")
-        .eq("restaurant_id", restaurantInfo.id)
+        .select("id, name, price, category, is_available")
+        .eq("restaurant_id", activeRestaurantId)
         .eq("is_available", true)
         .order("name");
       return data || [];
     },
-    enabled: isOpen && !!restaurantInfo?.id,
+    enabled: isOpen && !!activeRestaurantId,
+    staleTime: 1000 * 60 * 5,
   });
 
   const filteredMenuItems = useMemo(() => {
-    if (!menuSearchQuery.trim()) return menuItems.slice(0, 15);
+    if (!menuSearchQuery.trim()) return menuItems.slice(0, 20);
     const q = menuSearchQuery.toLowerCase();
     return menuItems.filter((m: any) =>
       m.name.toLowerCase().includes(q) || (m.category && m.category.toLowerCase().includes(q))
-    ).slice(0, 25);
+    ).slice(0, 30);
   }, [menuItems, menuSearchQuery]);
 
   // ── Item edit handlers ───────────────────────────────────────────────────
   const getItemUnitPrice = useCallback((item: OrderItem) => {
-    return item.customPrice !== undefined ? item.customPrice : item.price;
+    if (item.customPrice !== undefined && item.customPrice !== null) return Number(item.customPrice);
+    if ((item as any).calculatedPrice !== undefined && (item as any).calculatedPrice !== null) return Number((item as any).calculatedPrice);
+    return Number(item.price);
   }, []);
 
   const handleStartEditItemPrice = (idx: number, currentPrice: number) => {
@@ -446,6 +457,8 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         copy[idx] = { ...copy[idx], customPrice: val, price: val };
         return copy;
       });
+      // Clear custom total override so subtotal and net total dynamically reflect new price!
+      setCustomTotalOverride(null);
       toast({ title: "Price updated ✓" });
     }
     setEditingItemIdx(null);
@@ -462,10 +475,12 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       copy[idx] = { ...copy[idx], quantity: newQty };
       return copy;
     });
+    setCustomTotalOverride(null);
   };
 
   const handleRemoveItem = (idx: number) => {
     setLocalItems((prev) => prev.filter((_, i) => i !== idx));
+    setCustomTotalOverride(null);
     toast({ title: "Item removed from bill" });
   };
 
@@ -488,6 +503,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         },
       ];
     });
+    setCustomTotalOverride(null);
     toast({ title: `Added ${item.name} ✓` });
   };
 
@@ -512,6 +528,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         isCustomExtra: true,
       },
     ]);
+    setCustomTotalOverride(null);
     setCustomItemName("");
     setCustomItemPrice("");
     setCustomItemQty(1);
@@ -525,7 +542,13 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   };
 
   const handleSaveTotal = () => {
-    const val = parseFloat(tempTotalInput);
+    const trimmed = tempTotalInput.trim();
+    if (!trimmed) {
+      setCustomTotalOverride(null);
+      setIsEditingTotal(false);
+      return;
+    }
+    const val = parseFloat(trimmed);
     if (!isNaN(val) && val >= 0) {
       setCustomTotalOverride(val);
       toast({
@@ -539,10 +562,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   // ── Totals ────────────────────────────────────────────────────────────────
   const subtotal = useMemo(() =>
     localItems.reduce((sum, item) => {
-      const unitP = item.customPrice !== undefined ? item.customPrice : (item.calculatedPrice ?? item.price);
+      const unitP = getItemUnitPrice(item);
       return sum + unitP * item.quantity;
     }, 0),
-    [localItems]
+    [localItems, getItemUnitPrice]
   );
 
   const promoDiscountAmt = useMemo(() =>
@@ -631,7 +654,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     })();
   }, [isOpen, orderId]);
 
-  // ── Reset on close ────────────────────────────────────────────────────────
+  // ── Sync and Reset Lifecycle ───────────────────────────────────────────────
+  const prevIsOpenRef = useRef(false);
+  const prevOrderKeyRef = useRef<string>("");
+
   useEffect(() => {
     if (!isOpen) {
       // Cancel auto-close timer if dialog is closed before it fires
@@ -639,6 +665,23 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         clearTimeout(autoCloseTimerRef.current);
         autoCloseTimerRef.current = null;
       }
+      prevIsOpenRef.current = false;
+      return;
+    }
+
+    const orderKey = `${orderId || ""}_${tableNumber || ""}`;
+    const justOpened = !prevIsOpenRef.current;
+    const switchedOrder = orderKey !== prevOrderKeyRef.current;
+
+    if (justOpened || switchedOrder) {
+      prevIsOpenRef.current = true;
+      prevOrderKeyRef.current = orderKey;
+      setLocalItems(orderItems || []);
+      setCustomTotalOverride(null);
+      setEditingItemIdx(null);
+      setTempItemPrice("");
+      setIsEditingTotal(false);
+      setTempTotalInput("");
       setStep("confirm");
       setCustomerName("");
       setCustomerMobile("");
@@ -657,19 +700,14 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       setShowPrinterModal(false);
       setPendingPrintAfterConnect(false);
       hasPrintedRef.current = false;
-      setCustomTotalOverride(null);
-      setEditingItemIdx(null);
-      setTempItemPrice("");
       setShowAddItemModal(false);
-      setIsEditingTotal(false);
-      setTempTotalInput("");
       setMenuSearchQuery("");
       setCustomItemName("");
       setCustomItemPrice("");
       setCustomItemQty(1);
-      setLocalItems(orderItems);
     }
-  }, [isOpen, orderItems]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, orderId, tableNumber]);
 
   // Cleanup timer on component unmount
   useEffect(() => {
@@ -963,8 +1001,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         name: i.name,
         quantity: i.quantity,
         price: getItemUnitPrice(i),
+        menuItemId: i.menuItemId,
         ...(i.customPrice !== undefined && { customPrice: i.customPrice }),
         ...(i.notes && { notes: i.notes }),
+        ...(i.modifiers && { modifiers: i.modifiers }),
       }));
 
       if (orderId) {
@@ -1094,6 +1134,17 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
           .eq("id", customerRecord.id);
       }
 
+      const resultDetails: PaymentSuccessDetails = {
+        method: finalPaymentMethod,
+        paymentStatus: finalPaymentStatus,
+        total: finalTotal,
+        splitPayments: splitData,
+        customerName: customerName.trim() || undefined,
+        customerMobile: customerMobile.trim() || undefined,
+        items: serializedItems as any,
+      };
+      lastPaymentDetailsRef.current = resultDetails;
+
       invalidateQueries();
 
       setStep("success");
@@ -1101,14 +1152,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       // Auto-close after 5s — stored in ref so it can be cancelled on unmount / early close
       autoCloseTimerRef.current = setTimeout(() => {
         autoCloseTimerRef.current = null;
-        onSuccess({
-          method: finalPaymentMethod,
-          paymentStatus: finalPaymentStatus,
-          total: finalTotal,
-          splitPayments: splitData,
-          customerName: customerName.trim() || undefined,
-          customerMobile: customerMobile.trim() || undefined,
-        });
+        onSuccess(resultDetails);
         onClose();
       }, 5000);
     } catch (err: any) {
@@ -1293,7 +1337,6 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                                   autoFocus
                                   value={tempItemPrice}
                                   onChange={(e) => setTempItemPrice(e.target.value)}
-                                  onBlur={() => handleSaveItemPrice(idx)}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                       e.preventDefault();
@@ -1303,11 +1346,38 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                                       setEditingItemIdx(null);
                                     }
                                   }}
-                                  className="w-16 px-1 py-0.5 text-right font-bold text-xs bg-indigo-50 dark:bg-indigo-950/60 border-2 border-indigo-500 rounded outline-none text-slate-900 dark:text-white"
+                                  className="w-16 px-1.5 py-1 text-right font-bold text-xs bg-indigo-50 dark:bg-indigo-950/60 border-2 border-indigo-500 rounded-md outline-none text-slate-900 dark:text-white"
                                 />
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onTouchStart={(e) => {
+                                    e.preventDefault();
+                                    handleSaveItemPrice(idx);
+                                  }}
+                                  onClick={() => handleSaveItemPrice(idx)}
+                                  className="p-1 bg-emerald-500 hover:bg-emerald-600 rounded-md text-white shadow-xs active:scale-90"
+                                  title="Save price"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onTouchStart={(e) => {
+                                    e.preventDefault();
+                                    setEditingItemIdx(null);
+                                  }}
+                                  onClick={() => setEditingItemIdx(null)}
+                                  className="p-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 rounded-md text-slate-700 dark:text-slate-300 active:scale-90"
+                                  title="Cancel"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
                               </div>
                             ) : (
                               <button
+                                type="button"
                                 onClick={() => handleStartEditItemPrice(idx, unitPrice)}
                                 className="group inline-flex items-center gap-1 font-bold text-xs text-slate-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 active:scale-95 transition-transform"
                                 title="Click to edit price"
@@ -1576,15 +1646,31 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                           autoFocus
                           value={tempTotalInput}
                           onChange={(e) => setTempTotalInput(e.target.value)}
-                          onBlur={handleSaveTotal}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") handleSaveTotal();
                             if (e.key === "Escape") setIsEditingTotal(false);
                           }}
                           className="w-24 px-2 py-1 text-right font-extrabold text-xl bg-white text-slate-900 rounded-lg outline-none"
                         />
-                        <button onClick={handleSaveTotal} className="p-1.5 bg-emerald-500 rounded-lg text-white">
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onTouchStart={(e) => e.preventDefault()}
+                          onClick={handleSaveTotal}
+                          className="p-1.5 bg-emerald-500 rounded-lg text-white active:scale-90 transition-transform"
+                          aria-label="Confirm total"
+                        >
                           <Check className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onTouchStart={(e) => e.preventDefault()}
+                          onClick={() => setIsEditingTotal(false)}
+                          className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 active:scale-90 transition-transform"
+                          aria-label="Cancel total edit"
+                        >
+                          <X className="h-4 w-4" />
                         </button>
                       </div>
                     ) : (
@@ -1932,7 +2018,22 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
             </div>
 
             <button
-              onClick={() => { onSuccess(); onClose(); }}
+              onClick={() => {
+                if (autoCloseTimerRef.current) {
+                  clearTimeout(autoCloseTimerRef.current);
+                  autoCloseTimerRef.current = null;
+                }
+                const detailsToPass = lastPaymentDetailsRef.current || {
+                  method: "cash",
+                  paymentStatus: "completed",
+                  total: finalTotal,
+                  customerName: customerName.trim() || undefined,
+                  customerMobile: customerMobile.trim() || undefined,
+                  items: localItems as any,
+                };
+                onSuccess(detailsToPass);
+                onClose();
+              }}
               className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-base font-bold shadow-xl shadow-indigo-600/30 dark:shadow-none hover:shadow-2xl hover:scale-[1.01] active:scale-[0.98] transition-all"
             >
               Back to POS
