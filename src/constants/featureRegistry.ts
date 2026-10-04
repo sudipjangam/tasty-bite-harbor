@@ -37,6 +37,7 @@ export const FEATURE_REGISTRY: FeatureCategory[] = [
       { key: 'dashboard.room_status', label: 'Room Status Widget', description: 'Live room occupancy widget' },
       { key: 'dashboard.staff_attendance', label: 'Staff Attendance Widget', description: 'Staff attendance overview widget' },
       { key: 'dashboard.food_truck', label: 'Food Truck Dashboard', description: 'Specialized food truck dashboard view' },
+      { key: 'dashboard.ai_studio', label: 'AI Studio', description: 'Generate custom AI widgets and UI components' },
     ],
   },
 

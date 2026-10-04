@@ -9,7 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { RotateCcw, LayoutDashboard, Sparkles } from "lucide-react";
+import { RotateCcw, LayoutDashboard, Sparkles, Lock } from "lucide-react";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
 import {
   WIDGET_CATALOG,
   MAX_WIDGETS,
@@ -35,6 +36,8 @@ export const WidgetPickerDialog: React.FC<WidgetPickerDialogProps> = ({
   onOpenAIStudio,
 }) => {
   const [tempSelection, setTempSelection] = useState<string[]>(selectedWidgets);
+  const { isLocked: isAIStudioLocked, showUpgradeToast: showAIUpgradeToast } =
+    useFeatureGate("dashboard.ai_studio");
 
   // Reset temp selection when dialog opens
   React.useEffect(() => {
@@ -98,12 +101,31 @@ export const WidgetPickerDialog: React.FC<WidgetPickerDialogProps> = ({
             <Button
               size="sm"
               onClick={() => {
+                if (isAIStudioLocked) {
+                  showAIUpgradeToast();
+                  return;
+                }
                 onClose();
                 onOpenAIStudio();
               }}
-              className="rounded-xl bg-gradient-to-r from-orange-500 to-rose-500 text-white text-xs h-8 px-3 shadow-sm hover:opacity-90"
+              className={`rounded-xl text-white text-xs h-8 px-3 shadow-sm hover:opacity-90 flex items-center gap-1.5 ${
+                isAIStudioLocked
+                  ? "bg-slate-600 dark:bg-slate-700 hover:bg-slate-500"
+                  : "bg-gradient-to-r from-orange-500 to-rose-500"
+              }`}
             >
-              Open AI Studio
+              {isAIStudioLocked ? (
+                <>
+                  <Lock className="h-3 w-3 text-amber-300" />
+                  <span>AI Studio</span>
+                  <span className="text-[10px] bg-white/20 px-1 py-0.2 rounded font-bold">PRO</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3 w-3" />
+                  <span>Open AI Studio</span>
+                </>
+              )}
             </Button>
           </div>
         )}

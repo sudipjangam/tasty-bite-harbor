@@ -17,7 +17,9 @@ import {
   PieChart,
   Table2,
   Zap,
+  Lock,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import Stats from "@/components/Dashboard/Stats";
 import StaffSelfServiceSection from "@/components/Dashboard/StaffSelfServiceSection";
@@ -45,7 +47,13 @@ const Index = () => {
   const { toast } = useToast();
   const [showWidgetPicker, setShowWidgetPicker] = useState(false);
   const [showAIStudio, setShowAIStudio] = useState(false);
-  const { activeWidgets: customWidgetsList, deleteWidget, quota } = useCustomWidgets();
+  const {
+    activeWidgets: customWidgetsList,
+    deleteWidget,
+    quota,
+    isLocked: isAIStudioLocked,
+    showUpgradeToast: showAIUpgradeToast,
+  } = useCustomWidgets();
   const { selectedWidgets, saveWidgets } = useWidgetPreferences(
     restaurantId,
     "restaurant",
@@ -369,13 +377,28 @@ const Index = () => {
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
-                onClick={() => setShowAIStudio(true)}
-                className="rounded-xl bg-gradient-to-r from-orange-500 via-rose-500 to-indigo-600 hover:opacity-95 text-white shadow-sm text-xs font-semibold gap-1.5"
+                onClick={() => {
+                  if (isAIStudioLocked) {
+                    showAIUpgradeToast();
+                    return;
+                  }
+                  setShowAIStudio(true);
+                }}
+                className={cn(
+                  "rounded-xl text-white shadow-sm text-xs font-semibold gap-1.5 transition-all",
+                  isAIStudioLocked
+                    ? "bg-slate-600 dark:bg-slate-700 hover:bg-slate-500"
+                    : "bg-gradient-to-r from-orange-500 via-rose-500 to-indigo-600 hover:opacity-95"
+                )}
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                {isAIStudioLocked ? (
+                  <Lock className="h-3.5 w-3.5 text-amber-300" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
                 AI Studio
                 <Badge variant="secondary" className="ml-1 bg-white/20 text-white border-0 text-[10px] px-1.5 py-0">
-                  {quota.count}/{quota.maxLimit}
+                  {isAIStudioLocked ? "PRO" : `${quota.count}/${quota.maxLimit}`}
                 </Badge>
               </Button>
               <Button

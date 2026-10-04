@@ -10,8 +10,7 @@ export const useCustomWidgets = () => {
   const { restaurantId } = useRestaurantId();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { isLocked, loading: gateLoading } = useFeatureGate("ai.custom_components");
+  const { isLocked, loading: gateLoading, showUpgradeToast } = useFeatureGate("dashboard.ai_studio");
 
   // 1. Fetch user's custom widgets
   const {
@@ -234,6 +233,8 @@ export const useCustomWidgets = () => {
     widgets,
     activeWidgets,
     quota,
+    isLocked,
+    showUpgradeToast,
     isLoading: isWidgetsLoading || isQuotaLoading || gateLoading,
     error: widgetsError,
     createWidget: createWidgetMutation.mutateAsync,
