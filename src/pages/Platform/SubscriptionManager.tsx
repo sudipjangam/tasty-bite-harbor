@@ -153,9 +153,12 @@ const SubscriptionManager = () => {
       const { data, error } = await supabase
         .from("subscription_plans")
         .select("*")
+        .eq("is_active", true)
         .order("price");
       if (error) throw error;
-      return data as SubscriptionPlan[];
+      return (data || []).filter(
+        (p) => p.interval !== "quarterly" && !p.name.toLowerCase().includes("quarterly")
+      ) as SubscriptionPlan[];
     },
   });
 
@@ -893,6 +896,7 @@ const SubscriptionManager = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="half_yearly">Half-Yearly</SelectItem>
                     <SelectItem value="yearly">Yearly</SelectItem>
                   </SelectContent>
                 </Select>

@@ -89,6 +89,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DiscountDialog } from "@/components/Platform/DiscountDialog";
 import { SubscriberInvoiceModal } from "@/components/Subscription/SubscriberInvoiceModal";
+import { PlanSelector } from "@/components/Platform/PlanSelector";
 
 interface Restaurant {
   id: string;
@@ -1558,34 +1559,14 @@ const RestaurantManagement = () => {
               </TabsContent>
 
               <TabsContent value="subscription" className="space-y-4">
-                <div className="py-4">
-                  <Label>Select Subscription Plan</Label>
-                  <div className="grid grid-cols-1 gap-3 mt-2">
-                    {plans.map((plan) => (
-                      <div
-                        key={plan.id}
-                        className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                          formData.planId === plan.id
-                            ? "border-purple-600 bg-purple-50 dark:bg-purple-900/20"
-                            : "border-slate-200 dark:border-slate-700 hover:border-purple-300"
-                        }`}
-                        onClick={() =>
-                          setFormData({ ...formData, planId: plan.id })
-                        }
-                      >
-                        <div>
-                          <p className="font-semibold text-lg">{plan.name}</p>
-                          <p className="text-slate-500">
-                            {plan.interval === "month" ? "Monthly" : "Yearly"}{" "}
-                            Billing
-                          </p>
-                        </div>
-                        <div className="text-xl font-bold text-purple-600">
-                          ₹{plan.price}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="py-2">
+                  <PlanSelector
+                    plans={plans}
+                    selectedPlanId={formData.planId}
+                    onSelectPlan={(planId) =>
+                      setFormData({ ...formData, planId })
+                    }
+                  />
                 </div>
               </TabsContent>
             </ScrollArea>
@@ -2600,62 +2581,14 @@ const RestaurantManagement = () => {
             <div className="absolute top-20 left-10 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute bottom-20 right-10 w-72 h-72 bg-purple-400/10 rounded-full blur-3xl pointer-events-none" />
             
-            <Label className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4 block relative z-10">Select a New Plan</Label>
+            <Label className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-3 block relative z-10">Select a New Plan</Label>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10 pb-4">
-              {plans.map((plan) => {
-                const isSelected = formData.planId === plan.id;
-                
-                // Determine styling based on plan type or randomly
-                const isPremium = plan.price > 1000;
-                const gradient = isPremium 
-                  ? "from-rose-500 via-purple-500 to-indigo-500" 
-                  : "from-blue-500 to-cyan-500";
-                  
-                return (
-                  <div
-                    key={plan.id}
-                    onClick={() => setFormData({ ...formData, planId: plan.id })}
-                    className={`relative group cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 ${
-                      isSelected 
-                        ? "scale-[1.02] shadow-xl shadow-purple-500/20" 
-                        : "hover:scale-[1.01] hover:shadow-lg opacity-90 hover:opacity-100"
-                    }`}
-                  >
-                    {/* Border Gradient wrapper for 3D effect */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-100 ${isSelected ? '' : 'hidden group-hover:block group-hover:opacity-50'} transition-opacity`} />
-                    
-                    {/* Inner Card */}
-                    <div className={`relative m-[2px] h-[calc(100%-4px)] rounded-[14px] p-5 flex flex-col justify-between ${
-                      isSelected 
-                        ? "bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl" 
-                        : "bg-white dark:bg-slate-900"
-                    }`}>
-                      {isSelected && (
-                         <div className="absolute top-3 right-3 w-6 h-6 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center text-white shadow-md shadow-purple-500/30 animate-in zoom-in">
-                           <Check className="h-3 w-3" />
-                         </div>
-                      )}
-                      
-                      <div>
-                        <h4 className="font-bold text-lg text-slate-800 dark:text-white pr-8">{plan.name}</h4>
-                        <div className="inline-block mt-2 px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 capitalize">
-                           {plan.interval === "month" ? "Monthly" : plan.interval?.replace('_', ' ')} Billing
-                        </div>
-                      </div>
-                      
-                      <div className="mt-4 flex items-end justify-between">
-                        <div>
-                          <span className="text-3xl font-black bg-gradient-to-br from-slate-800 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
-                            ₹{plan.price}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <PlanSelector
+              plans={plans}
+              selectedPlanId={formData.planId}
+              onSelectPlan={(planId) => setFormData({ ...formData, planId })}
+              className="relative z-10 pb-4"
+            />
           </div>
 
           <div className="p-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-t border-white/20 dark:border-white/10 flex justify-between items-center z-20">
