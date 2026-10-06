@@ -21,6 +21,7 @@ import {
   GitBranch,
   Database,
 } from "lucide-react";
+import { isAdminSubdomain, getMainAppUrl } from "@/utils/subdomain";
 
 interface NavItem {
   title: string;
@@ -233,7 +234,13 @@ const PlatformLayout = () => {
               <Menu className="h-5 w-5" />
             </Button>
             <Button
-              onClick={() => navigate("/")}
+              onClick={() => {
+                if (isAdminSubdomain()) {
+                  window.location.href = getMainAppUrl("/");
+                } else {
+                  navigate("/");
+                }
+              }}
               className="gap-2 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-700 hover:via-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 rounded-full px-3 md:px-5 py-2 h-auto font-medium text-xs md:text-sm"
             >
               <ArrowLeft className="h-4 w-4" />

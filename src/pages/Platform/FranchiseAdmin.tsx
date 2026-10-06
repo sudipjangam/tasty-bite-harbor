@@ -645,22 +645,39 @@ const FranchiseAdmin = () => {
         throw new Error("Please fill all required fields");
       }
 
-      // Insert into restaurants — the DB trigger auto-creates the subscription
-      const { data: newBranch, error: restErr } = await supabase
-        .from("restaurants")
-        .insert({
-          name: addBranchData.name,
-          branch_code: addBranchData.branchCode,
-          address: addBranchData.city,
-          organization_id: addBranchData.organizationId,
-          is_headquarters: false,
-        })
-        .select("id")
-        .single();
-        
-      if (restErr) throw restErr;
-      if (!newBranch) throw new Error("Failed to create branch");
-      return newBranch;
+      // Call atomic RPC create_franchise_branch (seeds roles & validates limits)
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("create_franchise_branch", {
+        p_organization_id: addBranchData.organizationId,
+        p_name: addBranchData.name,
+        p_branch_code: addBranchData.branchCode,
+        p_address: addBranchData.city,
+      });
+
+      if (rpcErr) {
+        const isMissingRpc = rpcErr.code === "PGRST202" || rpcErr.code === "42883";
+        if (!isMissingRpc) {
+          throw rpcErr;
+        }
+
+        console.warn("create_franchise_branch RPC missing, falling back to direct insert:", rpcErr);
+        const { data: newBranch, error: restErr } = await supabase
+          .from("restaurants")
+          .insert({
+            name: addBranchData.name,
+            branch_code: addBranchData.branchCode,
+            address: addBranchData.city,
+            organization_id: addBranchData.organizationId,
+            is_headquarters: false,
+          })
+          .select("id")
+          .single();
+
+        if (restErr) throw restErr;
+        if (!newBranch) throw new Error("Failed to create branch");
+        return newBranch;
+      }
+
+      return rpcRes;
     },
     onSuccess: () => {
       toast.success("Branch added successfully!");

@@ -34,6 +34,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { useFranchiseAccess } from "@/hooks/useFranchiseAccess";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { Permission } from "@/types/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -345,6 +346,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   const location = useLocation();
   const { user, hasAnyPermission } = useAuth();
   const { hasSubscriptionAccess } = useSubscriptionAccess();
+  const { canAccessFranchisePortal } = useFranchiseAccess();
   const { restaurantName } = useRestaurantId();
   const { toast } = useToast();
 
@@ -375,7 +377,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     ai: "ai",
     settings: "settings",
     "platform-admin": "platform-admin",
-    "franchise-portal": "franchise",
+    "franchise-portal": "franchise.dashboard",
   };
 
   // System components bypass subscription check (controlled by role permissions only)
@@ -393,6 +395,11 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   // Logic matches ImprovedSidebarNavigation.hasPermissionForItem
   const hasPermissionForItem = (item: MobileNavItem): boolean => {
     if (!user) return false;
+
+    // Franchise Portal: strictly for franchise/chain organizations (single restaurants NEVER have access)
+    if (item.id === "franchise-portal" || item.path === "/franchise") {
+      if (!canAccessFranchisePortal) return false;
+    }
 
     // Admin-only items: check role directly
     if (item.adminOnly) {

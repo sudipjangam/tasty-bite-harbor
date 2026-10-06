@@ -22,6 +22,10 @@ import PublicTruckPage from "@/pages/PublicTruckPage";
 import BlogZomatoSwiggyIntegration from "@/pages/BlogZomatoSwiggyIntegration";
 import OAuthConsent from "@/pages/OAuthConsent";
 import { PageLoader } from "@/components/ui/page-loader";
+import { isAdminSubdomain } from "@/utils/subdomain";
+
+const AdminPortalAuth = lazy(() => import("@/pages/Platform/AdminPortalAuth"));
+const AdminAccessDenied = lazy(() => import("@/pages/Platform/AdminAccessDenied"));
 
 // Public invoice viewer (accessible without login)
 const InvoicePage = lazy(() => import("@/pages/InvoicePage"));
@@ -59,13 +63,69 @@ const PostAuthRedirect = () => {
 };
 
 const Routes = () => {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
+  const isAdminPortal = isAdminSubdomain();
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
       </div>
+    );
+  }
+
+  // ── Dedicated Admin Subdomain (admin.* or ?portal=admin) ───────────────────
+  if (isAdminPortal) {
+    if (!user) {
+      return (
+        <RouterRoutes>
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route
+            path="/reset-password"
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <AdminPortalAuth />
+              </Suspense>
+            }
+          />
+          <Route
+            path="*"
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <AdminPortalAuth />
+              </Suspense>
+            }
+          />
+        </RouterRoutes>
+      );
+    }
+
+    const isPlatformAdmin = profile?.role === "admin";
+
+    if (!isPlatformAdmin) {
+      return (
+        <RouterRoutes>
+          <Route
+            path="*"
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <AdminAccessDenied />
+              </Suspense>
+            }
+          />
+        </RouterRoutes>
+      );
+    }
+
+    return (
+      <RouterRoutes>
+        <Route path="/" element={<Navigate to="/platform" replace />} />
+        <Route path="/login" element={<Navigate to="/platform" replace />} />
+        <Route path="/auth" element={<Navigate to="/platform" replace />} />
+        <Route path="/platform/access-denied" element={<Navigate to="/platform" replace />} />
+        {/* On admin subdomain, Platform routes bypass store subscription gate */}
+        <Route path="/*" element={<AppRoutes />} />
+      </RouterRoutes>
     );
   }
 

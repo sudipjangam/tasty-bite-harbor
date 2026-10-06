@@ -754,6 +754,11 @@ const FeaturePermissions = () => {
                         <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">
                           {category.label}
                         </span>
+                        {category.id === "franchise" && (
+                          <Badge variant="outline" className="text-[10px] text-purple-600 border-purple-300 dark:text-purple-400 dark:border-purple-800 font-semibold">
+                            Franchise Tier Only
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
                         <Badge

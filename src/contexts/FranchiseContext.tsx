@@ -142,17 +142,62 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
       let activeOrgId = member?.organization_id;
       let activeRole = member?.role as OrgRole || "viewer";
 
-      // Fallback for platform admin or standalone users
+      // If not in organization_members, check if user owns a franchise organization
       if (!activeOrgId) {
-        const { data: firstOrg } = await supabase
+        const { data: ownedOrg } = await supabase
           .from("organizations")
-          .select("id")
+          .select("id, type")
+          .eq("owner_user_id", user!.id)
+          .in("type", ["franchise", "chain"])
+          .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        activeOrgId = firstOrg?.id;
-        activeRole = "owner";
+
+        if (ownedOrg) {
+          activeOrgId = ownedOrg.id;
+          activeRole = "owner";
+        }
       }
 
+      // If still not found, check if user's restaurant belongs to a franchise/chain organization
+      if (!activeOrgId && user?.restaurant_id) {
+        const { data: restRow } = await supabase
+          .from("restaurants")
+          .select("organization_id")
+          .eq("id", user.restaurant_id)
+          .maybeSingle();
+
+        if (restRow?.organization_id) {
+          const { data: restOrg } = await supabase
+            .from("organizations")
+            .select("id, type")
+            .eq("id", restRow.organization_id)
+            .in("type", ["franchise", "chain"])
+            .maybeSingle();
+
+          if (restOrg) {
+            activeOrgId = restOrg.id;
+            activeRole = user?.role === "owner" ? "owner" : "viewer";
+          }
+        }
+      }
+
+      // If platform admin and no specific franchise org, allow viewing first franchise org
+      if (!activeOrgId && user?.role === "admin") {
+        const { data: firstFranchise } = await supabase
+          .from("organizations")
+          .select("id")
+          .in("type", ["franchise", "chain"])
+          .limit(1)
+          .maybeSingle();
+
+        if (firstFranchise) {
+          activeOrgId = firstFranchise.id;
+          activeRole = "owner";
+        }
+      }
+
+      // Single restaurants and unauthorized accounts have no active franchise org
       if (!activeOrgId) return null;
 
       // ── Dynamic date range calculation ─────────────────────────
@@ -199,6 +244,10 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
       ]);
 
       const orgRow = orgRes.data;
+      // Single restaurants MUST NOT load franchise portal data
+      if (!orgRow || orgRow.type === "single") {
+        return null;
+      }
       const subRow = subRes.data;
       const branchRows = branchRes.data || [];
       const menuRows = menuRes.data || [];
@@ -775,23 +824,52 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
       setMockBranches([...mockBranches, newB]);
       return true;
     } else {
-      const { error } = await supabase.from("restaurants").insert({
-        organization_id: dbData?.org?.id,
-        name: b.name,
-        branch_code: b.code,
-        address: b.address,
-        phone: b.phone,
-        email: b.email,
-        owner_name: b.manager,
-        owner_phone: b.managerPhone,
-        is_headquarters: b.isHeadquarters || false,
-        social_media: { theme_color: b.color },
-        rating: b.rating !== undefined ? Number(b.rating) : 0,
-        total_reviews: b.totalReviews !== undefined ? Number(b.totalReviews) : 0
-      });
-      if (error) {
-        console.error("Error creating branch:", error);
+      if (!dbData?.org?.id) {
+        console.error("No active organization found to create branch");
         return false;
+      }
+
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("create_franchise_branch", {
+        p_organization_id: dbData.org.id,
+        p_name: b.name,
+        p_branch_code: b.code || "",
+        p_address: b.address || "",
+        p_phone: b.phone || "",
+        p_email: b.email || "",
+        p_manager: b.manager || "",
+        p_manager_phone: b.managerPhone || "",
+        p_color: b.color || "#3b82f6",
+        p_is_headquarters: b.isHeadquarters || false,
+        p_rating: b.rating !== undefined ? Number(b.rating) : 5.0,
+        p_total_reviews: b.totalReviews !== undefined ? Number(b.totalReviews) : 0,
+      });
+
+      if (rpcErr) {
+        const isMissingRpc = rpcErr.code === "PGRST202" || rpcErr.code === "42883";
+        if (!isMissingRpc) {
+          console.error("create_franchise_branch RPC failed:", rpcErr);
+          return false;
+        }
+
+        console.warn("create_franchise_branch RPC missing, falling back to direct insert:", rpcErr);
+        const { error } = await supabase.from("restaurants").insert({
+          organization_id: dbData.org.id,
+          name: b.name,
+          branch_code: b.code,
+          address: b.address,
+          phone: b.phone,
+          email: b.email,
+          owner_name: b.manager,
+          owner_phone: b.managerPhone,
+          is_headquarters: b.isHeadquarters || false,
+          social_media: { theme_color: b.color },
+          rating: b.rating !== undefined ? Number(b.rating) : 0,
+          total_reviews: b.totalReviews !== undefined ? Number(b.totalReviews) : 0
+        });
+        if (error) {
+          console.error("Error creating branch:", error);
+          return false;
+        }
       }
       refetch();
       return true;
@@ -1162,7 +1240,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     setDemoMode,
     org: demoMode ? MOCK_ORG : (dbData?.org || MOCK_ORG),
     orgRole: demoMode ? "owner" : (dbData?.orgRole || "viewer"),
-    isFranchiseOwner: true,
+    isFranchiseOwner: demoMode ? true : (dbData?.orgRole === "owner"),
     dateRange,
     setDateRange,
     allBranches: currentBranches,

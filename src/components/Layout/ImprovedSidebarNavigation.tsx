@@ -38,10 +38,12 @@ import {
   Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getAdminPortalUrl } from "@/utils/subdomain";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { useFranchiseAccess } from "@/hooks/useFranchiseAccess";
 import { Permission } from "@/types/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
@@ -82,7 +84,7 @@ const hrefToComponentMap: Record<string, string> = {
   "/security": "settings.security",
   "/settings": "settings",
   "/digital-twin": "tables.digital_twin",
-  "/franchise": "franchise",
+  "/franchise": "franchise.dashboard",
   "/aggregators": "aggregators.view",
 };
 
@@ -359,6 +361,7 @@ export const ImprovedSidebarNavigation = ({
   const { user, hasAnyPermission } = useAuth();
   const { hasSubscriptionAccess, isLoading: subscriptionLoading } =
     useSubscriptionAccess();
+  const { canAccessFranchisePortal } = useFranchiseAccess();
   const { toast } = useToast();
   const { restaurantName } = useRestaurantId();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
@@ -392,6 +395,11 @@ export const ImprovedSidebarNavigation = ({
   // Must satisfy BOTH subscription access AND role-based permission
   const hasPermissionForItem = (item: NavigationItem): boolean => {
     if (!user) return false;
+
+    // Franchise Portal: strictly for franchise/chain organizations (single restaurants NEVER have access)
+    if (item.href === "/franchise") {
+      if (!canAccessFranchisePortal) return false;
+    }
 
     const componentName = hrefToComponentMap[item.href];
 
@@ -564,7 +572,16 @@ export const ImprovedSidebarNavigation = ({
                 return (
                   <button
                     key={item.href}
-                    onClick={() => navigate(item.href)}
+                    onClick={() => {
+                      if (item.href === "/platform") {
+                        const adminUrl = getAdminPortalUrl("/platform");
+                        if (adminUrl.startsWith("http")) {
+                          window.location.href = adminUrl;
+                          return;
+                        }
+                      }
+                      navigate(item.href);
+                    }}
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-all duration-200 group",
                       active

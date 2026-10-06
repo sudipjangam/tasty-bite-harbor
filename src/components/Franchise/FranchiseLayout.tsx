@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { FranchiseBranchSwitcher } from "./FranchiseBranchSwitcher";
 import { useFranchise } from "@/contexts/FranchiseContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useFranchiseAccess } from "@/hooks/useFranchiseAccess";
 import {
   LayoutDashboard,
   Store,
@@ -111,6 +112,30 @@ export const FranchiseLayout: React.FC = () => {
   const isAdminOrOwner = isRole("admin");
   const { toast } = useToast();
   const [collapsed, setCollapsed] = useState(false);
+  const { canAccessFranchisePortal, isSingleRestaurant, isLoading: accessLoading } = useFranchiseAccess();
+
+  useEffect(() => {
+    if (!accessLoading && !demoMode && (!canAccessFranchisePortal || isSingleRestaurant)) {
+      toast({
+        title: "Access Restricted",
+        description: "Franchise Portal is only available for multi-branch franchise organizations.",
+        variant: "destructive",
+      });
+      navigate("/", { replace: true });
+    }
+  }, [accessLoading, demoMode, canAccessFranchisePortal, isSingleRestaurant, navigate, toast]);
+
+  if (!demoMode && (accessLoading || isLoading)) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <SwadeshiLoader />
+      </div>
+    );
+  }
+
+  if (!demoMode && (!canAccessFranchisePortal || isSingleRestaurant)) {
+    return null;
+  }
 
   // Display name for the logged-in user (not the org owner)
   const currentUserName = user

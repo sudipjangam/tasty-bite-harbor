@@ -155,8 +155,8 @@ export const AppRoutes = () => {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar - Hidden on mobile, hidden on franchise routes */}
-      {!location.pathname.startsWith("/franchise") && (
+      {/* Sidebar - Hidden on mobile, hidden on franchise and platform routes */}
+      {!location.pathname.startsWith("/franchise") && !location.pathname.startsWith("/platform") && (
         <div
           className={cn(
             "bg-sidebar-purple transition-all duration-300 ease-in-out relative hidden md:block",
@@ -180,10 +180,10 @@ export const AppRoutes = () => {
         </div>
       )}
 
-      {/* Main Content - Add padding bottom for mobile navigation, no padding for franchise routes */}
+      {/* Main Content - Add padding bottom for mobile navigation, no padding for franchise or platform routes */}
       <div className={cn(
         "flex-1 overflow-y-auto",
-        location.pathname.startsWith("/franchise") ? "" : "pb-16 md:pb-0"
+        (location.pathname.startsWith("/franchise") || location.pathname.startsWith("/platform")) ? "" : "pb-16 md:pb-0"
       )}>
         <Routes>
           <Route

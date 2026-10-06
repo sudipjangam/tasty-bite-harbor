@@ -2,16 +2,19 @@
 // Supports regex-based origin matching to auto-allow Netlify/Cloudflare preview deploys
 
 const ALLOWED_ORIGIN_PATTERNS = [
-  // Production
+  // Production & Admin Subdomains
   /^https:\/\/swadeshisolutions\.co\.in$/,
+  /^https:\/\/admin\.swadeshisolutions\.co\.in$/,
+  /^https:\/\/([a-z0-9-]+\.)?swadeshisolutions\.co\.in$/,
   // Cloudflare Pages — main + preview deploys (auto-allowed)
   /^https:\/\/[a-z0-9-]+\.swadeshisolutions\.pages\.dev$/,
   /^https:\/\/swadeshisolutions\.pages\.dev$/,
   // Netlify — branch deploys and deploy previews (auto-allowed)
   /^https:\/\/[a-z0-9-]+--[a-z0-9-]+\.netlify\.app$/,
   /^https:\/\/[a-z0-9-]+\.netlify\.app$/,
-  // Local dev
+  // Local dev & local admin subdomains
   /^http:\/\/localhost:\d+$/,
+  /^http:\/\/admin\.localhost:\d+$/,
   /^http:\/\/127\.0\.0\.1:\d+$/,
 ];
 

@@ -224,7 +224,7 @@ const AllUsers = () => {
       if (userData.password.length < 8) {
         throw new Error("Password must be at least 8 characters");
       }
-      if (!userData.restaurant_id) {
+      if (userData.role !== "admin" && !userData.restaurant_id) {
         throw new Error("Please select a restaurant");
       }
 
@@ -240,7 +240,7 @@ const AllUsers = () => {
               last_name: userData.last_name || "",
               phone: userData.phone || "",
               role: userData.role,
-              restaurant_id: userData.restaurant_id,
+              restaurant_id: userData.restaurant_id || null,
             },
           },
         },
@@ -860,18 +860,21 @@ const AllUsers = () => {
               </div>
               <div>
                 <Label className="text-xs">
-                  Restaurant <span className="text-red-500">*</span>
+                  Restaurant {newUserData.role !== "admin" && <span className="text-red-500">*</span>}
                 </Label>
                 <Select
-                  value={newUserData.restaurant_id}
+                  value={newUserData.restaurant_id || (newUserData.role === "admin" ? "global" : "")}
                   onValueChange={(v) =>
-                    setNewUserData({ ...newUserData, restaurant_id: v })
+                    setNewUserData({ ...newUserData, restaurant_id: v === "global" ? "" : v })
                   }
                 >
                   <SelectTrigger className="mt-1 h-9 text-sm">
                     <SelectValue placeholder="Select restaurant" />
                   </SelectTrigger>
                   <SelectContent>
+                    {newUserData.role === "admin" && (
+                      <SelectItem value="global">Global (Platform Admin)</SelectItem>
+                    )}
                     {restaurants.map((r: any) => (
                       <SelectItem key={r.id} value={r.id}>
                         {r.name}

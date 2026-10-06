@@ -33,24 +33,39 @@ const actionSchema = z.enum(['create_user', 'update_user', 'delete_user', 'reset
   errorMap: () => ({ message: 'Invalid action' })
 })
 
-// Helper to create error response with proper status
-function errorResponse(message: string, status: number, errorId?: string) {
-  return new Response(
-    JSON.stringify({ error: message, ...(errorId && { errorId }) }),
-    { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  )
-}
-
-// Helper to create success response
-function successResponse(data: any, status = 200) {
-  return new Response(
-    JSON.stringify(data),
-    { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  )
+// Helper to format/validate E.164 phone numbers
+function formatE164Phone(phoneRaw?: string): string | null {
+  if (!phoneRaw) return null
+  const cleaned = phoneRaw.replace(/[^\d+]/g, '')
+  if (!cleaned) return null
+  if (/^\+[1-9]\d{7,14}$/.test(cleaned)) {
+    return cleaned
+  }
+  const digitsOnly = cleaned.replace(/\D/g, '')
+  if (digitsOnly.length === 10) {
+    return `+91${digitsOnly}`
+  }
+  return null
 }
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req)
+
+  // Inner helper to create error response with proper CORS headers
+  const errorResponse = (message: string, status: number, errorId?: string) => {
+    return new Response(
+      JSON.stringify({ error: message, ...(errorId && { errorId }) }),
+      { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+
+  // Inner helper to create success response with proper CORS headers
+  const successResponse = (data: any, status = 200) => {
+    return new Response(
+      JSON.stringify(data),
+      { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -96,35 +111,56 @@ Deno.serve(async (req) => {
       return errorResponse('Unauthorized', 401)
     }
 
+    // Fetch caller's profile
+    const { data: profile, error: profileFetchError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, role, role_id, role_name_text, restaurant_id, organization_id')
+      .eq('id', user.id)
+      .single()
+
+    const isPlatformAdmin = profile?.role === 'admin'
+
+    // Check if caller is org owner/admin
+    let isOrgAdmin = false
+    let callerOrgId = profile?.organization_id || null
+    if (user.id) {
+      const { data: orgMember } = await supabaseAdmin
+        .from('organization_members')
+        .select('organization_id, role')
+        .eq('user_id', user.id)
+        .in('role', ['owner', 'admin'])
+        .maybeSingle()
+      if (orgMember) {
+        isOrgAdmin = true
+        callerOrgId = callerOrgId || orgMember.organization_id
+      }
+    }
+
     // Check if user has admin/owner permissions using secure DB function
     const { data: roleCheckData, error: roleCheckError } = await supabaseAdmin
       .rpc('user_is_admin_or_owner', { user_id: user.id });
 
     if (roleCheckError) {
-      console.error(`[${errorId}] Role check error:`, roleCheckError)
-      return errorResponse('Failed to verify permissions', 500, errorId)
+      console.warn(`[${errorId}] Role check RPC warning:`, roleCheckError)
     }
 
     // Interpret RPC return explicitly
-    const isAdminOrOwner = (Array.isArray(roleCheckData) ? roleCheckData[0]?.user_is_admin_or_owner : roleCheckData) === true
+    const isAdminOrOwnerRpc = (Array.isArray(roleCheckData) ? roleCheckData[0]?.user_is_admin_or_owner : roleCheckData) === true
 
-    if (!isAdminOrOwner) {
+    const hasPermission = isPlatformAdmin || isOrgAdmin || isAdminOrOwnerRpc
+
+    if (!hasPermission) {
       return errorResponse('Insufficient permissions', 403)
     }
 
-    // Fetch profile to get restaurant_id (for fallback)
-    const { data: profile, error: profileFetchError } = await supabaseAdmin
-      .from('profiles')
-      .select('role, role_id, restaurant_id')
-      .eq('id', user.id)
-      .single()
-
-    if (profileFetchError || !profile) {
-      console.error(`[${errorId}] Profile fetch error:`, profileFetchError)
-      return errorResponse('Profile not found', 404, errorId)
+    let requestBody: any = await req.json()
+    if (typeof requestBody === 'string') {
+      try {
+        requestBody = JSON.parse(requestBody)
+      } catch {
+        // keep as is
+      }
     }
-
-    const requestBody = await req.json()
 
     // Validate action
     const validationResult = actionSchema.safeParse(requestBody.action)
@@ -135,7 +171,7 @@ Deno.serve(async (req) => {
     const action = validationResult.data
     const actionUserData = requestBody.userData
 
-    console.log(`[${errorId}] User management action: ${action} by user: ${user.id}`)
+    console.log(`[${errorId}] User management action: ${action} by user: ${user.id} (platformAdmin=${isPlatformAdmin}, orgAdmin=${isOrgAdmin})`)
 
     switch (action) {
       case 'create_user': {
@@ -146,14 +182,17 @@ Deno.serve(async (req) => {
         }
         const validated = parseResult.data
 
-        // Use provided restaurant_id (for platform admins) or fall back to caller's restaurant
-        const targetRestaurantId = validated.restaurant_id || profile.restaurant_id
+        // Use provided restaurant_id or fall back to caller's restaurant
+        let targetRestaurantId = validated.restaurant_id || profile?.restaurant_id || null
 
-        if (!targetRestaurantId) {
+        // Allow platform admins to create users with role === 'admin' without restaurant_id
+        if (validated.role === 'admin' && isPlatformAdmin) {
+          targetRestaurantId = targetRestaurantId || null
+        } else if (!targetRestaurantId) {
           return errorResponse('Restaurant ID is required', 400)
         }
 
-        // Create new user account with email confirmed (SDK may vary; adjust if your SDK differs)
+        // Create new user account with email confirmed
         const createUserPayload: any = {
           email: validated.email,
           password: validated.password,
@@ -163,9 +202,11 @@ Deno.serve(async (req) => {
             last_name: validated.last_name
           }
         }
-        // Include phone in auth if provided
-        if (validated.phone) {
-          createUserPayload.phone = validated.phone
+
+        // Format phone to strict E.164 if valid; omit if invalid so createUser doesn't reject
+        const formattedPhone = formatE164Phone(validated.phone)
+        if (formattedPhone) {
+          createUserPayload.phone = formattedPhone
           createUserPayload.phone_confirm = true
         }
 
@@ -177,7 +218,7 @@ Deno.serve(async (req) => {
           if (msg.toLowerCase().includes('already')) {
             return errorResponse('Email already registered', 409)
           }
-          return errorResponse('Failed to create user', 500, errorId)
+          return errorResponse(`Failed to create user: ${msg}`, 500, errorId)
         }
 
         const isSystemRole = !validated.role_id
@@ -185,17 +226,15 @@ Deno.serve(async (req) => {
         try {
           // Upsert profile for the new user (handles case where trigger already created row)
           const profileUpsertData: any = {
-              id: newUser.user.id,
-              first_name: validated.first_name,
-              last_name: validated.last_name,
-              role: isSystemRole ? (validated.role ?? 'staff') : 'staff',
-              role_id: isSystemRole ? null : validated.role_id,
-              role_name_text: isSystemRole ? null : (validated.role_name_text ?? null),
-              restaurant_id: targetRestaurantId
-            }
-          // Include phone in profile if provided
-          if (validated.phone) {
-            profileUpsertData.phone = validated.phone
+            id: newUser.user.id,
+            first_name: validated.first_name,
+            last_name: validated.last_name,
+            email: validated.email,
+            phone: validated.phone || formattedPhone || null,
+            role: isSystemRole ? (validated.role ?? 'staff') : 'staff',
+            role_id: isSystemRole ? null : validated.role_id,
+            role_name_text: isSystemRole ? null : (validated.role_name_text ?? null),
+            restaurant_id: targetRestaurantId
           }
 
           const { error: profileError } = await supabaseAdmin
@@ -239,6 +278,27 @@ Deno.serve(async (req) => {
         }
         const validated = parseResult.data
 
+        // Verify target user
+        const { data: targetProfile, error: tpErr } = await supabaseAdmin
+          .from('profiles')
+          .select('restaurant_id, organization_id')
+          .eq('id', validated.id)
+          .single()
+
+        if (tpErr || !targetProfile) {
+          return errorResponse('Target user not found', 404)
+        }
+
+        // Cross-restaurant check: allowed for Platform Admin, or if both share same org
+        if (!isPlatformAdmin) {
+          const sameRestaurant = targetProfile.restaurant_id && profile?.restaurant_id && targetProfile.restaurant_id === profile.restaurant_id
+          const sameOrg = callerOrgId && (targetProfile.organization_id === callerOrgId)
+          if (!sameRestaurant && !sameOrg) {
+            console.warn(`[${errorId}] Cross-restaurant update attempt blocked: caller ${user.id} tried to update user ${validated.id}`)
+            return errorResponse('Forbidden: cannot modify users in another restaurant', 403)
+          }
+        }
+
         // Build admin update payload conditionally
         const adminUpdate: Record<string, any> = {}
         if (validated.email) adminUpdate.email = validated.email
@@ -248,20 +308,6 @@ Deno.serve(async (req) => {
             ...(validated.first_name ? { first_name: validated.first_name } : {}),
             ...(validated.last_name ? { last_name: validated.last_name } : {}),
           }
-        }
-
-        // ── M2: Verify target user belongs to caller's restaurant ───────────────
-        const { data: targetProfile, error: tpErr } = await supabaseAdmin
-          .from('profiles')
-          .select('restaurant_id')
-          .eq('id', validated.id)
-          .single()
-        if (tpErr || !targetProfile) {
-          return errorResponse('Target user not found', 404)
-        }
-        if (targetProfile.restaurant_id !== profile.restaurant_id) {
-          console.warn(`[${errorId}] Cross-restaurant update attempt: caller restaurant ${profile.restaurant_id} tried to update user in ${targetProfile.restaurant_id}`)
-          return errorResponse('Forbidden: cannot modify users in another restaurant', 403)
         }
 
         if (Object.keys(adminUpdate).length > 0) {
@@ -277,6 +323,7 @@ Deno.serve(async (req) => {
 
         // Prepare profile update
         const profileUpdate: Record<string, any> = {}
+        if (validated.email) profileUpdate.email = validated.email
         if (validated.first_name) profileUpdate.first_name = validated.first_name
         if (validated.last_name) profileUpdate.last_name = validated.last_name
 
@@ -309,18 +356,25 @@ Deno.serve(async (req) => {
         }
         const { id: validatedId } = parseResult.data
 
-        // ── M2: Verify target user belongs to caller's restaurant ───────────────
+        // Verify target user
         const { data: delTargetProfile, error: dtpErr } = await supabaseAdmin
           .from('profiles')
-          .select('restaurant_id')
+          .select('restaurant_id, organization_id')
           .eq('id', validatedId)
           .single()
+
         if (dtpErr || !delTargetProfile) {
           return errorResponse('Target user not found', 404)
         }
-        if (delTargetProfile.restaurant_id !== profile.restaurant_id) {
-          console.warn(`[${errorId}] Cross-restaurant delete attempt: caller restaurant ${profile.restaurant_id} tried to delete user in ${delTargetProfile.restaurant_id}`)
-          return errorResponse('Forbidden: cannot delete users in another restaurant', 403)
+
+        // Cross-restaurant check: allowed for Platform Admin, or if both share same org
+        if (!isPlatformAdmin) {
+          const sameRestaurant = delTargetProfile.restaurant_id && profile?.restaurant_id && delTargetProfile.restaurant_id === profile.restaurant_id
+          const sameOrg = callerOrgId && (delTargetProfile.organization_id === callerOrgId)
+          if (!sameRestaurant && !sameOrg) {
+            console.warn(`[${errorId}] Cross-restaurant delete attempt blocked: caller ${user.id} tried to delete user ${validatedId}`)
+            return errorResponse('Forbidden: cannot delete users in another restaurant', 403)
+          }
         }
 
         // Delete the user from auth (profile cascade or manual delete)
@@ -367,41 +421,48 @@ Deno.serve(async (req) => {
 
       case 'list_users': {
         // Fetch profiles for the restaurant (use provided restaurant_id or caller's)
-        const targetRestaurantId = actionUserData?.restaurant_id || profile.restaurant_id
+        const targetRestaurantId = actionUserData?.restaurant_id || profile?.restaurant_id || null
 
-        if (!targetRestaurantId) {
-          return errorResponse('Restaurant ID is required', 400)
-        }
-
-        const { data: profiles, error: profileError } = await supabaseAdmin
+        let query = supabaseAdmin
           .from('profiles')
           .select(`
             *,
             restaurants (name),
             roles:role_id (id, name, is_system, has_full_access)
           `)
-          .eq('restaurant_id', targetRestaurantId)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+
+        if (targetRestaurantId) {
+          query = query.eq('restaurant_id', targetRestaurantId)
+        } else if (!isPlatformAdmin) {
+          return errorResponse('Restaurant ID is required', 400)
+        } else {
+          // Platform admin requesting all users: cap at 200
+          query = query.limit(200)
+        }
+
+        const { data: profiles, error: profileError } = await query
 
         if (profileError) {
           console.error(`[${errorId}] List users error:`, profileError)
           return errorResponse('Failed to fetch users', 500, errorId)
         }
 
-        // Fetch emails from auth.users for each profile
+        // Fetch emails from auth.users for profiles missing email
         const usersWithEmails = await Promise.all(
           (profiles || []).map(async (p: any) => {
+            if (p.email) return p
             try {
-              const { data: authData } = await supabaseAdmin.auth.admin.getUserById(p.id);
+              const { data: authData } = await supabaseAdmin.auth.admin.getUserById(p.id)
               return {
                 ...p,
                 email: authData?.user?.email || null
-              };
+              }
             } catch {
-              return { ...p, email: null };
+              return { ...p, email: null }
             }
           })
-        );
+        )
 
         return successResponse({ success: true, users: usersWithEmails })
       }
