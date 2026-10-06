@@ -63,7 +63,7 @@ const PostAuthRedirect = () => {
 };
 
 const Routes = () => {
-  const { user, profile, loading } = useAuth();
+  const { user, isRole, loading } = useAuth();
   const isAdminPortal = isAdminSubdomain();
 
   if (loading) {
@@ -100,7 +100,7 @@ const Routes = () => {
       );
     }
 
-    const isPlatformAdmin = profile?.role === "admin";
+    const isPlatformAdmin = isRole("admin") || user?.role?.toLowerCase() === "admin";
 
     if (!isPlatformAdmin) {
       return (

@@ -6,7 +6,7 @@ import { ShieldX, LogOut, Store } from "lucide-react";
 import { getMainAppUrl } from "@/utils/subdomain";
 
 export const AdminAccessDenied: React.FC = () => {
-  const { user, profile, signOut } = useAuth();
+  const { user, signOut } = useAuth();
 
   const handleReturnToApp = () => {
     window.location.href = getMainAppUrl("/");
@@ -37,7 +37,7 @@ export const AdminAccessDenied: React.FC = () => {
               <div>
                 <span className="text-slate-500">Current Role:</span>{" "}
                 <span className="text-amber-400 font-medium capitalize">
-                  {profile?.role || "Non-admin"}
+                  {user?.role || "Non-admin"}
                 </span>
               </div>
             </div>

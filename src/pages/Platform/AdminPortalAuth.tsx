@@ -52,7 +52,7 @@ export const AdminPortalAuth: React.FC = () => {
         console.error("Profile check error:", profileErr);
       }
 
-      const isAdmin = profile?.role === "admin";
+      const isAdmin = profile?.role?.toLowerCase() === "admin";
 
       if (!isAdmin) {
         // Not a platform admin - user will be caught by route guard or redirected
