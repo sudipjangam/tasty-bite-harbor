@@ -1136,9 +1136,14 @@ export const QSRPosMain: React.FC = () => {
       setPaymentOrderItems(mappedItems);
       setPendingKitchenOrderId(order.id);
       setRecalledKitchenOrderId(order.id);
+      
+      // Update the current mode to match the order being paid
+      if (order.orderType) {
+        setOrderMode(order.orderType as QSRMode);
+      }
 
       // Try to extract table from source
-      if (orderMode === "dine_in") {
+      if ((order.orderType || orderMode) === "dine_in") {
         const sortedTables = [...tables].sort((a, b) => b.name.length - a.name.length);
         const table = sortedTables.find((t) =>
           order.source.toLowerCase().includes(t.name.toLowerCase())
@@ -1243,7 +1248,6 @@ export const QSRPosMain: React.FC = () => {
             .from("kitchen_orders")
             .update({
               items: kitchenItems,
-              total_amount: isNC ? 0 : orderTotal,
               bumped_at: new Date().toISOString(),
               status: "completed",
               ...(finalCustomerName && { customer_name: finalCustomerName }),
@@ -1378,7 +1382,6 @@ export const QSRPosMain: React.FC = () => {
               source: `QSR-${orderSource}`,
               status: "completed", // Already completed since paid
               items: kitchenItems,
-              total_amount: isNC ? 0 : orderTotal,
               order_type: currentMode === "nc" ? "takeaway" : currentMode,
               customer_name: paymentCustomerName,
               server_name: attendantName,

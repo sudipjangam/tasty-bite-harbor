@@ -991,9 +991,6 @@ const PaymentDialog = ({
                 .from("kitchen_orders")
                 .update({
                   status: "completed",
-                  payment_status: finalStatus,
-                  payment_method: finalMethod,
-                  total_amount: finalAmount,
                   bumped_at: new Date().toISOString(),
                   ...(customerName.trim() && { customer_name: customerName.trim() }),
                   ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
@@ -1006,9 +1003,6 @@ const PaymentDialog = ({
                 .from("kitchen_orders")
                 .update({
                   status: "completed",
-                  payment_status: finalStatus,
-                  payment_method: finalMethod,
-                  total_amount: finalAmount,
                   bumped_at: new Date().toISOString(),
                   ...(customerName.trim() && { customer_name: customerName.trim() }),
                   ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
