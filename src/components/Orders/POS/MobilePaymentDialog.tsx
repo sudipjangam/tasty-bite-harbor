@@ -1053,6 +1053,24 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
             },
           }).catch(console.error);
         }
+
+        // Trigger automated recipe inventory deduction (idempotent)
+        if (targetOrderId) {
+          (async () => {
+            try {
+              const { data, error } = await supabase.functions.invoke("deduct-inventory-on-prep", {
+                body: { order_id: targetOrderId },
+              });
+              if (error) {
+                console.warn("Automated inventory deduction error:", error);
+              } else if (data?.errors && data.errors.length > 0) {
+                console.warn("Inventory deduction warnings:", data.errors);
+              }
+            } catch (deductErr) {
+              console.warn("Automated inventory deduction exception:", deductErr);
+            }
+          })();
+        }
       }
       // NOTE: When orderId is null (e.g., POSMode direct checkout), the parent
       // component (POSMode/QSRPosMain) creates the order and inserts pos_transactions

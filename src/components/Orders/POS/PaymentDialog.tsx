@@ -227,7 +227,7 @@ const PaymentDialog = ({
       for (const item of offlineQueue) {
         try {
           if (item.orderId) {
-            await supabase
+            const { error: updateError } = await supabase
               .from("orders")
               .update({
                 status: "completed",
@@ -240,6 +240,24 @@ const PaymentDialog = ({
                 ...(item.customer_phone && { customer_phone: item.customer_phone }),
               })
               .eq("id", item.orderId);
+
+            if (updateError) {
+              throw updateError;
+            }
+
+            // Deduct inventory in its own try/catch so deduction issues don't requeue an already-updated order
+            try {
+              const { data, error: deductError } = await supabase.functions.invoke("deduct-inventory-on-prep", {
+                body: { order_id: item.orderId },
+              });
+              if (deductError) {
+                console.warn(`Offline sync inventory deduction error for order ${item.orderId}:`, deductError);
+              } else if (data?.errors && data.errors.length > 0) {
+                console.warn(`Offline sync inventory deduction warnings for order ${item.orderId}:`, data.errors);
+              }
+            } catch (deductErr) {
+              console.warn(`Offline sync inventory deduction exception for order ${item.orderId}:`, deductErr);
+            }
           }
         } catch {
           remaining.push(item);
@@ -1015,6 +1033,24 @@ const PaymentDialog = ({
                 discount_amount: totalDiscountAmount,
                 ...(isSplit && splitPayload && { split_payments: splitPayload }),
               }).then(() => {}, console.error);
+            }
+
+            // 2c. Trigger automated recipe inventory deduction (idempotent)
+            if (targetOrderId) {
+              (async () => {
+                try {
+                  const { data, error } = await supabase.functions.invoke("deduct-inventory-on-prep", {
+                    body: { order_id: targetOrderId },
+                  });
+                  if (error) {
+                    console.warn("Automated inventory deduction error:", error);
+                  } else if (data?.errors && data.errors.length > 0) {
+                    console.warn("Inventory deduction warnings:", data.errors);
+                  }
+                } catch (deductErr) {
+                  console.warn("Automated inventory deduction exception:", deductErr);
+                }
+              })();
             }
           }
 
