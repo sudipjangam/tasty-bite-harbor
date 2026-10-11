@@ -112,10 +112,10 @@ export const FranchiseLayout: React.FC = () => {
   const isAdminOrOwner = isRole("admin");
   const { toast } = useToast();
   const [collapsed, setCollapsed] = useState(false);
-  const { canAccessFranchisePortal, isSingleRestaurant, isLoading: accessLoading } = useFranchiseAccess();
+  const { canAccessFranchisePortal, isLoading: accessLoading } = useFranchiseAccess();
 
   useEffect(() => {
-    if (!accessLoading && !demoMode && (!canAccessFranchisePortal || isSingleRestaurant)) {
+    if (!accessLoading && !demoMode && !canAccessFranchisePortal) {
       toast({
         title: "Access Restricted",
         description: "Franchise Portal is only available for multi-branch franchise organizations.",
@@ -123,7 +123,7 @@ export const FranchiseLayout: React.FC = () => {
       });
       navigate("/", { replace: true });
     }
-  }, [accessLoading, demoMode, canAccessFranchisePortal, isSingleRestaurant, navigate, toast]);
+  }, [accessLoading, demoMode, canAccessFranchisePortal, navigate, toast]);
 
   if (!demoMode && (accessLoading || isLoading)) {
     return (
@@ -133,7 +133,7 @@ export const FranchiseLayout: React.FC = () => {
     );
   }
 
-  if (!demoMode && (!canAccessFranchisePortal || isSingleRestaurant)) {
+  if (!demoMode && !canAccessFranchisePortal) {
     return null;
   }
 
@@ -157,9 +157,8 @@ export const FranchiseLayout: React.FC = () => {
     toast({ title: "Signed out" });
   };
 
-  return (
-    <FeatureLock feature="franchise.dashboard" interceptClicks={true}>
-      <div className="flex h-screen overflow-hidden bg-background">
+  const layoutContent = (
+    <div className="flex h-screen overflow-hidden bg-background">
         {/* ─── Desktop Sidebar ─── */}
         <aside
           className={cn(
@@ -391,6 +390,15 @@ export const FranchiseLayout: React.FC = () => {
           <FranchiseMobileNav />
         </div>
       </div>
+  );
+
+  if (canAccessFranchisePortal || demoMode) {
+    return layoutContent;
+  }
+
+  return (
+    <FeatureLock feature="franchise.dashboard" interceptClicks={true}>
+      {layoutContent}
     </FeatureLock>
   );
 };

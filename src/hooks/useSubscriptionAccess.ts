@@ -21,6 +21,7 @@ export const useSubscriptionAccess = () => {
       const { data: subscription, error } = await supabase
         .from('restaurant_subscriptions')
         .select(`
+          components,
           subscription_plans (
             components
           )
@@ -34,7 +35,7 @@ export const useSubscriptionAccess = () => {
         return [];
       }
 
-      if (!subscription || !subscription.subscription_plans) {
+      if (!subscription) {
         return [];
       }
 
@@ -46,9 +47,10 @@ export const useSubscriptionAccess = () => {
         planData = subscription.subscription_plans;
       }
 
-      const components = planData?.components ?? [];
+      const planComponents = Array.isArray(planData?.components) ? planData.components : [];
+      const customComponents = Array.isArray(subscription.components) ? (subscription.components as string[]) : [];
       
-      return Array.isArray(components) ? components : [];
+      return Array.from(new Set([...planComponents, ...customComponents]));
     },
     enabled: !!user?.restaurant_id
   });
@@ -62,12 +64,25 @@ export const useSubscriptionAccess = () => {
       .on(
         'postgres_changes',
         {
+          event: '*',
+          schema: 'public',
+          table: 'restaurant_subscriptions',
+          filter: `restaurant_id=eq.${user.restaurant_id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: ['subscription-components', user?.restaurant_id],
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
           event: 'UPDATE',
           schema: 'public',
           table: 'subscription_plans',
         },
-        (payload) => {
-          // Invalidate the subscription-components query to trigger re-fetch
+        () => {
           queryClient.invalidateQueries({
             queryKey: ['subscription-components', user?.restaurant_id],
           });

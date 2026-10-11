@@ -476,7 +476,13 @@ const FranchiseAdmin = () => {
     branchCode: "",
     city: "",
     organizationId: "",
+    importMenu: false,
+    sourceBranchId: "",
   });
+
+  // Delete branch state
+  const [deleteBranchTarget, setDeleteBranchTarget] = useState<FranchiseBranch | null>(null);
+  const [deleteBranchOpen, setDeleteBranchOpen] = useState(false);
 
   // Detail dialog
   const [selectedFranchise, setSelectedFranchise] = useState<FranchiseOrgRow | null>(null);
@@ -653,6 +659,8 @@ const FranchiseAdmin = () => {
         p_address: addBranchData.city,
       });
 
+      let newBranchId: string | null = null;
+
       if (rpcErr) {
         const isMissingRpc = rpcErr.code === "PGRST202" || rpcErr.code === "42883";
         if (!isMissingRpc) {
@@ -674,7 +682,32 @@ const FranchiseAdmin = () => {
 
         if (restErr) throw restErr;
         if (!newBranch) throw new Error("Failed to create branch");
-        return newBranch;
+        newBranchId = newBranch.id;
+      } else {
+        newBranchId = (rpcRes as any)?.restaurant_id || (rpcRes as any)?.id || null;
+      }
+
+      // If user opted to import menu & recipes from a source branch
+      if (newBranchId && addBranchData.importMenu && addBranchData.sourceBranchId) {
+        try {
+          const { data: cloneRes, error: cloneErr } = await supabase.rpc("clone_branch_menu_and_recipes", {
+            p_source_branch_id: addBranchData.sourceBranchId,
+            p_target_branch_id: newBranchId,
+          });
+
+          if (cloneErr) {
+            console.warn("Failed to clone menu and recipes:", cloneErr);
+            toast.warning("Branch created, but recipe/menu clone failed", { description: cloneErr.message });
+          } else {
+            const res = cloneRes as any;
+            if (res) {
+              toast.success(`Imported ${res.menu_items_cloned || 0} menu items and ${res.recipes_cloned || 0} recipes!`);
+            }
+          }
+        } catch (cloneEx: any) {
+          console.warn("Error calling clone_branch_menu_and_recipes:", cloneEx);
+          toast.warning("Branch created, but recipe/menu clone failed", { description: cloneEx?.message });
+        }
       }
 
       return rpcRes;
@@ -682,12 +715,70 @@ const FranchiseAdmin = () => {
     onSuccess: () => {
       toast.success("Branch added successfully!");
       setAddBranchDialog(false);
-      setAddBranchData({ name: "", branchCode: "", city: "", organizationId: "" });
+      setAddBranchData({ name: "", branchCode: "", city: "", organizationId: "", importMenu: false, sourceBranchId: "" });
       queryClient.invalidateQueries({ queryKey: ["franchises"] });
     },
     onError: (err: any) => {
       toast.error("Failed to add branch", { description: err.message });
     }
+  });
+
+  // Mutation to delete a branch from an existing franchise
+  const deleteBranchMutation = useMutation({
+    mutationFn: async (branchId: string) => {
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("delete_franchise_branch", {
+        p_branch_id: branchId,
+      });
+
+      if (rpcErr) {
+        const isMissingRpc = rpcErr.code === "PGRST202" || rpcErr.code === "42883";
+        if (!isMissingRpc) throw rpcErr;
+
+        console.warn("delete_franchise_branch RPC error or missing, falling back to manual cleanup:", rpcErr);
+        await supabase.from("inventory_transactions").delete().eq("restaurant_id", branchId);
+        await supabase.from("customer_activities").delete().eq("restaurant_id", branchId);
+        await supabase.from("customer_notes").delete().eq("restaurant_id", branchId);
+        await supabase.from("loyalty_transactions").delete().eq("restaurant_id", branchId);
+        await supabase.from("loyalty_redemptions").delete().eq("restaurant_id", branchId);
+        await supabase.from("kitchen_orders").delete().eq("restaurant_id", branchId);
+        await supabase.from("loyalty_rewards").delete().eq("restaurant_id", branchId);
+        await supabase.from("orders").delete().eq("restaurant_id", branchId);
+        await supabase.from("pos_transactions").delete().eq("restaurant_id", branchId);
+        await supabase.from("restaurant_tables").delete().eq("restaurant_id", branchId);
+        await supabase.from("customers").delete().eq("restaurant_id", branchId);
+        await supabase.from("loyalty_tiers").delete().eq("restaurant_id", branchId);
+        await supabase.from("loyalty_programs").delete().eq("restaurant_id", branchId);
+
+        const { data: recs } = await supabase.from("recipes").select("id").eq("restaurant_id", branchId);
+        const recIds = (recs || []).map((r) => r.id);
+        if (recIds.length > 0) {
+          await supabase.from("recipe_ingredients").delete().in("recipe_id", recIds);
+        }
+        await supabase.from("recipes").delete().eq("restaurant_id", branchId);
+        await supabase.from("menu_item_variants").delete().eq("restaurant_id", branchId);
+        await supabase.from("menu_items").delete().eq("restaurant_id", branchId);
+        await supabase.from("categories").delete().eq("restaurant_id", branchId);
+        await supabase.from("inventory_lots").delete().eq("restaurant_id", branchId);
+        await supabase.from("inventory_items").delete().eq("restaurant_id", branchId);
+        await supabase.from("restaurant_subscriptions").delete().eq("restaurant_id", branchId);
+        await supabase.from("profiles").delete().eq("restaurant_id", branchId);
+
+        const { error: delErr } = await supabase.from("restaurants").delete().eq("id", branchId);
+        if (delErr) throw delErr;
+      }
+
+      return rpcRes;
+    },
+    onSuccess: () => {
+      toast.success("Branch deleted successfully");
+      setDeleteBranchOpen(false);
+      setDeleteBranchTarget(null);
+      setBranchDetailDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["franchises"] });
+    },
+    onError: (err: any) => {
+      toast.error("Failed to delete branch", { description: err.message });
+    },
   });
 
   // Mutation for onboarding franchise
@@ -1269,7 +1360,26 @@ const FranchiseAdmin = () => {
                           {fmt(demoMode ? (f.branch_count || 1) * 1250000 : (f.revenue || 0))}
                         </p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1.5 text-xs text-violet-600 border-violet-200 hover:bg-violet-50 dark:border-violet-800 dark:hover:bg-violet-950/30"
+                          onClick={() => {
+                            setAddBranchData({
+                              name: "",
+                              branchCode: `BR-${String((f.branchesList || []).length + 1).padStart(2, "0")}`,
+                              city: "",
+                              organizationId: f.id,
+                              importMenu: (f.branchesList || []).length > 0,
+                              sourceBranchId: f.branchesList?.[0]?.id || "",
+                            });
+                            setAddBranchDialog(true);
+                          }}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Add Branch</span>
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -1942,8 +2052,8 @@ const FranchiseAdmin = () => {
                             <p className="text-sm font-bold text-slate-900 dark:text-white">{fmt(br.revenue)}</p>
                           </div>
                         </div>
-                        <div className="flex gap-2 mt-3">
-                          <Button size="sm" variant="outline" className="h-7 text-[11px] flex-1 gap-1"
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] flex-1 min-w-[60px] gap-1"
                             onClick={() => {
                               setSelectedBranch(br);
                               setBranchEditMode(false);
@@ -1952,7 +2062,7 @@ const FranchiseAdmin = () => {
                           >
                             <Eye className="h-3 w-3" /> View
                           </Button>
-                          <Button size="sm" variant="outline" className="h-7 text-[11px] flex-1 gap-1"
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] flex-1 min-w-[60px] gap-1"
                             onClick={() => {
                               setSelectedBranch(br);
                               setBranchEditData({ name: br.name, branchCode: br.code, address: br.address });
@@ -1974,6 +2084,14 @@ const FranchiseAdmin = () => {
                             }}
                           >
                             <UserPlus className="h-3 w-3" /> Staff
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-950/20"
+                            onClick={() => {
+                              setDeleteBranchTarget(br);
+                              setDeleteBranchOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" /> Delete
                           </Button>
                         </div>
                       </div>
@@ -2183,53 +2301,68 @@ const FranchiseAdmin = () => {
               )}
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBranchDetailDialog(false)}>
-              {branchEditMode ? "Cancel" : "Close"}
-            </Button>
-            {branchEditMode && (
+          <DialogFooter className="flex items-center justify-between sm:justify-between w-full">
+            {!branchEditMode && selectedBranch ? (
               <Button
-                className="bg-violet-600 hover:bg-violet-700 text-white"
-                onClick={async () => {
-                  if (!selectedBranch) return;
-                  const { error } = await supabase
-                    .from("restaurants")
-                    .update({
-                      name: branchEditData.name,
-                      branch_code: branchEditData.branchCode,
-                      address: branchEditData.address,
-                    })
-                    .eq("id", selectedBranch.id);
-                  if (error) {
-                    toast.error("Failed to update branch", { description: error.message });
-                  } else {
-                    toast.success("Branch updated!");
-                    setBranchDetailDialog(false);
-                    queryClient.invalidateQueries({ queryKey: ["franchises"] });
-                  }
-                }}
-              >
-                Save Changes
-              </Button>
-            )}
-            {!branchEditMode && (
-              <Button
-                variant="outline"
-                className="text-violet-600 border-violet-200 hover:bg-violet-50 gap-1"
+                variant="destructive"
+                size="sm"
+                className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/50 gap-1 mr-auto"
                 onClick={() => {
-                  if (!selectedBranch) return;
-                  const parentOrg = franchises.find(f => f.id === selectedBranch.orgId);
-                  if (parentOrg) {
-                    setSelectedOrgId(parentOrg.id);
-                    setAddStaffData(d => ({ ...d, restaurantId: selectedBranch.id }));
-                    setBranchDetailDialog(false);
-                    setAddStaffDialog(true);
-                  }
+                  setDeleteBranchTarget(selectedBranch);
+                  setDeleteBranchOpen(true);
                 }}
               >
-                <UserPlus className="h-3.5 w-3.5" /> Add Staff
+                <Trash2 className="h-3.5 w-3.5" /> Delete Branch
               </Button>
-            )}
+            ) : <div />}
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setBranchDetailDialog(false)}>
+                {branchEditMode ? "Cancel" : "Close"}
+              </Button>
+              {branchEditMode && (
+                <Button
+                  className="bg-violet-600 hover:bg-violet-700 text-white"
+                  onClick={async () => {
+                    if (!selectedBranch) return;
+                    const { error } = await supabase
+                      .from("restaurants")
+                      .update({
+                        name: branchEditData.name,
+                        branch_code: branchEditData.branchCode,
+                        address: branchEditData.address,
+                      })
+                      .eq("id", selectedBranch.id);
+                    if (error) {
+                      toast.error("Failed to update branch", { description: error.message });
+                    } else {
+                      toast.success("Branch updated!");
+                      setBranchDetailDialog(false);
+                      queryClient.invalidateQueries({ queryKey: ["franchises"] });
+                    }
+                  }}
+                >
+                  Save Changes
+                </Button>
+              )}
+              {!branchEditMode && (
+                <Button
+                  variant="outline"
+                  className="text-violet-600 border-violet-200 hover:bg-violet-50 gap-1"
+                  onClick={() => {
+                    if (!selectedBranch) return;
+                    const parentOrg = franchises.find(f => f.id === selectedBranch.orgId);
+                    if (parentOrg) {
+                      setSelectedOrgId(parentOrg.id);
+                      setAddStaffData(d => ({ ...d, restaurantId: selectedBranch.id }));
+                      setBranchDetailDialog(false);
+                      setAddStaffDialog(true);
+                    }
+                  }}
+                >
+                  <UserPlus className="h-3.5 w-3.5" /> Add Staff
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2251,7 +2384,16 @@ const FranchiseAdmin = () => {
               <Label>Organization</Label>
               <Select
                 value={addBranchData.organizationId}
-                onValueChange={(val) => setAddBranchData({ ...addBranchData, organizationId: val })}
+                onValueChange={(val) => {
+                  const targetOrg = franchises.find((f) => f.id === val);
+                  const orgBranches = targetOrg?.branchesList || [];
+                  setAddBranchData({
+                    ...addBranchData,
+                    organizationId: val,
+                    sourceBranchId: orgBranches[0]?.id || "",
+                    importMenu: orgBranches.length > 0 ? addBranchData.importMenu : false,
+                  });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a franchise" />
@@ -2291,6 +2433,69 @@ const FranchiseAdmin = () => {
                 onChange={(e) => setAddBranchData({ ...addBranchData, city: e.target.value })}
               />
             </div>
+
+            {/* Import Menu & Recipes Checkbox & Selector */}
+            {(() => {
+              const selectedOrg = franchises.find((f) => f.id === addBranchData.organizationId);
+              const orgBranches = selectedOrg?.branchesList || [];
+              if (orgBranches.length === 0) return null;
+
+              return (
+                <div className="rounded-xl border border-violet-200 dark:border-violet-900/40 bg-violet-50/60 dark:bg-violet-950/20 p-3 space-y-3">
+                  <div className="flex items-start space-x-2">
+                    <Checkbox
+                      id="import-menu-check"
+                      checked={addBranchData.importMenu}
+                      onCheckedChange={(checked) =>
+                        setAddBranchData({
+                          ...addBranchData,
+                          importMenu: !!checked,
+                          sourceBranchId:
+                            !!checked && !addBranchData.sourceBranchId
+                              ? orgBranches[0]?.id || ""
+                              : addBranchData.sourceBranchId,
+                        })
+                      }
+                      className="mt-0.5"
+                    />
+                    <div className="grid gap-1 leading-none">
+                      <label
+                        htmlFor="import-menu-check"
+                        className="text-xs font-semibold text-slate-900 dark:text-white cursor-pointer"
+                      >
+                        Import Menu & Recipes from existing branch
+                      </label>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Clones categories, menu items, variants, inventory items, and recipes to this new branch.
+                      </p>
+                    </div>
+                  </div>
+
+                  {addBranchData.importMenu && (
+                    <div className="space-y-1.5 pt-1 border-t border-violet-100 dark:border-violet-900/30">
+                      <Label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        Source Branch to Clone From
+                      </Label>
+                      <Select
+                        value={addBranchData.sourceBranchId || orgBranches[0]?.id || ""}
+                        onValueChange={(val) => setAddBranchData({ ...addBranchData, sourceBranchId: val })}
+                      >
+                        <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                          <SelectValue placeholder="Select source branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {orgBranches.map((br) => (
+                            <SelectItem key={br.id} value={br.id} className="text-xs">
+                              {br.name} ({br.code || "Branch"}) {br.city ? `• ${br.city}` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddBranchDialog(false)}>
@@ -2674,10 +2879,32 @@ const FranchiseAdmin = () => {
 
               {/* Branches List Section */}
               <div className="border-t border-slate-100 dark:border-slate-800/80 pt-4">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1">
-                  <GitBranch className="h-3.5 w-3.5 text-slate-400" /> Active Branches
-                </h4>
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                    <GitBranch className="h-3.5 w-3.5 text-slate-400" /> Active Branches ({(selectedFranchise.branchesList || []).length})
+                  </h4>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-950/30 gap-1 font-semibold"
+                    onClick={() => {
+                      setAddBranchData({
+                        name: "",
+                        branchCode: `BR-${String((selectedFranchise.branchesList || []).length + 1).padStart(2, "0")}`,
+                        city: "",
+                        organizationId: selectedFranchise.id,
+                        importMenu: (selectedFranchise.branchesList || []).length > 0,
+                        sourceBranchId: selectedFranchise.branchesList?.[0]?.id || "",
+                      });
+                      setDetailDialog(false);
+                      setAddBranchDialog(true);
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Branch</span>
+                  </Button>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                   {(demoMode ? MOCK_BRANCHES.filter((b) => b.orgId === selectedFranchise.id) : (selectedFranchise.branchesList || [])).map((br) => {
                     const statusCfg = STATUS_CONFIG[br.status];
                     return (
@@ -2689,6 +2916,19 @@ const FranchiseAdmin = () => {
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{fmt(br.revenue || 0)}</span>
                           <Badge className={cn("text-[9px] border-0 scale-95 font-bold", statusCfg.color)}>{statusCfg.label}</Badge>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 ml-1"
+                            title="Delete Branch"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteBranchTarget(br);
+                              setDeleteBranchOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </div>
                     );
@@ -2921,14 +3161,19 @@ const FranchiseAdmin = () => {
                         return;
                       }
 
+                      const normalizedPlan = (editData.plan_type && editData.plan_type !== "—") ? editData.plan_type : "starter";
+                      const normalizedStatus = (editData.sub_status && editData.sub_status !== "—") ? editData.sub_status : "active";
+                      const matchedPlan = MOCK_FRANCHISE_PLANS.find(p => p.tier === normalizedPlan);
+                      const normalizedMaxBranches = Number(editData.max_branches) > 0 ? Number(editData.max_branches) : (matchedPlan?.maxBranches || 5);
+
                       let subErr;
                       if (existingSub) {
                         const { error } = await supabase
                           .from("organization_subscriptions")
                           .update({
-                            plan_type: editData.plan_type,
-                            max_branches: editData.max_branches,
-                            status: editData.sub_status,
+                            plan_type: normalizedPlan,
+                            max_branches: normalizedMaxBranches,
+                            status: normalizedStatus,
                             updated_at: new Date().toISOString()
                           })
                           .eq("organization_id", editData.id);
@@ -2938,9 +3183,9 @@ const FranchiseAdmin = () => {
                           .from("organization_subscriptions")
                           .insert({
                             organization_id: editData.id,
-                            plan_type: editData.plan_type,
-                            max_branches: editData.max_branches,
-                            status: editData.sub_status || "active",
+                            plan_type: normalizedPlan,
+                            max_branches: normalizedMaxBranches,
+                            status: normalizedStatus,
                             created_at: new Date().toISOString(),
                             updated_at: new Date().toISOString()
                           });
@@ -3160,6 +3405,64 @@ const FranchiseAdmin = () => {
               }}
             >
               {deleteMutation.isPending ? "Deleting..." : "Permanently Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Branch Delete Confirmation Alert Dialog */}
+      <AlertDialog open={deleteBranchOpen} onOpenChange={setDeleteBranchOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Branch Location?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to delete branch{" "}
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  "{deleteBranchTarget?.name}" ({deleteBranchTarget?.code})
+                </span>
+                ?
+              </p>
+              <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-lg p-3 text-xs text-red-700 dark:text-red-300">
+                <p className="font-semibold mb-1">⚠️ Warning: Permanent Data Deletion</p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  <li>All orders, tables, and POS transactions for this branch will be removed</li>
+                  <li>Branch-level inventory, recipes, and custom menu items will be deleted</li>
+                  <li>Staff members assigned exclusively to this branch will be unassigned</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={deleteBranchMutation.isPending}
+              onClick={() => {
+                setDeleteBranchOpen(false);
+                setDeleteBranchTarget(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={deleteBranchMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteBranchTarget) {
+                  if (demoMode) {
+                    toast.success("Demo Mode: Branch deleted");
+                    setDeleteBranchOpen(false);
+                    setDeleteBranchTarget(null);
+                  } else {
+                    deleteBranchMutation.mutate(deleteBranchTarget.id);
+                  }
+                }
+              }}
+            >
+              {deleteBranchMutation.isPending ? "Deleting..." : "Delete Branch"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

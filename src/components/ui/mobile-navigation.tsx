@@ -399,6 +399,8 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     // Franchise Portal: strictly for franchise/chain organizations (single restaurants NEVER have access)
     if (item.id === "franchise-portal" || item.path === "/franchise") {
       if (!canAccessFranchisePortal) return false;
+      const currentRole = (user.role_name_text || user.role || "").toLowerCase();
+      return currentRole === "owner" || currentRole === "admin";
     }
 
     // Admin-only items: check role directly

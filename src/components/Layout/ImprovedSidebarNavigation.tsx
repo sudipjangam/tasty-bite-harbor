@@ -399,6 +399,8 @@ export const ImprovedSidebarNavigation = ({
     // Franchise Portal: strictly for franchise/chain organizations (single restaurants NEVER have access)
     if (item.href === "/franchise") {
       if (!canAccessFranchisePortal) return false;
+      const currentRole = (user.role_name_text || user.role || "").toLowerCase();
+      return currentRole === "owner" || currentRole === "admin";
     }
 
     const componentName = hrefToComponentMap[item.href];
@@ -656,7 +658,8 @@ export const ImprovedSidebarNavigation = ({
             © {new Date().getFullYear()} Swadeshi Solutions
           </span>
           <span className="text-[10px] font-mono bg-white/10 text-white/80 px-1.5 py-0.5 rounded-md border border-white/10">
-            v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'}
+            v
+            {typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.0.0"}
           </span>
         </div>
       </div>

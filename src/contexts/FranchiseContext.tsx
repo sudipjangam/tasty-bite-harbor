@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
 import {
   MOCK_BRANCHES,
   MOCK_ORG,
@@ -74,6 +75,8 @@ interface FranchiseContextType {
   addBranch: (b: any) => Promise<boolean>;
   updateBranch: (id: string, b: any) => Promise<boolean>;
   deactivateBranch: (id: string) => Promise<boolean>;
+  deleteBranch: (id: string) => Promise<boolean>;
+  syncBranchMenu: (sourceBranchId: string, targetBranchId: string) => Promise<{ success: boolean; message?: string; details?: any }>;
   inviteTeamMember: (data: { name: string; email: string; role: OrgRole; accessibleBranches: string[] | null }) => Promise<boolean>;
   updateMemberRole: (memberId: string, role: OrgRole, accessibleBranches: string[] | null) => Promise<boolean>;
   removeTeamMember: (memberId: string) => Promise<boolean>;
@@ -132,15 +135,22 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     queryKey: ["franchise_portal_data", user?.id, dateRange],
     enabled: !!user?.id && !demoMode,
     queryFn: async () => {
-      // Find organization membership
-      let { data: member } = await supabase
-        .from("organization_members")
-        .select("organization_id, role")
-        .eq("user_id", user!.id)
-        .maybeSingle();
+      // Find organization membership (join organizations to restrict to franchise/chain types)
+      let activeOrgId: string | null = null;
+      let activeRole: OrgRole = "viewer";
 
-      let activeOrgId = member?.organization_id;
-      let activeRole = member?.role as OrgRole || "viewer";
+      const { data: orgMemberRows, error: orgMemberErr } = await supabase
+        .from("organization_members")
+        .select("organization_id, role, organizations!inner(id, name, type)")
+        .eq("user_id", user!.id)
+        .in("organizations.type", ["franchise", "chain"])
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (!orgMemberErr && orgMemberRows && orgMemberRows.length > 0) {
+        activeOrgId = orgMemberRows[0].organization_id;
+        activeRole = (orgMemberRows[0].role as OrgRole) || "viewer";
+      }
 
       // If not in organization_members, check if user owns a franchise organization
       if (!activeOrgId) {
@@ -844,6 +854,11 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
         p_total_reviews: b.totalReviews !== undefined ? Number(b.totalReviews) : 0,
       });
 
+      let newBranchId: string | null = null;
+      if (rpcRes) {
+        newBranchId = (rpcRes as any)?.restaurant_id || (rpcRes as any)?.id || null;
+      }
+
       if (rpcErr) {
         const isMissingRpc = rpcErr.code === "PGRST202" || rpcErr.code === "42883";
         if (!isMissingRpc) {
@@ -852,7 +867,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
         }
 
         console.warn("create_franchise_branch RPC missing, falling back to direct insert:", rpcErr);
-        const { error } = await supabase.from("restaurants").insert({
+        const { data: newBranch, error } = await supabase.from("restaurants").insert({
           organization_id: dbData.org.id,
           name: b.name,
           branch_code: b.code,
@@ -865,12 +880,41 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
           social_media: { theme_color: b.color },
           rating: b.rating !== undefined ? Number(b.rating) : 0,
           total_reviews: b.totalReviews !== undefined ? Number(b.totalReviews) : 0
-        });
+        }).select("id").single();
         if (error) {
           console.error("Error creating branch:", error);
           return false;
         }
+        newBranchId = newBranch?.id || null;
       }
+
+      // If requested, clone menu and recipes from selected branch
+      if (newBranchId && b.importMenu && b.sourceBranchId) {
+        try {
+          const { data: cloneData, error: cloneErr } = await supabase.rpc("clone_branch_menu_and_recipes", {
+            p_source_branch_id: b.sourceBranchId,
+            p_target_branch_id: newBranchId,
+          });
+          if (cloneErr) {
+            console.warn("clone_branch_menu_and_recipes failed:", cloneErr);
+            toast({
+              title: "Branch created, but menu sync failed",
+              description: cloneErr.message || "Could not copy menu items. You can use 'Sync Menu' from the branch actions.",
+              variant: "destructive",
+            });
+          } else {
+            console.log("clone_branch_menu_and_recipes success:", cloneData);
+          }
+        } catch (cloneEx: any) {
+          console.warn("Error cloning menu & recipes:", cloneEx);
+          toast({
+            title: "Menu sync error",
+            description: cloneEx?.message || "Could not copy menu items.",
+            variant: "destructive",
+          });
+        }
+      }
+
       refetch();
       return true;
     }
@@ -977,6 +1021,105 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
       }
       refetch();
       return true;
+    }
+  };
+
+  const deleteBranch = async (id: string): Promise<boolean> => {
+    // Clear active branch from session if deleting current active branch
+    try {
+      const savedBranchId = localStorage.getItem("active_branch_id");
+      if (savedBranchId === id) {
+        localStorage.removeItem("active_branch_id");
+        if (currentBranch?.id === id) {
+          setCurrentBranchState(null);
+        }
+        window.dispatchEvent(new Event("branch_changed"));
+      }
+    } catch {}
+
+    if (demoMode) {
+      setMockBranches(mockBranches.filter((item) => item.id !== id));
+      return true;
+    } else {
+      const { error: rpcErr } = await supabase.rpc("delete_franchise_branch", {
+        p_branch_id: id,
+      });
+
+      if (rpcErr) {
+        const isMissingRpc = rpcErr.code === "PGRST202" || rpcErr.code === "42883";
+        if (!isMissingRpc) {
+          console.error("delete_franchise_branch RPC failed:", rpcErr);
+          return false;
+        }
+
+        console.warn("delete_franchise_branch RPC missing, falling back to manual cleanup:", rpcErr);
+        await supabase.from("inventory_transactions").delete().eq("restaurant_id", id);
+        await supabase.from("customer_activities").delete().eq("restaurant_id", id);
+        await supabase.from("customer_notes").delete().eq("restaurant_id", id);
+        await supabase.from("loyalty_transactions").delete().eq("restaurant_id", id);
+        await supabase.from("loyalty_redemptions").delete().eq("restaurant_id", id);
+        await supabase.from("kitchen_orders").delete().eq("restaurant_id", id);
+        await supabase.from("loyalty_rewards").delete().eq("restaurant_id", id);
+        await supabase.from("orders").delete().eq("restaurant_id", id);
+        await supabase.from("pos_transactions").delete().eq("restaurant_id", id);
+        await supabase.from("restaurant_tables").delete().eq("restaurant_id", id);
+        await supabase.from("customers").delete().eq("restaurant_id", id);
+        await supabase.from("loyalty_tiers").delete().eq("restaurant_id", id);
+        await supabase.from("loyalty_programs").delete().eq("restaurant_id", id);
+
+        const { data: recs } = await supabase.from("recipes").select("id").eq("restaurant_id", id);
+        const recIds = (recs || []).map((r) => r.id);
+        if (recIds.length > 0) {
+          await supabase.from("recipe_ingredients").delete().in("recipe_id", recIds);
+        }
+        await supabase.from("recipes").delete().eq("restaurant_id", id);
+        await supabase.from("menu_item_variants").delete().eq("restaurant_id", id);
+        await supabase.from("menu_items").delete().eq("restaurant_id", id);
+        await supabase.from("categories").delete().eq("restaurant_id", id);
+        await supabase.from("inventory_lots").delete().eq("restaurant_id", id);
+        await supabase.from("inventory_items").delete().eq("restaurant_id", id);
+        await supabase.from("restaurant_subscriptions").delete().eq("restaurant_id", id);
+        await supabase.from("profiles").delete().eq("restaurant_id", id);
+
+        const { error: delErr } = await supabase.from("restaurants").delete().eq("id", id);
+        if (delErr) {
+          console.error("Error deleting branch:", delErr);
+          return false;
+        }
+      }
+      refetch();
+      return true;
+    }
+  };
+
+  const syncBranchMenu = async (
+    sourceBranchId: string,
+    targetBranchId: string
+  ): Promise<{ success: boolean; message?: string; details?: any }> => {
+    if (demoMode) {
+      toast({
+        title: "Demo Mode",
+        description: "Menu sync simulated successfully.",
+      });
+      return { success: true, message: "Menu synced in demo mode" };
+    }
+
+    try {
+      const { data, error } = await supabase.rpc("clone_branch_menu_and_recipes", {
+        p_source_branch_id: sourceBranchId,
+        p_target_branch_id: targetBranchId,
+      });
+
+      if (error) {
+        console.error("clone_branch_menu_and_recipes failed:", error);
+        return { success: false, message: error.message };
+      }
+
+      refetch();
+      return { success: true, message: "Menu and recipes successfully synced", details: data };
+    } catch (err: any) {
+      console.error("Error invoking clone_branch_menu_and_recipes:", err);
+      return { success: false, message: err?.message || "Unexpected error occurred" };
     }
   };
 
@@ -1264,6 +1407,8 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     addBranch,
     updateBranch,
     deactivateBranch,
+    deleteBranch,
+    syncBranchMenu,
     inviteTeamMember,
     updateMemberRole,
     removeTeamMember,

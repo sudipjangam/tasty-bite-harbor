@@ -941,3 +941,38 @@ Franchise Portal was accessible to all admin users regardless of subscription pl
 | `franchise.pnl` | Cross-Branch P&L Report |
 | `franchise.settings` | Franchise Settings |
 
+---
+
+## 15. Franchise Branch Management & Menu/Recipe Cloning (2026-10-11)
+
+### Problem
+1. Admins were unable to add a new branch to an existing franchise due to missing org-owner checks in `create_franchise_branch()` and lack of explicit "Add Branch" action buttons on franchise cards.
+2. Admins were unable to delete a branch from an existing franchise because no `delete_franchise_branch` RPC existed, and direct table deletion failed on non-cascading foreign key constraints (`orders`, `recipes`, `inventory_transactions`, `profiles`, `customers`).
+3. No mechanism existed to clone or import existing menus and recipes into a newly onboarded branch.
+
+### Database Architecture Updates
+Migration: `supabase/migrations/20261011140000_franchise_branch_management_and_menu_clone.sql`
+
+1. **`is_platform_admin()`**:
+   - Enhanced to support `role_name_text` values (`Platform Admin`, `Super Admin`, etc.) alongside `role = 'admin'`.
+2. **`create_franchise_branch()`**:
+   - Added validation check against `organizations.owner_user_id` so organization owners and platform admins can create branches seamlessly.
+3. **`delete_franchise_branch(p_branch_id UUID)`**:
+   - Performs permission validation.
+   - Promotes the next oldest branch to headquarters if the deleted branch was HQ.
+   - Topologically cascades deletion through non-cascading FK tables in 4 layers (inventory transactions/lots, orders, tables, customers, loyalty, profiles, recipes/ingredients, menu items/variants, categories, rooms, subscriptions).
+4. **`clone_branch_menu_and_recipes(p_source_branch_id UUID, p_target_branch_id UUID)`**:
+   - Clones categories, inventory items (stock = 0), menu items (`origin = 'inherited'`), menu item variants, recipes, and recipe ingredients with foreign keys correctly re-mapped to target entities.
+
+### Frontend Integration
+- **`FranchiseAdmin.tsx` (`/platform/franchise-admin`)**:
+  - Direct "+ Add Branch" button on each franchise card in "All Franchises" tab and within `detailDialog` Active Branches section.
+  - "Import Menu & Recipes" checkbox and source branch selector in `Add Branch Dialog`.
+  - Delete Branch button on branch cards, inside `detailDialog`, and inside `branchDetailDialog` with safe confirmation modal.
+- **`BranchManagement.tsx` (`/franchise/branches`)**:
+  - Added "Import Menu & Recipes from existing branch" checkbox and source selector.
+  - Added Delete Branch button and confirmation modal to branch cards.
+- **`FranchiseContext.tsx`**:
+  - Added `deleteBranch` method and wired menu clone into `addBranch`.
+
+

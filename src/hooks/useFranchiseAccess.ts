@@ -121,7 +121,8 @@ export const useFranchiseAccess = (): FranchiseAccessInfo => {
       }
 
       // ── Step 4: Platform admin fallback ─────────────────────────
-      if (user.role === "admin") {
+      const userRole = (user.role_name_text || user.role || "").toLowerCase();
+      if (userRole === "admin" || userRole === "platform admin" || userRole === "super admin" || userRole === "superadmin" || userRole === "platform_admin") {
         const { data: firstFranchise } = await supabase
           .from("organizations")
           .select("id, name, type")
@@ -162,11 +163,17 @@ export const useFranchiseAccess = (): FranchiseAccessInfo => {
     hasSubscriptionAccess("franchise.dashboard") ||
     hasSubscriptionAccess("franchise");
 
-  // Single restaurant can NEVER access franchise portal
+  // Single restaurant can access franchise portal only if organization is franchise/chain or franchise subscription is granted
+  const normalizedUserRole = (user?.role_name_text || user?.role || "").toLowerCase();
+  const isPlatformAdmin =
+    normalizedUserRole === "admin" ||
+    normalizedUserRole === "platform admin" ||
+    normalizedUserRole === "super admin" ||
+    normalizedUserRole === "superadmin" ||
+    normalizedUserRole === "platform_admin";
   const canAccessFranchisePortal =
-    !isSingleRestaurant &&
-    isFranchise &&
-    (user?.role === "owner" || user?.role === "admin" || Boolean(data?.organizationId));
+    (isPlatformAdmin || Boolean(data?.organizationId)) &&
+    ((!isSingleRestaurant && isFranchise) || hasFranchiseSubscription);
 
   return {
     isFranchise,

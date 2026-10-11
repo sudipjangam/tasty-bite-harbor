@@ -62,12 +62,13 @@ export const fetchAllowedComponents = async (restaurantId: string): Promise<stri
 
     console.log("fetchAllowedComponents: Fetching for restaurant:", restaurantId);
 
-    // Get active subscription with plan details
+    // Get active subscription with plan details and custom components
     const { data: subscription, error } = await supabase
       .from("restaurant_subscriptions")
       .select(`
         status,
         plan_id,
+        components,
         subscription_plans:plan_id (
           components
         )
@@ -83,8 +84,8 @@ export const fetchAllowedComponents = async (restaurantId: string): Promise<stri
 
     console.log("fetchAllowedComponents: Raw subscription data:", JSON.stringify(subscription, null, 2));
 
-    if (!subscription || !subscription.subscription_plans) {
-      console.log("fetchAllowedComponents: No active subscription or plan found");
+    if (!subscription) {
+      console.log("fetchAllowedComponents: No active subscription found");
       return [];
     }
 
@@ -102,19 +103,27 @@ export const fetchAllowedComponents = async (restaurantId: string): Promise<stri
       console.log("fetchAllowedComponents: Plan components (from object):", planComponents);
     }
     
-    const componentsJson = planComponents?.components || [];
-    console.log("fetchAllowedComponents: Components JSON:", componentsJson);
+    const planComponentsJson = planComponents?.components || [];
+    const customComponentsJson = subscription.components || [];
     
-    // Safely convert the JSON array to string array with type checking
-    const componentsArray: string[] = [];
-    if (Array.isArray(componentsJson)) {
-      componentsJson.forEach(item => {
+    // Safely convert and merge components
+    const componentsSet = new Set<string>();
+    if (Array.isArray(planComponentsJson)) {
+      planComponentsJson.forEach(item => {
         if (typeof item === 'string') {
-          componentsArray.push(item);
+          componentsSet.add(item);
+        }
+      });
+    }
+    if (Array.isArray(customComponentsJson)) {
+      customComponentsJson.forEach(item => {
+        if (typeof item === 'string') {
+          componentsSet.add(item);
         }
       });
     }
     
+    const componentsArray = Array.from(componentsSet);
     console.log("fetchAllowedComponents: Final components array:", componentsArray);
     
     return componentsArray;

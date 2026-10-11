@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus, MapPin, Phone, User, Star, ShoppingCart,
   TrendingUp, Edit3, Eye, Crown, MoreHorizontal,
-  Mail, ShieldAlert, Store, AlertCircle, Sparkles
+  Mail, ShieldAlert, Store, AlertCircle, Sparkles, Trash2
 } from "lucide-react";
 import {
   Dialog,
@@ -35,9 +35,11 @@ interface BranchCardProps {
   onEdit: (b: MockBranch) => void;
   onView: (b: MockBranch) => void;
   onDeactivate: (b: MockBranch) => void;
+  onDelete?: (b: MockBranch) => void;
+  onSyncMenu?: (b: MockBranch) => void;
 }
 
-const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onView, onDeactivate }) => {
+const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onView, onDeactivate, onDelete, onSyncMenu }) => {
   const { formatCurrency } = useFranchise();
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col justify-between">
@@ -112,12 +114,12 @@ const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onView, onDeact
       </div>
 
       {/* Actions */}
-      <div className="flex gap-1.5 p-5 pt-0">
+      <div className="flex flex-wrap gap-1.5 p-5 pt-0">
         <Button
           variant="outline"
           size="sm"
           onClick={() => onEdit(branch)}
-          className="flex-1 gap-1 text-xs h-8 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors px-2"
+          className="flex-1 min-w-[60px] gap-1 text-xs h-8 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors px-2"
         >
           <Edit3 className="h-3 w-3" /> Edit
         </Button>
@@ -128,12 +130,33 @@ const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onView, onDeact
           className={cn(
             "gap-1 text-xs h-8 px-2 transition-colors",
             branch.status === "active"
-              ? "text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-900/20"
+              ? "text-amber-600 border-amber-200 hover:bg-amber-50 dark:border-amber-900/40 dark:hover:bg-amber-900/20"
               : "text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-900/40 dark:hover:bg-emerald-900/20"
           )}
         >
           {branch.status === "active" ? "Deactivate" : "Activate"}
         </Button>
+        {onDelete && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onDelete(branch)}
+            className="gap-1 text-xs h-8 px-2 text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-900/20 transition-colors"
+          >
+            <Trash2 className="h-3 w-3" /> Delete
+          </Button>
+        )}
+        {onSyncMenu && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onSyncMenu(branch)}
+            className="gap-1 text-xs h-8 px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 dark:border-indigo-900/40 dark:hover:bg-indigo-900/20 transition-colors"
+            title="Import or sync menu and recipes to this branch"
+          >
+            <Sparkles className="h-3 w-3" /> Sync Menu
+          </Button>
+        )}
         <Button
           size="sm"
           onClick={() => onView(branch)}
@@ -148,7 +171,7 @@ const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onView, onDeact
 };
 
 const BranchManagement: React.FC = () => {
-  const { allBranches, addBranch, updateBranch, deactivateBranch, org, formatCurrency, demoMode } = useFranchise();
+  const { allBranches, addBranch, updateBranch, deactivateBranch, deleteBranch, syncBranchMenu, org, formatCurrency, demoMode } = useFranchise();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
@@ -160,7 +183,14 @@ const BranchManagement: React.FC = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isSyncOpen, setIsSyncOpen] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<MockBranch | null>(null);
+  const [branchToDelete, setBranchToDelete] = useState<MockBranch | null>(null);
+  const [branchToSync, setBranchToSync] = useState<MockBranch | null>(null);
+  const [syncSourceBranchId, setSyncSourceBranchId] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Form states
   const [formName, setFormName] = useState("");
@@ -175,6 +205,8 @@ const BranchManagement: React.FC = () => {
   const [formIsHq, setFormIsHq] = useState(false);
   const [formRating, setFormRating] = useState<number | string>("");
   const [formReviews, setFormReviews] = useState<number | string>("");
+  const [formImportMenu, setFormImportMenu] = useState(false);
+  const [formSourceBranchId, setFormSourceBranchId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   // Auto-open edit modal if query string has ?edit=BRANCH_ID
@@ -203,6 +235,8 @@ const BranchManagement: React.FC = () => {
     setFormIsHq(false);
     setFormRating("");
     setFormReviews("");
+    setFormImportMenu(false);
+    setFormSourceBranchId("");
   };
 
   const handleOpenAdd = () => {
@@ -275,7 +309,9 @@ const BranchManagement: React.FC = () => {
       phone: formPhone,
       email: formEmail,
       color: formColor,
-      isHeadquarters: formIsHq
+      isHeadquarters: formIsHq,
+      importMenu: formImportMenu,
+      sourceBranchId: formSourceBranchId || (allBranches[0]?.id || ""),
     });
     setIsSaving(false);
 
@@ -288,6 +324,67 @@ const BranchManagement: React.FC = () => {
       resetForm();
     } else {
       toast({ title: "Database Error", description: "Failed to create branch on Supabase", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!branchToDelete) return;
+    setIsDeleting(true);
+    const success = await deleteBranch(branchToDelete.id);
+    setIsDeleting(false);
+
+    if (success) {
+      toast({
+        title: "🗑️ Branch Deleted",
+        description: `Successfully deleted branch ${branchToDelete.name} (${branchToDelete.code}).`,
+      });
+      setIsDeleteOpen(false);
+      setBranchToDelete(null);
+    } else {
+      toast({
+        title: "Deletion Failed",
+        description: "Failed to delete branch. Check server logs.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleOpenSyncMenu = (branch: MockBranch) => {
+    setBranchToSync(branch);
+    const defaultSource = allBranches.find((b) => b.id !== branch.id && b.isHeadquarters) || allBranches.find((b) => b.id !== branch.id);
+    setSyncSourceBranchId(defaultSource?.id || "");
+    setIsSyncOpen(true);
+  };
+
+  const handleSyncMenuSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!branchToSync || !syncSourceBranchId) {
+      toast({
+        title: "Selection Required",
+        description: "Please select a source branch to copy menu items from.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSyncing(true);
+    const result = await syncBranchMenu(syncSourceBranchId, branchToSync.id);
+    setIsSyncing(false);
+
+    if (result.success) {
+      const sourceName = allBranches.find((b) => b.id === syncSourceBranchId)?.name || "selected branch";
+      toast({
+        title: "✨ Menu & Recipes Synced!",
+        description: `Successfully imported menu items, categories, variants and recipes from ${sourceName} into ${branchToSync.name}.`,
+      });
+      setIsSyncOpen(false);
+      setBranchToSync(null);
+    } else {
+      toast({
+        title: "Sync Failed",
+        description: result.message || "Could not clone menu items. Please ensure migration SQL is executed in Supabase.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -374,6 +471,11 @@ const BranchManagement: React.FC = () => {
             onEdit={handleOpenEdit}
             onView={handleOpenView}
             onDeactivate={handleDeactivate}
+            onSyncMenu={handleOpenSyncMenu}
+            onDelete={(b) => {
+              setBranchToDelete(b);
+              setIsDeleteOpen(true);
+            }}
           />
         ))}
       </div>
@@ -515,6 +617,52 @@ const BranchManagement: React.FC = () => {
               />
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Set as Headquarters (HQ) Branch</span>
             </label>
+
+            {/* Import Menu & Recipes Checkbox */}
+            {allBranches.length > 0 && (
+              <div className="rounded-xl border border-violet-100 bg-violet-50/50 dark:border-violet-900/30 dark:bg-violet-950/20 p-3 space-y-3">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formImportMenu}
+                    onChange={(e) => {
+                      setFormImportMenu(e.target.checked);
+                      if (e.target.checked && !formSourceBranchId) {
+                        setFormSourceBranchId(allBranches[0]?.id || "");
+                      }
+                    }}
+                    className="accent-violet-600 rounded mt-0.5"
+                  />
+                  <div>
+                    <span className="block text-xs font-semibold text-gray-800 dark:text-gray-200">
+                      Import Menu & Recipes from existing branch
+                    </span>
+                    <span className="block text-[11px] text-gray-500 dark:text-gray-400">
+                      Clones menu categories, items, variants, inventory, and recipes to this new branch.
+                    </span>
+                  </div>
+                </label>
+
+                {formImportMenu && (
+                  <div className="pt-2 border-t border-violet-100 dark:border-violet-900/30">
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                      Source Branch to Clone From
+                    </label>
+                    <select
+                      value={formSourceBranchId || allBranches[0]?.id || ""}
+                      onChange={(e) => setFormSourceBranchId(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    >
+                      {allBranches.map((br) => (
+                        <option key={br.id} value={br.id}>
+                          {br.name} ({br.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
 
             <DialogFooter className="pt-2">
               <Button type="submit" disabled={isSaving} className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white font-medium">
@@ -815,6 +963,119 @@ const BranchManagement: React.FC = () => {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── DIALOG: DELETE BRANCH CONFIRMATION ─── */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl border-none shadow-2xl">
+          <div className="p-6 bg-gradient-to-r from-red-600 to-rose-600 text-white relative">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-200" /> Delete Branch Location?
+            </h2>
+            <p className="text-xs text-red-100 mt-1">
+              Permanent removal of branch and associated records.
+            </p>
+          </div>
+          <div className="p-6 space-y-4 bg-white dark:bg-gray-900">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              Are you sure you want to delete branch{" "}
+              <strong className="text-gray-900 dark:text-white">
+                "{branchToDelete?.name}" ({branchToDelete?.code})
+              </strong>
+              ? All branch orders, tables, inventory, and menu configurations will be permanently removed.
+            </p>
+            <DialogFooter className="pt-2 flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isDeleting}
+                onClick={() => {
+                  setIsDeleteOpen(false);
+                  setBranchToDelete(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isDeleting}
+                onClick={handleDeleteConfirm}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isDeleting ? "Deleting..." : "Permanently Delete"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── DIALOG: SYNC MENU & RECIPES ─── */}
+      <Dialog open={isSyncOpen} onOpenChange={setIsSyncOpen}>
+        <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl border-none shadow-2xl">
+          <div className="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white relative">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-indigo-200" /> Sync Menu & Recipes
+            </h2>
+            <p className="text-xs text-indigo-100 mt-1">
+              Import and replicate menu items, categories, variants, inventory, and recipes.
+            </p>
+          </div>
+
+          <form onSubmit={handleSyncMenuSubmit} className="p-6 space-y-4 bg-white dark:bg-gray-900">
+            <div className="p-3.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40">
+              <p className="text-xs font-semibold text-indigo-900 dark:text-indigo-200">
+                Target Branch: <span className="font-bold underline">{branchToSync?.name}</span> ({branchToSync?.code})
+              </p>
+              <p className="text-[11px] text-indigo-700 dark:text-indigo-300 mt-1">
+                Existing items with matching names will be preserved. Missing items and recipes will be copied over.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                Select Source Branch to Copy From *
+              </label>
+              <select
+                required
+                value={syncSourceBranchId}
+                onChange={(e) => setSyncSourceBranchId(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+              >
+                <option value="" disabled>-- Select Source Branch --</option>
+                {allBranches
+                  .filter((b) => b.id !== branchToSync?.id)
+                  .map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code}){b.isHeadquarters ? " — [Headquarters HQ]" : ""}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <DialogFooter className="pt-2 flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSyncing}
+                onClick={() => {
+                  setIsSyncOpen(false);
+                  setBranchToSync(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSyncing || !syncSourceBranchId}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium gap-1.5"
+              >
+                <Sparkles className="h-4 w-4" />
+                {isSyncing ? "Syncing Menu..." : "Sync Menu & Recipes"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
