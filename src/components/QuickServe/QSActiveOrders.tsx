@@ -242,28 +242,11 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
         .from("orders")
         .update({
           item_completion_status: newStatus,
-          ...(allDone ? { status: "served" } : {}),
+          ...(allDone ? { status: "served", kitchen_status: "served", bumped_at: new Date().toISOString() } : {}),
         })
         .eq("id", orderId);
 
       if (error) throw error;
-
-      // Keep the linked KDS ticket aligned with front-of-house item checks.
-      if (allDone) {
-        await supabase
-          .from("kitchen_orders")
-          .update({
-            item_completion_status: newStatus,
-            status: "served",
-            bumped_at: new Date().toISOString(),
-          })
-          .eq("order_id", orderId);
-      } else {
-        await supabase
-          .from("kitchen_orders")
-          .update({ item_completion_status: newStatus })
-          .eq("order_id", orderId);
-      }
 
       return { allDone, orderId };
     },
@@ -291,21 +274,13 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
     }) => {
       const { error } = await supabase
         .from("orders")
-        .update({ status: newStatus })
+        .update({
+          status: newStatus,
+          ...(newStatus === "completed" ? { kitchen_status: "completed", bumped_at: new Date().toISOString() } : {}),
+        })
         .eq("id", orderId);
 
       if (error) throw error;
-
-      // Also bump linked kitchen tickets out of the live KDS when completing.
-      if (newStatus === "completed") {
-        await supabase
-          .from("kitchen_orders")
-          .update({
-            status: "completed",
-            bumped_at: new Date().toISOString(),
-          })
-          .eq("order_id", orderId);
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });

@@ -322,9 +322,9 @@ serve(async (req: Request) => {
         if (supabaseUrl && supabaseServiceKey) {
           const supabase = createClient(supabaseUrl, supabaseServiceKey);
           
-          // Try to update kitchen_orders
+          // Try to update orders
           const { error: updateError } = await supabase
-            .from('kitchen_orders')
+            .from('orders')
             .update({ 
               email_sent: true,
               updated_at: new Date().toISOString()
@@ -332,7 +332,7 @@ serve(async (req: Request) => {
             .eq('id', orderId);
 
           if (updateError) {
-            console.warn("Could not update kitchen_orders:", updateError);
+            console.warn("Could not update orders:", updateError);
           } else {
             console.log("✅ Order record updated with email_sent flag");
           }

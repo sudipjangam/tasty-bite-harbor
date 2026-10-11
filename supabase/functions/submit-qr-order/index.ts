@@ -182,8 +182,15 @@ serve(async (req) => {
         customer_name: customerName,
         customer_phone: customerPhone,
         items: formattedItems, // Use formatted strings like POS orders
+        kitchen_items: orderItems.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          notes: item.modifiers || [], // Use modifiers as notes
+        })),
         total: calculatedTotal,  // Server-recalculated total — never trust client
         status: 'pending',
+        kitchen_status: 'new',
         source: 'qr',
         order_type: entityType === 'table' ? 'dine-in' : 'room_service',
         payment_status: 'pending', // Payment to be completed
@@ -192,6 +199,7 @@ serve(async (req) => {
         table_id: entityType === 'table' ? entityId : null,
         room_id: entityType === 'room' ? entityId : null,
         entity_name: entityName, // Table number or room number for display
+        server_name: 'QR Order',
       })
       .select()
       .single();
@@ -208,32 +216,6 @@ serve(async (req) => {
           status: 500,
         }
       );
-    }
-
-    // Create kitchen order entry
-    const { error: kitchenOrderError } = await supabaseClient
-      .from('kitchen_orders')
-      .insert({
-        order_id: order.id,
-        restaurant_id: restaurantId,
-        table_number: entityName, // Use entity name directly (e.g., D1, S2, Room 101)
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        server_name: 'QR Order', // Mark as QR order
-        items: orderItems.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          notes: item.modifiers || [], // Use modifiers as notes
-        })),
-        status: 'new',
-        source: 'qr', // Column is 'source' not 'order_source'
-        order_type: entityType === 'table' ? 'dine_in' : 'room_service',
-      });
-
-    if (kitchenOrderError) {
-      console.error('Error creating kitchen order:', kitchenOrderError);
-      // Don't fail the entire request, just log
     }
 
     // Update table/room status

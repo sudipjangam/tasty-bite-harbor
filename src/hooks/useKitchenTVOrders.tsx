@@ -22,7 +22,7 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
   }, [orders]);
 
   const transformOrderData = useCallback((order: any): KitchenOrder => {
-    const itemsArray = Array.isArray(order.items) ? order.items : [];
+    const itemsArray = Array.isArray(order.kitchen_items) ? order.kitchen_items : [];
     const itemCompletionStatus = Array.isArray(order.item_completion_status)
       ? order.item_completion_status
       : new Array(itemsArray.length).fill(false);
@@ -45,7 +45,7 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     return {
       id: order.id,
       source: order.source || "Order",
-      status: order.status,
+      status: order.kitchen_status,
       created_at: order.created_at,
       priority: order.priority || "normal",
       station: order.station,
@@ -125,7 +125,7 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
       const end = endOfDay(now).toISOString();
 
       const { data, error } = await supabase
-        .from("kitchen_orders")
+        .from("orders")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", start)
@@ -138,7 +138,7 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
         // Filter out bumped or completed orders locally
         const activeOrders = (data as any[]).filter(o => 
           !o.bumped_at && 
-          ["new", "preparing", "ready", "held"].includes(o.status?.toLowerCase() || "new")
+          ["new", "preparing", "ready", "held"].includes(o.kitchen_status?.toLowerCase() || "new")
         );
         
         const mapped = activeOrders.map(transformOrderData);
@@ -170,7 +170,7 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
         // Additional local filtering to handle potential RPC bugs (like null sources or missing statuses)
         const activeOrders = (data as any[]).filter(o => 
           !o.bumped_at && 
-          ["new", "preparing", "ready", "held"].includes(o.status?.toLowerCase() || "new")
+          ["new", "preparing", "ready", "held"].includes(o.kitchen_status?.toLowerCase() || "new")
         );
 
         const mapped = activeOrders.map(transformOrderData);
@@ -210,13 +210,13 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     let channel: any = null;
     if (useDirectQuery) {
       channel = supabase
-        .channel("tv_kitchen_orders_changes")
+        .channel("tv_orders_changes")
         .on(
           "postgres_changes",
           {
             event: "*",
             schema: "public",
-            table: "kitchen_orders",
+            table: "orders",
             filter: `restaurant_id=eq.${restaurantId}`,
           },
           () => {
@@ -242,39 +242,26 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
       const completedAt = newStatus === "ready" ? new Date().toISOString() : null;
 
       if (useDirectQuery) {
-        // Fetch order_id first
-        const { data: existingOrder } = await supabase
-          .from("kitchen_orders")
-          .select("order_id")
-          .eq("id", orderId)
-          .eq("restaurant_id", restaurantId)
-          .maybeSingle();
-
         // Direct table update
-        const updatePayload: any = { status: newStatus };
+        const updatePayload: any = { kitchen_status: newStatus };
         if (startedAt) updatePayload.started_at = startedAt;
         if (completedAt) updatePayload.completed_at = completedAt;
 
+        let orderStatus = "pending";
+        if (newStatus === "preparing") orderStatus = "preparing";
+        if (newStatus === "ready") orderStatus = "ready";
+        if (newStatus === "completed") orderStatus = "completed";
+
+        updatePayload.status = orderStatus;
+        updatePayload.updated_at = new Date().toISOString();
+
         const { error } = await supabase
-          .from("kitchen_orders")
+          .from("orders")
           .update(updatePayload)
           .eq("id", orderId)
           .eq("restaurant_id", restaurantId);
 
         if (error) throw error;
-
-        // Also sync status to orders table
-        if (existingOrder?.order_id) {
-          let orderStatus = "pending";
-          if (newStatus === "preparing") orderStatus = "preparing";
-          if (newStatus === "ready") orderStatus = "ready";
-          if (newStatus === "completed") orderStatus = "completed";
-
-          await supabase
-            .from("orders")
-            .update({ status: orderStatus, updated_at: new Date().toISOString() })
-            .eq("id", existingOrder.order_id);
-        }
       } else {
         const payload: any = {
           p_order_id: orderId,
@@ -321,7 +308,7 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
 
       if (useDirectQuery) {
         const { error } = await supabase
-          .from("kitchen_orders")
+          .from("orders")
           .update({ item_completion_status: newStatus })
           .eq("id", orderId)
           .eq("restaurant_id", restaurantId);
@@ -349,11 +336,11 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     if (!restaurantId) return;
     try {
       if (useDirectQuery) {
-        const payload: any = { items: newItems };
+        const payload: any = { kitchen_items: newItems };
         if (newCompletionStatus) payload.item_completion_status = newCompletionStatus;
         
         const { error } = await supabase
-          .from("kitchen_orders")
+          .from("orders")
           .update(payload)
           .eq("id", orderId)
           .eq("restaurant_id", restaurantId);
@@ -390,26 +377,17 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     if (!restaurantId) return;
     try {
       if (useDirectQuery) {
-        const { data: existingOrder } = await supabase
-          .from("kitchen_orders")
-          .select("order_id")
-          .eq("id", orderId)
-          .eq("restaurant_id", restaurantId)
-          .maybeSingle();
-
         const { error } = await supabase
-          .from("kitchen_orders")
-          .update({ status: "completed", bumped_at: new Date().toISOString() })
+          .from("orders")
+          .update({ 
+            kitchen_status: "completed", 
+            status: "completed",
+            bumped_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
           .eq("id", orderId)
           .eq("restaurant_id", restaurantId);
         if (error) throw error;
-
-        if (existingOrder?.order_id) {
-          await supabase
-            .from("orders")
-            .update({ status: "completed", updated_at: new Date().toISOString() })
-            .eq("id", existingOrder.order_id);
-        }
       } else {
         const { error } = await supabase.rpc("bump_kitchen_order_by_pin", {
           p_order_id: orderId,
@@ -432,26 +410,12 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
     if (!restaurantId) return;
     try {
       if (useDirectQuery) {
-        const { data: existingOrder } = await supabase
-          .from("kitchen_orders")
-          .select("order_id")
-          .eq("id", orderId)
-          .eq("restaurant_id", restaurantId)
-          .maybeSingle();
-
         const { error } = await supabase
-          .from("kitchen_orders")
-          .update({ priority: newPriority })
+          .from("orders")
+          .update({ priority: newPriority, updated_at: new Date().toISOString() })
           .eq("id", orderId)
           .eq("restaurant_id", restaurantId);
         if (error) throw error;
-
-        if (existingOrder?.order_id) {
-          await supabase
-            .from("orders")
-            .update({ priority: newPriority, updated_at: new Date().toISOString() })
-            .eq("id", existingOrder.order_id);
-        }
       } else {
         const { error } = await supabase.rpc("update_kitchen_order_priority_by_pin", {
           p_order_id: orderId,

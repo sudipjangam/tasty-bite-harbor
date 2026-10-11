@@ -49,9 +49,9 @@ export const useActiveKitchenOrders = (
       const { start, end } = getDateRange(dateFilter);
 
       let query = supabase
-        .from("kitchen_orders")
+        .from("orders")
         .select(
-          "id, source, items, status, priority, created_at, order_id, item_completion_status, order_type, table_number, customer_name, customer_phone",
+          "id, source, kitchen_items, kitchen_status, priority, created_at, order_id, item_completion_status, order_type, table_number, customer_name, customer_phone",
         )
         .eq("restaurant_id", restaurantId)
         .gte("created_at", start)
@@ -61,12 +61,12 @@ export const useActiveKitchenOrders = (
       // Apply status filter
       if (statusFilter === "unpaid") {
         // For unpaid, fetch ALL statuses — client-side filter later
-        query = query.in("status", ["new", "preparing", "ready", "held", "completed"]);
+        query = query.in("kitchen_status", ["new", "preparing", "ready", "held", "completed"]);
       } else if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+        query = query.eq("kitchen_status", statusFilter);
       } else {
         // Default: show active orders (not completed)
-        query = query.in("status", ["new", "preparing", "ready", "held"]);
+        query = query.in("kitchen_status", ["new", "preparing", "ready", "held"]);
       }
 
       const { data, error } = await query;
@@ -101,7 +101,7 @@ export const useActiveKitchenOrders = (
       const mappedOrders: ActiveKitchenOrder[] = (data || [])
         .map((order) => {
           const items =
-            (order.items as {
+            (order.kitchen_items as {
               name: string;
               quantity: number;
               price: number;
@@ -125,7 +125,7 @@ export const useActiveKitchenOrders = (
             orderId: order.order_id,
             source: displaySource,
             items,
-            status: order.status as ActiveKitchenOrder["status"],
+            status: order.kitchen_status as ActiveKitchenOrder["status"],
             priority: order.priority as ActiveKitchenOrder["priority"],
             createdAt: order.created_at,
             total,
@@ -172,7 +172,7 @@ export const useActiveKitchenOrders = (
         {
           event: "*",
           schema: "public",
-          table: "kitchen_orders",
+          table: "orders",
         },
         (payload: any) => {
           queryClient.invalidateQueries({
@@ -183,8 +183,8 @@ export const useActiveKitchenOrders = (
             payload.eventType === "UPDATE" &&
             payload.new &&
             payload.old &&
-            payload.new.status === "ready" &&
-            payload.old.status !== "ready"
+            payload.new.kitchen_status === "ready" &&
+            payload.old.kitchen_status !== "ready"
           ) {
             playReadyChime();
           }
@@ -202,7 +202,7 @@ export const useActiveKitchenOrders = (
     orderId: string,
   ): Promise<ActiveKitchenOrder | null> => {
     const { data, error } = await supabase
-      .from("kitchen_orders")
+      .from("orders")
       .select("*")
       .eq("id", orderId)
       .maybeSingle();
@@ -210,7 +210,7 @@ export const useActiveKitchenOrders = (
     if (error || !data) return null;
 
     const items =
-      (data.items as { name: string; quantity: number; price: number }[]) || [];
+      (data.kitchen_items as { name: string; quantity: number; price: number }[]) || [];
     const total = items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0,
@@ -221,7 +221,7 @@ export const useActiveKitchenOrders = (
       orderId: data.order_id,
       source: data.source || "Unknown",
       items,
-      status: data.status as ActiveKitchenOrder["status"],
+      status: data.kitchen_status as ActiveKitchenOrder["status"],
       priority: data.priority as ActiveKitchenOrder["priority"],
       createdAt: data.created_at,
       total,
@@ -249,7 +249,7 @@ export const useActiveKitchenOrders = (
 
     try {
       const { error } = await supabase
-        .from("kitchen_orders")
+        .from("orders")
         .update({ item_completion_status: newCompletionStatus })
         .eq("id", orderId);
 
@@ -274,13 +274,13 @@ export const useActiveKitchenOrders = (
     newCompletionStatus?: boolean[]
   ) => {
     try {
-      const payload: any = { items: newItems };
+      const payload: any = { kitchen_items: newItems };
       if (newCompletionStatus) {
         payload.item_completion_status = newCompletionStatus;
       }
 
       const { error } = await supabase
-        .from("kitchen_orders")
+        .from("orders")
         .update(payload)
         .eq("id", orderId);
 
@@ -307,25 +307,12 @@ export const useActiveKitchenOrders = (
     priority: "normal" | "rush" | "vip",
   ) => {
     try {
-      const { data: existingKitchen } = await supabase
-        .from("kitchen_orders")
-        .select("order_id")
-        .eq("id", orderId)
-        .maybeSingle();
-
       const { error } = await supabase
-        .from("kitchen_orders")
-        .update({ priority })
+        .from("orders")
+        .update({ priority, updated_at: new Date().toISOString() })
         .eq("id", orderId);
 
       if (error) throw error;
-
-      if (existingKitchen?.order_id) {
-        await supabase
-          .from("orders")
-          .update({ priority, updated_at: new Date().toISOString() })
-          .eq("id", existingKitchen.order_id);
-      }
 
       toast({
         title: "Priority Updated",
@@ -352,35 +339,25 @@ export const useActiveKitchenOrders = (
     status: ActiveKitchenOrder["status"],
   ) => {
     try {
-      const { data: existingKitchen } = await supabase
-        .from("kitchen_orders")
-        .select("order_id")
-        .eq("id", orderId)
-        .maybeSingle();
-
-      const updateData: any = { status };
+      const updateData: any = { kitchen_status: status };
       if (status === "completed") {
         updateData.bumped_at = new Date().toISOString();
       }
 
+      let orderStatus = "pending";
+      if (status === "preparing") orderStatus = "preparing";
+      if (status === "ready") orderStatus = "ready";
+      if (status === "completed") orderStatus = "completed";
+
+      updateData.status = orderStatus;
+      updateData.updated_at = new Date().toISOString();
+
       const { error } = await supabase
-        .from("kitchen_orders")
+        .from("orders")
         .update(updateData)
         .eq("id", orderId);
 
       if (error) throw error;
-
-      if (existingKitchen?.order_id) {
-        let orderStatus = "pending";
-        if (status === "preparing") orderStatus = "preparing";
-        if (status === "ready") orderStatus = "ready";
-        if (status === "completed") orderStatus = "completed";
-
-        await supabase
-          .from("orders")
-          .update({ status: orderStatus, updated_at: new Date().toISOString() })
-          .eq("id", existingKitchen.order_id);
-      }
 
       toast({
         title: "Status Updated",

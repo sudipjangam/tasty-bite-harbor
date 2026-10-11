@@ -87,13 +87,8 @@ async function generateDailyReport(
     .gte("created_at", dayStart)
     .lte("created_at", dayEnd);
 
-  // 2. Fetch kitchen_orders (for KDS/QuickServe flows)
-  const { data: kitchenOrders } = await supabase
-    .from("kitchen_orders")
-    .select("*")
-    .eq("restaurant_id", restaurantId)
-    .gte("created_at", dayStart)
-    .lte("created_at", dayEnd);
+  // Determine orders list: prefer main orders
+  const rawOrders = mainOrders || [];
 
   // 3. Fetch pos_transactions
   const { data: transactions } = await supabase
@@ -112,11 +107,6 @@ async function generateDailyReport(
     .eq("restaurant_id", restaurantId)
     .gte("expense_date", reportDate)
     .lte("expense_date", reportDate);
-
-  // Determine orders list: prefer main orders, fallback to kitchen_orders
-  const rawOrders = (mainOrders && mainOrders.length > 0)
-    ? mainOrders
-    : (kitchenOrders || []);
 
   const completedTxns = (transactions || []).filter(
     (t: any) => t.status === "completed"

@@ -109,7 +109,10 @@ export const FranchiseLayout: React.FC = () => {
   const location = useLocation();
   const { org, demoMode, setDemoMode, isLoading, pendingApprovalsCount } = useFranchise();
   const { user, isRole } = useAuth();
-  const isAdminOrOwner = isRole("admin");
+  const isAdmin =
+    isRole("admin") ||
+    user?.role?.toLowerCase() === "admin" ||
+    user?.role_name_text?.toLowerCase() === "admin";
   const { toast } = useToast();
   const [collapsed, setCollapsed] = useState(false);
   const { canAccessFranchisePortal, isSingleRestaurant, isLoading: accessLoading } = useFranchiseAccess();
@@ -118,7 +121,7 @@ export const FranchiseLayout: React.FC = () => {
     if (!accessLoading && !demoMode && (!canAccessFranchisePortal || isSingleRestaurant)) {
       toast({
         title: "Access Restricted",
-        description: "Franchise Portal is only available for multi-branch franchise organizations.",
+        description: "Franchise Portal is only available for multi-branch franchise organizations with portal access enabled.",
         variant: "destructive",
       });
       navigate("/", { replace: true });
@@ -133,7 +136,7 @@ export const FranchiseLayout: React.FC = () => {
     );
   }
 
-  if (!demoMode && (!canAccessFranchisePortal || isSingleRestaurant)) {
+  if (!demoMode && !isAdmin && (!canAccessFranchisePortal || isSingleRestaurant)) {
     return null;
   }
 
@@ -208,7 +211,7 @@ export const FranchiseLayout: React.FC = () => {
           )}
 
           {/* Demo Mode Switch (Desktop Sidebar) — admin/owner only */}
-          {!collapsed && isAdminOrOwner && (
+          {!collapsed && isAdmin && (
             <div className="px-4 py-3 border-t border-white/10 bg-slate-950/20">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex flex-col min-w-0">

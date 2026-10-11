@@ -122,7 +122,7 @@ interface FranchiseBranch {
 interface FranchisePlan {
   id: string;
   name: string;
-  tier: "starter" | "growth" | "professional" | "enterprise";
+  tier: "starter" | "growth" | "pro" | "professional" | "enterprise";
   priceMonthly: number;
   priceYearly: number;
   maxBranches: number;
@@ -382,9 +382,34 @@ const fmt = (n: number) =>
 
 type Tab = "franchises" | "onboarding" | "branches" | "staff" | "plans";
 
+const normalizePlanTier = (val?: string | null): "starter" | "growth" | "pro" | "enterprise" | "free" | null => {
+  if (!val || val === "—") return null;
+  const v = val.toLowerCase().trim();
+  if (v === "free") return "free";
+  if (v.includes("enterprise")) return "enterprise";
+  if (v.includes("pro") || v.includes("professional")) return "pro";
+  if (v.includes("growth")) return "growth";
+  if (v.includes("starter")) return "starter";
+  return null;
+};
+
+const normalizeSubStatus = (val?: string | null): "active" | "trial" | "pending" | "inactive" | "suspended" | "expired" | null => {
+  if (!val || val === "—") return null;
+  const v = val.toLowerCase().trim();
+  if (v === "trial") return "trial";
+  if (v === "pending") return "pending";
+  if (v === "inactive") return "inactive";
+  if (v === "suspended") return "suspended";
+  if (v === "expired") return "expired";
+  if (v === "active") return "active";
+  return null;
+};
+
 const TIER_COLORS: Record<string, string> = {
+  free: "from-slate-400 to-gray-500",
   starter: "from-gray-500 to-slate-600",
   growth: "from-blue-500 to-indigo-600",
+  pro: "from-purple-500 to-violet-600",
   professional: "from-purple-500 to-violet-600",
   enterprise: "from-amber-500 to-orange-600",
 };
@@ -396,6 +421,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }>
   trial: { label: "Trial", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400", icon: Zap },
   setup: { label: "Setting Up", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400", icon: Settings },
   inactive: { label: "Inactive", color: "bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-400", icon: XCircle },
+  expired: { label: "Expired", color: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400", icon: XCircle },
   invited: { label: "Invited", color: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400", icon: Mail },
   disabled: { label: "Disabled", color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400", icon: XCircle },
 };
@@ -483,6 +509,8 @@ const FranchiseAdmin = () => {
   const [detailDialog, setDetailDialog] = useState(false);
   const [editDialog, setEditDialog] = useState(false);
   const [editData, setEditData] = useState<FranchiseOrgRow | null>(null);
+  const [planChanged, setPlanChanged] = useState(false);
+  const [statusChanged, setStatusChanged] = useState(false);
   const [selectedPortalBranches, setSelectedPortalBranches] = useState<string[]>([]);
 
   // Delete franchise state
@@ -1288,6 +1316,8 @@ const FranchiseAdmin = () => {
                           className="h-8 gap-1.5 text-xs"
                           onClick={async () => {
                             setEditData({ ...f });
+                            setPlanChanged(false);
+                            setStatusChanged(false);
                             
                             // Fetch which branches have franchise portal enabled
                             try {
@@ -2790,39 +2820,48 @@ const FranchiseAdmin = () => {
                     <div>
                       <Label className="text-[11px] font-bold text-slate-500 uppercase">Status</Label>
                       <Select
-                        value={editData.sub_status || "active"}
-                        onValueChange={(val) => setEditData((d) => d ? { ...d, sub_status: val } : d)}
+                        value={normalizeSubStatus(editData.sub_status) || "none"}
+                        onValueChange={(val) => {
+                          setEditData((d) => d ? { ...d, sub_status: val === "none" ? undefined : val } : d);
+                          setStatusChanged(true);
+                        }}
                       >
                         <SelectTrigger className="mt-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/60 rounded-xl">
-                          <SelectValue />
+                          <SelectValue placeholder="No Status" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="none">No Status / None</SelectItem>
                           <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
                           <SelectItem value="trial">Trial</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
                           <SelectItem value="suspended">Suspended</SelectItem>
+                          <SelectItem value="expired">Expired</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label className="text-[11px] font-bold text-slate-500 uppercase">Subscription Plan</Label>
                       <Select
-                        value={editData.plan_type || "starter"}
+                        value={normalizePlanTier(editData.plan_type) || "none"}
                         onValueChange={(val) => {
-                          const matched = MOCK_FRANCHISE_PLANS.find(p => p.tier === val);
+                          const matched = MOCK_FRANCHISE_PLANS.find(p => normalizePlanTier(p.tier) === val);
                           setEditData((d) => d ? {
                             ...d,
-                            plan_type: val,
+                            plan_type: val === "none" ? undefined : val,
                             max_branches: matched ? matched.maxBranches : d.max_branches
                           } : d);
+                          setPlanChanged(true);
                         }}
                       >
                         <SelectTrigger className="mt-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/60 rounded-xl">
-                          <SelectValue />
+                          <SelectValue placeholder="No Plan" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="none">No Plan</SelectItem>
+                          <SelectItem value="free">Free</SelectItem>
                           {MOCK_FRANCHISE_PLANS.map((p) => (
-                            <SelectItem key={p.id} value={p.tier}>{p.name}</SelectItem>
+                            <SelectItem key={p.id} value={normalizePlanTier(p.tier) || p.tier}>{p.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -2896,23 +2935,53 @@ const FranchiseAdmin = () => {
                   className="bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl px-6 gap-2 hover:opacity-95 shadow-md shadow-violet-500/10"
                   onClick={async () => {
                     if (editData) {
-                      // 1. Update organization details
+                      // 1. Resolve owner profile ID if available
+                      let resolvedOwnerId = editData.owner_user_id;
+                      if (!resolvedOwnerId && editData.owner_email) {
+                        const { data: matchedProf } = await supabase
+                          .from("profiles")
+                          .select("id")
+                          .eq("email", editData.owner_email.trim().toLowerCase())
+                          .maybeSingle();
+                        if (matchedProf?.id) {
+                          resolvedOwnerId = matchedProf.id;
+                        }
+                      }
+
+                      // Update organization details (preserve existing type, do not implicitly convert to franchise)
+                      const orgUpdates: any = {
+                        name: editData.name,
+                        settings: editData.settings,
+                        type: editData.type || "single"
+                      };
+                      if (resolvedOwnerId) {
+                        orgUpdates.owner_user_id = resolvedOwnerId;
+                      }
+
                       const { error: orgErr } = await supabase
                         .from("organizations")
-                        .update({
-                          name: editData.name,
-                          settings: editData.settings
-                        })
+                        .update(orgUpdates)
                         .eq("id", editData.id);
                       if (orgErr) {
                         toast.error("Failed to update organization");
                         return;
                       }
 
-                      // 2. Check and upsert organization subscription details
+                      // Ensure owner membership in organization_members
+                      if (resolvedOwnerId) {
+                        await supabase
+                          .from("organization_members")
+                          .upsert({
+                            organization_id: editData.id,
+                            user_id: resolvedOwnerId,
+                            role: "owner"
+                          }, { onConflict: "organization_id,user_id" });
+                      }
+
+                      // 2. Check organization subscription details
                       const { data: existingSub, error: checkErr } = await supabase
                         .from("organization_subscriptions")
-                        .select("id")
+                        .select("id, plan_type, status, max_branches")
                         .eq("organization_id", editData.id)
                         .maybeSingle();
 
@@ -2921,34 +2990,57 @@ const FranchiseAdmin = () => {
                         return;
                       }
 
-                      let subErr;
-                      if (existingSub) {
-                        const { error } = await supabase
-                          .from("organization_subscriptions")
-                          .update({
-                            plan_type: editData.plan_type,
-                            max_branches: editData.max_branches,
-                            status: editData.sub_status,
-                            updated_at: new Date().toISOString()
-                          })
-                          .eq("organization_id", editData.id);
-                        subErr = error;
-                      } else {
-                        const { error } = await supabase
-                          .from("organization_subscriptions")
-                          .insert({
-                            organization_id: editData.id,
-                            plan_type: editData.plan_type,
-                            max_branches: editData.max_branches,
-                            status: editData.sub_status || "active",
-                            created_at: new Date().toISOString(),
-                            updated_at: new Date().toISOString()
-                          });
-                        subErr = error;
+                      let subErr: any = null;
+                      const hasSub = !!existingSub;
+
+                      // Only create or alter subscription when plan or status was explicitly changed by admin,
+                      // preserving stored free plans and absent subscriptions on unrelated edits.
+                      if (planChanged || statusChanged) {
+                        const cleanPlanType = normalizePlanTier(editData.plan_type);
+                        const cleanStatus = normalizeSubStatus(editData.sub_status) || "active";
+
+                        if (hasSub) {
+                          const updates: any = { updated_at: new Date().toISOString() };
+                          if (planChanged && cleanPlanType) updates.plan_type = cleanPlanType;
+                          if (statusChanged && cleanStatus) updates.status = cleanStatus;
+                          if (editData.max_branches !== undefined) updates.max_branches = editData.max_branches;
+
+                          const { error } = await supabase
+                            .from("organization_subscriptions")
+                            .update(updates)
+                            .eq("organization_id", editData.id);
+                          subErr = error;
+                        } else if (cleanPlanType) {
+                          // Only create new subscription record if admin explicitly selected a plan
+                          const { error } = await supabase
+                            .from("organization_subscriptions")
+                            .insert({
+                              organization_id: editData.id,
+                              plan_type: cleanPlanType,
+                              max_branches: editData.max_branches || 1,
+                              status: cleanStatus,
+                              created_at: new Date().toISOString(),
+                              updated_at: new Date().toISOString()
+                            });
+                          subErr = error;
+                        }
+                      } else if (hasSub) {
+                        // Plan and status unchanged: preserve existing subscription.
+                        // Only sync max_branches if explicitly changed.
+                        if (editData.max_branches !== undefined && editData.max_branches !== existingSub.max_branches) {
+                          const { error } = await supabase
+                            .from("organization_subscriptions")
+                            .update({
+                              max_branches: editData.max_branches,
+                              updated_at: new Date().toISOString()
+                            })
+                            .eq("organization_id", editData.id);
+                          subErr = error;
+                        }
                       }
 
                       // 3. Update owner's profile info in profiles table
-                      if (editData.owner_user_id) {
+                      if (resolvedOwnerId) {
                         const nameParts = (editData.owner_name || "").trim().split(/\s+/);
                         const firstName = nameParts[0] || "";
                         const lastName = nameParts.slice(1).join(" ");
@@ -2961,7 +3053,7 @@ const FranchiseAdmin = () => {
                             email: editData.owner_email,
                             phone: editData.owner_phone,
                           })
-                          .eq("id", editData.owner_user_id);
+                          .eq("id", resolvedOwnerId);
                         
                         if (profileErr) {
                           console.warn("Failed to update owner profile details:", profileErr.message);

@@ -139,14 +139,6 @@ serve(async (req) => {
             updated_at: new Date().toISOString(),
           })
           .eq('id', transaction.order_id);
-
-        await supabaseClient
-          .from('kitchen_orders')
-          .update({
-            payment_status: 'completed',
-            payment_method: 'upi',
-          })
-          .eq('order_id', transaction.order_id);
       }
     }
 

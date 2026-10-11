@@ -256,7 +256,7 @@ export function useAggregatorHub() {
       if (orderId) {
         const posStatus = action === "accept" ? "preparing" : action === "food_ready" ? "ready" : "cancelled";
         await supabase.from("orders").update({ status: posStatus }).eq("id", orderId);
-        await supabase.from("kitchen_orders").update({ status: posStatus }).eq("order_id", orderId);
+        await supabase.from("orders").update({ kitchen_status: posStatus }).eq("id", orderId);
       }
     },
     onSuccess: (_, vars) => {
@@ -332,29 +332,20 @@ export function useAggregatorHub() {
             order_type: "delivery",
             source: provider,
             status: "pending",
+            kitchen_status: "pending",
+            priority: "high",
             payment_status: "paid",
             payment_method: `${provider}_online`,
             total,
             notes: `[TEST SIMULATED ${provider.toUpperCase()}]`,
             items,
+            kitchen_items: items,
           },
         ])
         .select("id")
         .single();
 
       if (posError) throw posError;
-
-      // Insert KOT
-      await supabase.from("kitchen_orders").insert([
-        {
-          restaurant_id: restaurantId,
-          order_id: posOrder.id,
-          source: provider.toUpperCase(),
-          status: "pending",
-          priority: "high",
-          items,
-        },
-      ]);
 
       // Insert aggregator order
       const commission = (total * 18) / 100;

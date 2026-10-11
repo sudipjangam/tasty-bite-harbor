@@ -246,7 +246,7 @@ const CustomReportBuilder: React.FC = () => {
         promotionsRes,
       ] = await Promise.all([
         supabase.from("customers").select("*").eq("restaurant_id", restaurantId),
-        supabase.from("kitchen_orders").select("*").eq("restaurant_id", restaurantId),
+        Promise.resolve({ data: [] as any[] }),
         supabase.from("rooms").select("*").eq("restaurant_id", restaurantId),
         supabase.from("menu_items").select("*").eq("restaurant_id", restaurantId),
         supabase.from("recipes").select("*").eq("restaurant_id", restaurantId),
@@ -482,9 +482,9 @@ const CustomReportBuilder: React.FC = () => {
           order_number: o.order_number || "-",
           source: o.source || "POS",
           
-          kitchen_status: ko?.status || "delivered",
-          kitchen_station: ko?.station || "main_kitchen",
-          kitchen_priority: ko?.priority || "medium",
+          kitchen_status: (o as any).kitchen_status || ko?.status || "delivered",
+          kitchen_station: (o as any).station || ko?.station || "main_kitchen",
+          kitchen_priority: (o as any).priority || ko?.priority || "medium",
 
           customer_email: c?.email || "-",
           customer_visit_count: c?.visit_count || 1,

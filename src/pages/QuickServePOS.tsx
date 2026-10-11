@@ -485,11 +485,22 @@ const QuickServePOS: React.FC = () => {
           return false;
         });
 
+        const allKitchenItems = orderItems.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          menuItemId: item.menuItemId,
+          notes: item.notes ? [item.notes] : [],
+          priority: item.priority || "normal",
+        }));
+
         // 1. Replace the entire order items, total, and payment_status
         const { error: updateErr } = await supabase
           .from("orders")
           .update({
             items: allFormattedItems,
+            kitchen_items: allKitchenItems,
+            kitchen_status: "preparing",
             total: fullTotal,
             status: "preparing",
             item_completion_status: preciseCompletionStatus,
@@ -499,7 +510,7 @@ const QuickServePOS: React.FC = () => {
 
         if (updateErr) throw updateErr;
 
-        // 2. Determine which items are NEW (not in original order) for kitchen
+        // 2. Determine which items are NEW (not in original order) for inventory deduction
         // Build a map of original items: name -> total quantity
         const originalMap = new Map<string, number>();
         editingOrderItems.forEach((item) => {
@@ -519,82 +530,30 @@ const QuickServePOS: React.FC = () => {
           }
         });
 
-        const newKitchenItems: { 
-          name: string; 
-          quantity: number; 
-          price: number; 
-          menuItemId?: string; 
-          notes: string[];
-          priority?: string;
-          is_addition?: boolean;
-          parent_order_number?: string | number;
-        }[] = [];
+        let newItemCount = 0;
         currentMap.forEach((current, key) => {
           const origQty = originalMap.get(key) || 0;
           const netNew = current.quantity - origQty;
           if (netNew > 0) {
-            const cartItem = orderItems.find(
-              (item) => `${item.name}@@${item.price}@@${item.notes || ""}` === key
-            );
-            newKitchenItems.push({
-              name: current.name,
-              quantity: netNew,
-              price: current.price,
-              menuItemId: current.menuItemId,
-              notes: current.notes ? [current.notes] : [],
-              priority: cartItem?.priority || "normal",
-              is_addition: true,
-              parent_order_number: orderNumber,
-            });
+            newItemCount += netNew;
           }
         });
 
-        // 3. Only create kitchen order if there are actually NEW items
-        if (newKitchenItems.length > 0) {
-          const { data: kitchenOrder, error: kitchenError } = await supabase
-            .from("kitchen_orders")
-            .insert({
-              restaurant_id: restaurantId,
-              source: "QuickServe",
-              status: "preparing",
-              items: newKitchenItems,
-              order_type: "takeaway",
-              customer_name: finalCustomerName,
-              server_name: attendantName,
-              priority: "normal",
-            })
-            .select()
-            .single();
-
-          if (kitchenError) throw kitchenError;
-
-          // Link kitchen order & deduct inventory (background)
-          if (kitchenOrder?.id) {
-            (async () => {
-              try {
-                await supabase
-                  .from("kitchen_orders")
-                  .update({ order_id: editingOrderId })
-                  .eq("id", kitchenOrder.id);
-              } catch (err) {
-                console.error("Link kitchen→order error:", err);
-              }
-            })();
-            (async () => {
-              try {
-                const { data: { session } } = await supabase.auth.getSession();
-                await supabase.functions.invoke("deduct-inventory-on-prep", {
-                  body: { order_id: kitchenOrder.id },
-                  headers: { Authorization: `Bearer ${session?.access_token}` },
-                });
-              } catch (err) {
-                console.error("Inventory deduction failed:", err);
-              }
-            })();
-          }
+        // 3. Deduct inventory if there are new items
+        if (newItemCount > 0) {
+          (async () => {
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              await supabase.functions.invoke("deduct-inventory-on-prep", {
+                body: { order_id: editingOrderId },
+                headers: { Authorization: `Bearer ${session?.access_token}` },
+              });
+            } catch (err) {
+              console.error("Inventory deduction failed:", err);
+            }
+          })();
         }
 
-        const newItemCount = newKitchenItems.reduce((s, i) => s + i.quantity, 0);
         toast({
           title: `Token #${String(orderNumber).padStart(3, "0")} — Order Updated`,
           description: newItemCount > 0
@@ -626,26 +585,6 @@ const QuickServePOS: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ["food-truck-today-stats"] });
         return; // skip new order creation
       }
-      // ────────────────────────────────────────────────────────────────
-
-      // 1. Create kitchen order (food truck: starts preparing immediately, no KDS step)
-      const { data: kitchenOrder, error: kitchenError } = await supabase
-        .from("kitchen_orders")
-        .insert({
-          restaurant_id: restaurantId,
-          source: "QuickServe",
-          status: "preparing",
-          items: kitchenItems,
-          order_type: "takeaway",
-          customer_name: finalCustomerName,
-          server_name: attendantName,
-          priority: "normal",
-        })
-        .select()
-        .single();
-
-      if (kitchenError) throw kitchenError;
-
       const totalDiscountAmount =
         discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
 
@@ -676,7 +615,7 @@ const QuickServePOS: React.FC = () => {
           ? Math.round((totalDiscountAmount / itemsSubtotal) * 100)
           : 0;
 
-      // 2. Create order with payment_status: "pending"
+      // 1. Create order with payment_status: "pending" and kitchen fields
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -699,27 +638,26 @@ const QuickServePOS: React.FC = () => {
           }),
           ...(discountNotes && { discount_notes: discountNotes }),
           ...(customerPhone && { customer_phone: customerPhone }),
+          // Kitchen specifics
+          kitchen_status: "preparing",
+          kitchen_items: kitchenItems,
+          server_name: attendantName,
+          priority: "normal",
         })
         .select()
         .single();
 
       if (orderError) throw orderError;
 
-      // Link kitchen order → order & deduct inventory on send (food truck has no KDS)
-      if (order?.id && kitchenOrder?.id) {
-        const { error: linkError } = await supabase
-          .from("kitchen_orders")
-          .update({ order_id: order.id })
-          .eq("id", kitchenOrder.id);
-        if (linkError) console.error("Link kitchen→order error:", linkError);
-
+      // Inventory deduction on send (food truck has no KDS)
+      if (order?.id) {
         (async () => {
           try {
             const {
               data: { session },
             } = await supabase.auth.getSession();
             await supabase.functions.invoke("deduct-inventory-on-prep", {
-              body: { order_id: kitchenOrder.id },
+              body: { order_id: order.id }, // Deduct using unified order ID
               headers: { Authorization: `Bearer ${session?.access_token}` },
             });
           } catch (err) {
@@ -736,7 +674,7 @@ const QuickServePOS: React.FC = () => {
               customerName: finalCustomerName,
               customerPhone: customerPhone || undefined,
               orderTotal,
-              orderId: kitchenOrder?.id || undefined,
+              orderId: order?.id || undefined,
               source: "quickserve",
             });
           } catch (err) {

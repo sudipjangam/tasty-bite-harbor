@@ -386,7 +386,7 @@ export const QSRPosMain: React.FC = () => {
         // Load existing order for this table
         try {
           const { data: kitchenOrder, error } = await supabase
-            .from("kitchen_orders")
+            .from("orders")
             .select("*")
             .eq("id", table.activeOrderId)
             .maybeSingle();
@@ -395,7 +395,7 @@ export const QSRPosMain: React.FC = () => {
 
           if (kitchenOrder) {
             const items =
-              (kitchenOrder.items as {
+              (kitchenOrder.kitchen_items as {
                 name: string;
                 quantity: number;
                 price: number;
@@ -617,7 +617,7 @@ export const QSRPosMain: React.FC = () => {
       // Update database
       try {
         const { error } = await supabase
-          .from("kitchen_orders")
+          .from("orders")
           .update({ item_completion_status: newCompletionStatus })
           .eq("id", kitchenOrderId);
 
@@ -674,15 +674,15 @@ export const QSRPosMain: React.FC = () => {
       let existingOrderId: string | null = null;
 
       if (recalledKitchenOrderId) {
-        // Fetch existing kitchen order to get previous items and round
-        const { data: existingKitchenOrder, error: fetchError } = await supabase
-          .from("kitchen_orders")
-          .select("id, items, order_id, round_number")
+        // Fetch existing order to get previous items and round
+        const { data: existingOrder, error: fetchError } = await supabase
+          .from("orders")
+          .select("id, kitchen_items, round_number")
           .eq("id", recalledKitchenOrderId)
           .maybeSingle();
           
         if (fetchError) throw fetchError;
-        if (!existingKitchenOrder) {
+        if (!existingOrder) {
           toast({
             variant: "destructive",
             title: "Order not found",
@@ -691,11 +691,11 @@ export const QSRPosMain: React.FC = () => {
           return;
         }
 
-        currentRound = (existingKitchenOrder.round_number || 1) + 1;
-        existingOrderId = existingKitchenOrder.order_id;
+        currentRound = (existingOrder.round_number || 1) + 1;
+        existingOrderId = existingOrder.id;
         
         // Ensure items is an array
-        const existingItems = Array.isArray(existingKitchenOrder.items) ? existingKitchenOrder.items : [];
+        const existingItems = Array.isArray(existingOrder.kitchen_items) ? existingOrder.kitchen_items : [];
         
         finalKitchenItems = orderItems.map((item) => {
           // Find existing item by name and price
@@ -724,39 +724,25 @@ export const QSRPosMain: React.FC = () => {
           };
         });
 
-        // Update existing kitchen order
+        // Update existing order with both kitchen and billing data
         const { error: updateError } = await supabase
-          .from("kitchen_orders")
+          .from("orders")
           .update({
-            items: finalKitchenItems,
-            status: "new",
-            source: `QSR-${orderSource}`,
+            kitchen_items: finalKitchenItems,
+            kitchen_status: "new",
+            source: `QSR-${orderSource}`, // Keep the specific source format
             round_number: currentRound,
-            // Note: NOT resetting created_at - preserves original order timing
             started_at: null, // Reset preparation status
             completed_at: null,
             bumped_at: null,
+            items: orderItems.map((item) =>
+              formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+            ),
+            total: total
           })
           .eq("id", recalledKitchenOrderId);
 
         if (updateError) throw updateError;
-
-        // Update linked order total
-        if (existingOrderId) {
-          const { error: orderUpdateError } = await supabase
-            .from("orders")
-            .update({
-              items: orderItems.map((item) =>
-                formatOrderItemString(item.quantity, item.name, item.price, item.notes)
-              ),
-              total: total
-            })
-            .eq("id", existingOrderId);
-            
-          if (orderUpdateError) {
-            console.error("Failed to update linked order:", orderUpdateError);
-          }
-        }
       } else {
         // Build order type for KDS
         const orderTypeMap: Record<QSROrderMode, string> = {
@@ -787,28 +773,7 @@ export const QSRPosMain: React.FC = () => {
           };
         });
 
-        // Create new kitchen order
-        const { data: kitchenOrder, error: kitchenError } = await supabase
-          .from("kitchen_orders")
-          .insert({
-            restaurant_id: restaurantId,
-            source: `QSR-${orderSource}`,
-            status: "new",
-            items: finalKitchenItems,
-            order_type: orderTypeMap[orderMode],
-            customer_name: finalCustomerName, // Use actual customer name
-            customer_phone: customerPhone || null, // Add phone
-            server_name: attendantName,
-            priority: "normal",
-            round_number: 1,
-          })
-          .select()
-          .single();
-
-
-        if (kitchenError) throw kitchenError;
-
-        // Create corresponding order record
+        // Create unified order record
         const { data: createdOrder, error: orderError } = await supabase
           .from("orders")
           .insert({
@@ -820,13 +785,19 @@ export const QSRPosMain: React.FC = () => {
             ),
             total: total,
             status: "pending",
-            source: "pos",
+            source: `QSR-${orderSource}`, // Unified specific source
             order_type:
               orderMode === "nc"
                 ? "non-chargeable"
                 : orderMode.replace("_", "-"),
             nc_reason: orderMode === "nc" ? ncReason : null, // Store NC reason
             attendant: attendantName,
+            // Kitchen fields
+            kitchen_status: "new",
+            kitchen_items: finalKitchenItems,
+            server_name: attendantName,
+            priority: "normal",
+            round_number: 1,
           })
           .select()
           .single();
@@ -835,16 +806,10 @@ export const QSRPosMain: React.FC = () => {
 
         existingOrderId = createdOrder?.id;
 
-        // Link kitchen order to order record
-        if (createdOrder?.id && kitchenOrder?.id) {
-          await supabase
-            .from("kitchen_orders")
-            .update({ order_id: createdOrder.id })
-            .eq("id", kitchenOrder.id);
-
+        if (createdOrder?.id) {
           // Store for post-pay flow
           setPendingOrderId(createdOrder.id);
-          setPendingKitchenOrderId(kitchenOrder.id);
+          setPendingKitchenOrderId(createdOrder.id);
           setPaymentOrderItems([...orderItems]); // Copy for payment dialog
         }
       }
@@ -957,19 +922,23 @@ export const QSRPosMain: React.FC = () => {
       );
 
       if (recalledKitchenOrderId) {
-        // Update existing kitchen order
+        // Update existing unified order
         await supabase
-          .from("kitchen_orders")
+          .from("orders")
           .update({
-            items: kitchenItems,
+            kitchen_items: kitchenItems,
+            kitchen_status: "held",
             status: "held",
             source: `QSR-${orderSource}`,
+            items: orderItems.map((item) =>
+              formatOrderItemString(item.quantity, item.name, item.price, item.notes)
+            ),
+            total: total
           })
           .eq("id", recalledKitchenOrderId);
       } else {
-        // Create new held order with linked orders record for proper tracking
-        // First create the orders record
-        const { data: createdOrder, error: orderError } = await supabase
+        // Create new unified order
+        const { error: orderError } = await supabase
           .from("orders")
           .insert({
             restaurant_id: restaurantId,
@@ -979,33 +948,19 @@ export const QSRPosMain: React.FC = () => {
             ),
             total: total,
             status: "held",
-            source: "pos",
+            source: `QSR-${orderSource}`, // Unified specific source
             order_type:
               orderMode === "nc"
                 ? "non-chargeable"
                 : orderMode.replace("_", "-"),
             nc_reason: orderMode === "nc" ? ncReason : null, // Store NC reason
             attendant: attendantName,
-          })
-          .select()
-          .single();
-
-        if (orderError) throw orderError;
-
-        // Create kitchen order linked to the orders record
-        const { error: kitchenError } = await supabase
-          .from("kitchen_orders")
-          .insert({
-            restaurant_id: restaurantId,
-            source: `QSR-${orderSource}`,
-            status: "held",
-            items: kitchenItems,
+            kitchen_status: "held",
+            kitchen_items: kitchenItems,
             server_name: attendantName,
-            order_id: createdOrder?.id, // Link to orders record
-            order_type: orderMode, // Save order type for recall
           });
 
-        if (kitchenError) throw kitchenError;
+        if (orderError) throw orderError;
       }
 
       toast({
@@ -1192,7 +1147,7 @@ export const QSRPosMain: React.FC = () => {
         if (!currentTable && currentMode === "dine_in" && effectiveKitchenOrderId) {
           try {
             const { data: ko } = await supabase
-              .from("kitchen_orders")
+              .from("orders")
               .select("source")
               .eq("id", effectiveKitchenOrderId)
               .maybeSingle();
@@ -1204,7 +1159,7 @@ export const QSRPosMain: React.FC = () => {
               if (matched) currentTable = matched;
             }
           } catch (e) {
-            console.warn("[QSR] Could not resolve table from kitchen order source:", e);
+            console.warn("[QSR] Could not resolve table from order source:", e);
           }
         }
 
@@ -1243,27 +1198,6 @@ export const QSRPosMain: React.FC = () => {
             notes: item.notes ? [item.notes] : [],
           }));
 
-          // Update kitchen order with latest items and mark completed
-          const { data: updatedKitchenOrder, error: kitchenUpdateError } = await supabase
-            .from("kitchen_orders")
-            .update({
-              items: kitchenItems,
-              bumped_at: new Date().toISOString(),
-              status: "completed",
-              ...(finalCustomerName && { customer_name: finalCustomerName }),
-              ...(finalCustomerPhone && { customer_phone: finalCustomerPhone }),
-            })
-            .eq("id", effectiveKitchenOrderId)
-            .select("order_id")
-            .maybeSingle();
-
-          if (kitchenUpdateError) {
-            console.error("Error updating kitchen order to completed:", kitchenUpdateError);
-          }
-
-          // Determine the linked order ID
-          const linkedOrderId = pendingOrderId || updatedKitchenOrder?.order_id;
-
           // Prepare formatted items for orders table
           const orderItemsFormatted = activeItems.map(
             (item) => formatOrderItemString(
@@ -1274,51 +1208,27 @@ export const QSRPosMain: React.FC = () => {
             )
           );
 
-          if (linkedOrderId) {
-            // Update existing orders record with latest items, total, and status
-            await supabase
-              .from("orders")
-              .update({
-                status: isNC ? "nc" : "completed",
-                items: orderItemsFormatted,
-                total: isNC ? 0 : orderTotal,
-                payment_status: finalPaymentStatus,
-                payment_method: finalMethod,
-                customer_name: finalCustomerName,
-                customer_phone: finalCustomerPhone,
-                ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", linkedOrderId);
-          } else if (restaurantId) {
-            // No linked order exists yet — create one and link it
-            const { data: createdOrder } = await supabase
-              .from("orders")
-              .insert({
-                restaurant_id: restaurantId,
-                customer_name: finalCustomerName,
-                customer_phone: finalCustomerPhone,
-                items: orderItemsFormatted,
-                status: isNC ? "nc" : "completed",
-                total: isNC ? 0 : orderTotal,
-                order_type: isNC ? "non-chargeable" : currentMode.replace("_", "-"),
-                nc_reason: isNC ? ncReason || null : null,
-                source: "pos",
-                payment_status: finalPaymentStatus,
-                payment_method: finalMethod,
-                ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
-                attendant: attendantName,
-              })
-              .select()
-              .maybeSingle();
+          // Update existing orders record with both kitchen and billing data
+          const { error: updateError } = await supabase
+            .from("orders")
+            .update({
+              kitchen_items: kitchenItems,
+              kitchen_status: "completed",
+              bumped_at: new Date().toISOString(),
+              status: isNC ? "nc" : "completed",
+              items: orderItemsFormatted,
+              total: isNC ? 0 : orderTotal,
+              payment_status: finalPaymentStatus,
+              payment_method: finalMethod,
+              customer_name: finalCustomerName,
+              customer_phone: finalCustomerPhone,
+              ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", effectiveKitchenOrderId);
 
-            // Link kitchen order to this new orders record
-            if (createdOrder?.id) {
-              await supabase
-                .from("kitchen_orders")
-                .update({ order_id: createdOrder.id })
-                .eq("id", effectiveKitchenOrderId);
-            }
+          if (updateError) {
+            console.error("Error updating order to completed:", updateError);
           }
 
           // NOTE: pos_transactions insert for post-pay is handled by
@@ -1374,25 +1284,6 @@ export const QSRPosMain: React.FC = () => {
             notes: item.notes ? [item.notes] : [],
           }));
 
-          // Create kitchen order as bumped (completed) - for record keeping
-          const { data: kitchenOrder, error: kitchenError } = await supabase
-            .from("kitchen_orders")
-            .insert({
-              restaurant_id: restaurantId,
-              source: `QSR-${orderSource}`,
-              status: "completed", // Already completed since paid
-              items: kitchenItems,
-              order_type: currentMode === "nc" ? "takeaway" : currentMode,
-              customer_name: paymentCustomerName,
-              server_name: attendantName,
-              priority: "normal",
-              bumped_at: new Date().toISOString(), // Mark as completed immediately
-            })
-            .select()
-            .maybeSingle();
-
-          if (kitchenError) throw kitchenError;
-
           // Prepare items array for orders table
           const orderItemsFormatted = activeItems.map(
             (item) => formatOrderItemString(
@@ -1409,31 +1300,29 @@ export const QSRPosMain: React.FC = () => {
               restaurant_id: restaurantId,
               customer_name: paymentCustomerName,
               items: orderItemsFormatted, // Required field - array of strings
-              status: "completed", // Already completed since paid
+              status: isNC ? "nc" : "completed", // Already completed since paid
               total: isNC ? 0 : orderTotal,
               // For NC orders, store original value in discount_amount (100% discount)
               order_type: isNC ? "non-chargeable" : currentMode,
               nc_reason: isNC ? ncReason || null : null, // Save NC reason if provided
-              source: "pos",
+              source: `QSR-${orderSource}`,
               payment_status: finalPaymentStatus,
               payment_method: finalMethod,
               ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
               discount_amount: isNC ? orderTotal : 0, // Original value for NC orders
               discount_percentage: isNC ? 100 : 0,
               attendant: attendantName,
+              // Kitchen specific fields
+              kitchen_status: "completed",
+              kitchen_items: kitchenItems,
+              bumped_at: new Date().toISOString(),
+              server_name: attendantName,
+              priority: "normal",
             })
             .select()
             .maybeSingle();
 
           if (orderError) throw orderError;
-
-          // Link kitchen order to order record
-          if (createdOrder?.id && kitchenOrder?.id) {
-            await supabase
-              .from("kitchen_orders")
-              .update({ order_id: createdOrder.id })
-              .eq("id", kitchenOrder.id);
-          }
 
           // Insert pos_transaction (pre-pay path)
           if (!isNC && restaurantId) {
@@ -1441,7 +1330,7 @@ export const QSRPosMain: React.FC = () => {
             await supabase.from("pos_transactions").insert({
               restaurant_id: restaurantId,
               order_id: createdOrder?.id || null,
-              kitchen_order_id: kitchenOrder?.id || null,
+              kitchen_order_id: createdOrder?.id || null, // Keep backward compatibility mapping
               amount: orderTotal,
               payment_method: finalMethod,
               status: finalPaymentStatus === "pending" ? "pending" : "completed",
@@ -1452,7 +1341,7 @@ export const QSRPosMain: React.FC = () => {
           }
 
           // Deduct inventory based on recipe ingredients (non-blocking)
-          if (kitchenOrder?.id) {
+          if (createdOrder?.id) {
             try {
               const {
                 data: { session },
@@ -1460,7 +1349,7 @@ export const QSRPosMain: React.FC = () => {
 
               const { data: deductResult, error: deductError } =
                 await supabase.functions.invoke("deduct-inventory-on-prep", {
-                  body: { order_id: kitchenOrder.id },
+                  body: { order_id: createdOrder.id }, // Deduct using order ID
                   headers: {
                     Authorization: `Bearer ${session?.access_token}`,
                   },
@@ -1563,25 +1452,13 @@ export const QSRPosMain: React.FC = () => {
     if (!order) return;
 
     try {
-      // Delete from kitchen_orders
-      const { error: kitchenError } = await supabase
-        .from("kitchen_orders")
+      // Delete from orders table directly
+      const { error: orderError } = await supabase
+        .from("orders")
         .delete()
         .eq("id", order.id);
 
-      if (kitchenError) throw kitchenError;
-
-      // If there's a linked order in orders table, delete it too
-      if (order.orderId) {
-        const { error: orderError } = await supabase
-          .from("orders")
-          .delete()
-          .eq("id", order.orderId);
-
-        if (orderError) {
-          console.error("Error deleting linked order:", orderError);
-        }
-      }
+      if (orderError) throw orderError;
 
       // Invalidate queries to refresh data
       if (type === "active") {

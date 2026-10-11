@@ -284,10 +284,10 @@ serve(async (req: Request) => {
           metadata: { orderId, total, tableNumber, items: items || [] },
         });
 
-        // Update kitchen_orders if orderId provided
+        // Update orders if orderId provided
         if (orderId && result.success) {
           await supabase
-            .from('kitchen_orders')
+            .from('orders')
             .update({ 
               whatsapp_sent: true,
               updated_at: new Date().toISOString()

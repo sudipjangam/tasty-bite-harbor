@@ -77,8 +77,8 @@ serve(async (req) => {
 
     // Get the kitchen order
     const { data: kitchenOrder, error: orderError } = await supabaseClient
-      .from('kitchen_orders')
-      .select('items, restaurant_id')
+      .from('orders')
+      .select('kitchen_items, restaurant_id')
       .eq('id', order_id)
       .single();
 
@@ -88,7 +88,7 @@ serve(async (req) => {
 
     console.log('Kitchen order found:', kitchenOrder);
 
-    const items = kitchenOrder.items as OrderItem[];
+    const items = kitchenOrder.kitchen_items as OrderItem[];
     const restaurantId = kitchenOrder.restaurant_id;
 
     // Resolve missing menuItemIds by name lookup (case-insensitive)

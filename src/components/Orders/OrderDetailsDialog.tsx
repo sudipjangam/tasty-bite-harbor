@@ -143,29 +143,13 @@ const OrderDetailsDialog = ({
     queryFn: async () => {
       if (!order?.id) return null;
 
-      const { data: kitchenOrder } = await supabase
-        .from("kitchen_orders")
-        .select("order_id, customer_name, customer_phone")
+      const { data } = await supabase
+        .from("orders")
+        .select("discount_amount, discount_percentage, payment_method, payment_status, customer_name, customer_phone")
         .eq("id", order.id)
         .maybeSingle();
 
-      if (kitchenOrder?.order_id) {
-        const { data } = await supabase
-          .from("orders")
-          .select("discount_amount, discount_percentage, payment_method, payment_status, customer_name, customer_phone")
-          .eq("id", kitchenOrder.order_id)
-          .maybeSingle();
-
-        return {
-          ...data,
-          customer_name: data?.customer_name || kitchenOrder.customer_name,
-          customer_phone: data?.customer_phone || kitchenOrder.customer_phone,
-        };
-      }
-      return {
-        customer_name: kitchenOrder?.customer_name,
-        customer_phone: kitchenOrder?.customer_phone,
-      };
+      return data;
     },
     enabled: isOpen && !!order?.id,
   });
@@ -234,36 +218,21 @@ const OrderDetailsDialog = ({
     newStatus: "completed" | "pending" | "preparing" | "ready" | "cancelled",
   ) => {
     try {
-      // Update kitchen_orders status and set bumped_at for terminal states
-      const kitchenUpdate: Record<string, any> = { status: newStatus };
+      const orderUpdate: Record<string, any> = {
+        kitchen_status: newStatus,
+        status: newStatus === "cancelled" ? "cancelled" : (newStatus === "completed" ? "completed" : "pending"),
+        updated_at: new Date().toISOString(),
+      };
       if (newStatus === "completed" || newStatus === "cancelled") {
-        kitchenUpdate.bumped_at = new Date().toISOString();
+        orderUpdate.bumped_at = new Date().toISOString();
       }
 
       const { error } = await supabase
-        .from("kitchen_orders")
-        .update(kitchenUpdate)
+        .from("orders")
+        .update(orderUpdate)
         .eq("id", order.id);
 
       if (error) throw error;
-
-      // Also sync status to linked orders table
-      const { data: kitchenRow } = await supabase
-        .from("kitchen_orders")
-        .select("order_id")
-        .eq("id", order.id)
-        .maybeSingle();
-
-      if (kitchenRow?.order_id) {
-        const { error: orderError } = await supabase
-          .from("orders")
-          .update({ status: newStatus, updated_at: new Date().toISOString() })
-          .eq("id", kitchenRow.order_id);
-
-        if (orderError) {
-          console.error("Failed to sync order status:", orderError);
-        }
-      }
 
       toast({
         title: "Order Updated",

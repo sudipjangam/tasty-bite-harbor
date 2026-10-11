@@ -132,7 +132,7 @@ const KitchenDisplay = () => {
 
   // Transform raw order data to KitchenOrder type
   const transformOrderData = useCallback((order: any): KitchenOrder => {
-    const itemsArray = Array.isArray(order.items) ? order.items : [];
+    const itemsArray = Array.isArray(order.kitchen_items) ? order.kitchen_items : [];
     const itemCompletionStatus = Array.isArray(order.item_completion_status)
       ? order.item_completion_status
       : new Array(itemsArray.length).fill(false);
@@ -162,7 +162,7 @@ const KitchenDisplay = () => {
     return {
       id: order.id,
       source: displaySource,
-      status: order.status as KitchenOrder["status"],
+      status: order.kitchen_status as KitchenOrder["status"] || "new",
       created_at: order.created_at,
       priority: (order.priority as KitchenOrder["priority"]) || "normal",
       station: order.station,
@@ -210,10 +210,11 @@ const KitchenDisplay = () => {
 
       try {
         let query = supabase
-          .from("kitchen_orders")
+          .from("orders")
           .select("*")
           .eq("restaurant_id", restaurantId)
           .not("source", "ilike", "QuickServe%") // Food truck orders use QS Active Orders, not KDS
+          .not("kitchen_status", "is", null) // Only orders sent to kitchen
           .is("bumped_at", null) // Exclude bumped orders
           .order("priority", { ascending: true }) // VIP first, then rush, then normal (alphabetically vip < rush < normal is false, so we use custom)
           .order("created_at", { ascending: false })
@@ -346,7 +347,7 @@ const KitchenDisplay = () => {
         {
           event: "*",
           schema: "public",
-          table: "kitchen_orders",
+          table: "orders",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
@@ -357,7 +358,7 @@ const KitchenDisplay = () => {
           if (payload.eventType === "INSERT") {
             const newOrderData = payload.new;
 
-            if (isQuickServeTicket(newOrderData.source)) {
+            if (isQuickServeTicket(newOrderData.source) || !newOrderData.kitchen_status) {
               return;
             }
 
@@ -413,7 +414,7 @@ const KitchenDisplay = () => {
           } else if (payload.eventType === "UPDATE") {
             const updatedOrderData = payload.new;
 
-            if (isQuickServeTicket(updatedOrderData.source)) {
+            if (isQuickServeTicket(updatedOrderData.source) || !updatedOrderData.kitchen_status) {
               setOrders((prev) =>
                 prev.filter((order) => order.id !== updatedOrderData.id),
               );
@@ -537,7 +538,7 @@ const KitchenDisplay = () => {
     newStatus: KitchenOrder["status"],
   ) => {
     try {
-      const updateData: any = { status: newStatus };
+      const updateData: any = { kitchen_status: newStatus };
 
       // Add time tracking
       if (newStatus === "preparing") {
@@ -590,33 +591,20 @@ const KitchenDisplay = () => {
         updateData.completed_at = new Date().toISOString();
       }
 
-      // Fetch order_id FIRST to avoid circular trigger issues with .select() after update
-      const { data: existingOrder } = await supabase
-        .from("kitchen_orders")
-        .select("order_id")
-        .eq("id", orderId)
-        .maybeSingle();
+      let orderStatus = "pending";
+      if (newStatus === "preparing") orderStatus = "preparing";
+      if (newStatus === "ready") orderStatus = "ready";
+      if (newStatus === "completed") orderStatus = "completed";
 
-      // Update kitchen order status WITHOUT select to avoid triggering circular database triggers
-      const { error: kitchenError } = await supabase
-        .from("kitchen_orders")
+      updateData.status = orderStatus;
+      updateData.updated_at = new Date().toISOString();
+
+      const { error: updateError } = await supabase
+        .from("orders")
         .update(updateData)
         .eq("id", orderId);
 
-      if (kitchenError) throw kitchenError;
-
-      // Also update the corresponding order status in orders table
-      if (existingOrder?.order_id) {
-        let orderStatus = "pending";
-        if (newStatus === "preparing") orderStatus = "preparing";
-        if (newStatus === "ready") orderStatus = "ready";
-        if (newStatus === "completed") orderStatus = "completed";
-
-        await supabase
-          .from("orders")
-          .update({ status: orderStatus, updated_at: new Date().toISOString() })
-          .eq("id", existingOrder.order_id);
-      }
+      if (updateError) throw updateError;
 
       queryClient.invalidateQueries({ queryKey: ["all-orders"] });
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
@@ -665,26 +653,12 @@ const KitchenDisplay = () => {
   // Handle bumping (archiving) an order
   const handleBumpOrder = async (orderId: string) => {
     try {
-      const { data: existingOrder } = await supabase
-        .from("kitchen_orders")
-        .select("order_id")
-        .eq("id", orderId)
-        .maybeSingle();
-
       const { error } = await supabase
-        .from("kitchen_orders")
-        .update({ bumped_at: new Date().toISOString(), status: "completed" })
+        .from("orders")
+        .update({ bumped_at: new Date().toISOString(), kitchen_status: "completed", status: "completed", updated_at: new Date().toISOString() })
         .eq("id", orderId);
 
       if (error) throw error;
-
-      // Sync status to orders table
-      if (existingOrder?.order_id) {
-        await supabase
-          .from("orders")
-          .update({ status: "completed", updated_at: new Date().toISOString() })
-          .eq("id", existingOrder.order_id);
-      }
 
       // Optimistically remove from UI (realtime will also handle this)
       setOrders((prev) => prev.filter((order) => order.id !== orderId));
@@ -727,7 +701,7 @@ const KitchenDisplay = () => {
       newCompletionStatus[itemIndex] = completed;
 
       const { error } = await supabase
-        .from("kitchen_orders")
+        .from("orders")
         .update({ item_completion_status: newCompletionStatus })
         .eq("id", orderId);
 
@@ -754,9 +728,9 @@ const KitchenDisplay = () => {
   ) => {
     try {
       const { error } = await supabase
-        .from("kitchen_orders")
+        .from("orders")
         .update({
-          items: newItems,
+          kitchen_items: newItems,
           item_completion_status: newCompletionStatus,
         })
         .eq("id", orderId);
@@ -787,25 +761,12 @@ const KitchenDisplay = () => {
     newPriority: KitchenOrder["priority"],
   ) => {
     try {
-      const { data: existingOrder } = await supabase
-        .from("kitchen_orders")
-        .select("order_id")
-        .eq("id", orderId)
-        .maybeSingle();
-
       const { error } = await supabase
-        .from("kitchen_orders")
-        .update({ priority: newPriority })
+        .from("orders")
+        .update({ priority: newPriority, updated_at: new Date().toISOString() })
         .eq("id", orderId);
 
       if (error) throw error;
-
-      if (existingOrder?.order_id) {
-        await supabase
-          .from("orders")
-          .update({ priority: newPriority, updated_at: new Date().toISOString() })
-          .eq("id", existingOrder.order_id);
-      }
 
       queryClient.invalidateQueries({ queryKey: ["all-orders"] });
 

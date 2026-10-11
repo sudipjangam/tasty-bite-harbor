@@ -275,7 +275,7 @@ serve(async (req) => {
             .eq("restaurant_id", verifiedRestaurantId)
             .order("created_at", { ascending: false })
             .limit(30),
-          supabase.from("kitchen_orders").select("*")
+          supabase.from("orders").select("*")
             .eq("restaurant_id", verifiedRestaurantId)
             .order("created_at", { ascending: false })
             .limit(30),

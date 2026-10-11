@@ -68,10 +68,11 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
 
       // Kitchen orders - only completed
       const { data: kitchenOrders } = await supabase
-        .from("kitchen_orders")
+        .from("orders")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .eq("status", "completed")
+        .not("kitchen_status", "is", null)
+        .eq("kitchen_status", "completed")
         .gte("created_at", startISO)
         .lte("created_at", endISO)
         .order("created_at", { ascending: false })
@@ -219,17 +220,7 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
           query.refetch();
         }
       )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "kitchen_orders",
-        },
-        () => {
-          query.refetch();
-        }
-      )
+
       .on(
         "postgres_changes",
         {

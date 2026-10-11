@@ -150,21 +150,14 @@ const ActiveOrdersList = ({
 
       // Build query based on status filter
       let query = supabase
-        .from("kitchen_orders")
-        .select(
-          `
-          *,
-          orders!kitchen_orders_order_id_fkey (
-            discount_amount,
-            discount_percentage
-          )
-        `,
-        )
-        .eq("restaurant_id", profile.restaurant_id);
+        .from("orders")
+        .select("*")
+        .eq("restaurant_id", profile.restaurant_id)
+        .not("kitchen_status", "is", null);
 
       // Apply status filter - "all" shows everything, otherwise filter by specific status
       if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+        query = query.eq("kitchen_status", statusFilter);
       }
       // Note: When statusFilter is "all", no status filter is applied - shows all orders
 
@@ -174,22 +167,21 @@ const ActiveOrdersList = ({
 
       if (orders) {
         const formattedOrders: ActiveOrder[] = orders.map((order) => {
-          const orderData = order.orders as any;
           return {
             id: order.id,
-            source: order.source,
-            status: order.status as
+            source: order.source || order.customer_name || "Unknown",
+            status: (order.kitchen_status || "new") as
               | "new"
               | "preparing"
               | "ready"
               | "completed"
               | "held",
             priority: (order.priority as "normal" | "rush" | "vip") || "normal",
-            items: parseOrderItems(order.items),
+            items: parseOrderItems(order.kitchen_items || order.items),
             created_at: order.created_at,
             updated_at: order.updated_at,
-            discount_amount: orderData?.discount_amount || 0,
-            discount_percentage: orderData?.discount_percentage || 0,
+            discount_amount: order.discount_amount || 0,
+            discount_percentage: order.discount_percentage || 0,
             item_completion_status: Array.isArray(order.item_completion_status)
               ? order.item_completion_status
               : [],
@@ -205,128 +197,96 @@ const ActiveOrdersList = ({
     // Real-time subscription for kitchen order changes
 
     const channel = supabase
-      .channel("kitchen-orders-changes")
+      .channel("orders-kitchen-changes")
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "kitchen_orders",
+          table: "orders",
         },
         (payload) => {
           if (payload.eventType === "INSERT") {
             const newOrder = payload.new;
+            if (!newOrder.kitchen_status) return;
 
-            const handleNewOrder = (orderData?: { discount_amount?: number; discount_percentage?: number } | null) => {
-              const formattedOrder: ActiveOrder = {
-                id: newOrder.id,
-                source: newOrder.source,
-                status: newOrder.status as
-                  | "new"
-                  | "preparing"
-                  | "ready"
-                  | "completed"
-                  | "held",
-                priority:
-                  (newOrder.priority as "normal" | "rush" | "vip") ||
-                  "normal",
-                items: parseOrderItems(newOrder.items),
-                created_at: newOrder.created_at,
-                updated_at: newOrder.updated_at,
-                discount_amount: orderData?.discount_amount || 0,
-                discount_percentage: orderData?.discount_percentage || 0,
-                item_completion_status: Array.isArray(
-                  newOrder.item_completion_status,
-                )
-                  ? newOrder.item_completion_status
-                  : [],
-              };
-
-              setActiveOrders((prev) => [formattedOrder, ...prev]);
+            const formattedOrder: ActiveOrder = {
+              id: newOrder.id,
+              source: newOrder.source || newOrder.customer_name || "Unknown",
+              status: (newOrder.kitchen_status || "new") as
+                | "new"
+                | "preparing"
+                | "ready"
+                | "completed"
+                | "held",
+              priority:
+                (newOrder.priority as "normal" | "rush" | "vip") ||
+                "normal",
+              items: parseOrderItems(newOrder.kitchen_items || newOrder.items),
+              created_at: newOrder.created_at,
+              updated_at: newOrder.updated_at,
+              discount_amount: newOrder.discount_amount || 0,
+              discount_percentage: newOrder.discount_percentage || 0,
+              item_completion_status: Array.isArray(
+                newOrder.item_completion_status,
+              )
+                ? newOrder.item_completion_status
+                : [],
             };
 
-            // Fetch the discount information from orders table if linked
-            if (newOrder.order_id) {
-              supabase
-                .from("orders")
-                .select("discount_amount, discount_percentage")
-                .eq("id", newOrder.order_id)
-                .maybeSingle()
-                .then(({ data: orderData }) => {
-                  handleNewOrder(orderData);
-                });
-            } else {
-              handleNewOrder(null);
-            }
+            setActiveOrders((prev) => [formattedOrder, ...prev]);
           } else if (payload.eventType === "UPDATE") {
             const updatedOrder = payload.new;
+            if (!updatedOrder.kitchen_status) return;
 
-            const applyUpdate = (orderData?: { discount_amount?: number; discount_percentage?: number } | null) => {
-              setActiveOrders((prev) => {
-                const updatedOrders = prev.map((order) =>
-                  order.id === updatedOrder.id
-                    ? {
-                        ...order,
-                        source: updatedOrder.source,
-                        status: updatedOrder.status as
-                          | "new"
-                          | "preparing"
-                          | "ready"
-                          | "completed"
-                          | "held",
-                        priority:
-                          (updatedOrder.priority as
-                            | "normal"
-                            | "rush"
-                            | "vip") || "normal",
-                        items: parseOrderItems(updatedOrder.items),
-                        discount_amount: orderData?.discount_amount ?? order.discount_amount,
-                        discount_percentage:
-                          orderData?.discount_percentage ?? order.discount_percentage,
-                        item_completion_status: Array.isArray(
-                          updatedOrder.item_completion_status,
-                        )
-                          ? updatedOrder.item_completion_status
-                          : [],
-                      }
-                    : order,
+            setActiveOrders((prev) => {
+              const updatedOrders = prev.map((order) =>
+                order.id === updatedOrder.id
+                  ? {
+                      ...order,
+                      source: updatedOrder.source || updatedOrder.customer_name || order.source,
+                      status: (updatedOrder.kitchen_status || order.status) as
+                        | "new"
+                        | "preparing"
+                        | "ready"
+                        | "completed"
+                        | "held",
+                      priority:
+                        (updatedOrder.priority as
+                          | "normal"
+                          | "rush"
+                          | "vip") || "normal",
+                      items: parseOrderItems(updatedOrder.kitchen_items || updatedOrder.items),
+                      discount_amount: updatedOrder.discount_amount ?? order.discount_amount,
+                      discount_percentage:
+                        updatedOrder.discount_percentage ?? order.discount_percentage,
+                      item_completion_status: Array.isArray(
+                        updatedOrder.item_completion_status,
+                      )
+                        ? updatedOrder.item_completion_status
+                        : [],
+                    }
+                  : order,
+              );
+
+              // If status filter is not "all" and not "completed", filter out completed orders
+              if (
+                statusFilter !== "all" &&
+                statusFilter !== "completed"
+              ) {
+                return updatedOrders.filter(
+                  (order) => order.status !== "completed",
                 );
+              }
 
-                // If status filter is not "all" and not "completed", filter out completed orders
-                if (
-                  statusFilter !== "all" &&
-                  statusFilter !== "completed"
-                ) {
-                  return updatedOrders.filter(
-                    (order) => order.status !== "completed",
-                  );
-                }
+              return updatedOrders;
+            });
 
-                return updatedOrders;
-              });
-            };
-
-            // Re-fetch discount data from the linked orders table
-            if (updatedOrder.order_id) {
-              supabase
-                .from("orders")
-                .select("discount_amount, discount_percentage")
-                .eq("id", updatedOrder.order_id)
-                .maybeSingle()
-                .then(({ data: orderData }) => {
-                  applyUpdate(orderData);
-                });
-            } else {
-              applyUpdate(null);
-            }
-
-            if (updatedOrder.status === "ready") {
+            if (updatedOrder.kitchen_status === "ready") {
               toast({
                 title: "Order Ready!",
-                description: `Order from ${updatedOrder.source} is ready for pickup`,
+                description: `Order from ${updatedOrder.source || updatedOrder.customer_name || "Kitchen"} is ready for pickup`,
               });
-              // const audio = new Audio("/notification.mp3");
-              // audio.play().catch(console.error);
             }
           } else if (payload.eventType === "DELETE") {
             // Remove deleted order from UI immediately
@@ -584,7 +544,7 @@ const ActiveOrdersList = ({
   ) => {
     try {
       const { error } = await supabase
-        .from("kitchen_orders")
+        .from("orders")
         .update({ priority })
         .eq("id", orderId);
 
@@ -896,24 +856,21 @@ const ActiveOrdersList = ({
           if (!selectedOrder) return;
 
           const { data: updatedOrder } = await supabase
-            .from("kitchen_orders")
-            .select(
-              "*, orders!kitchen_orders_order_id_fkey(discount_amount, discount_percentage)",
-            )
+            .from("orders")
+            .select("*")
             .eq("id", selectedOrder.id)
             .maybeSingle();
 
           if (updatedOrder) {
-            const orderData = updatedOrder.orders as any;
             const formattedOrder: ActiveOrder = {
               id: updatedOrder.id,
-              source: updatedOrder.source,
-              status: updatedOrder.status as any,
-              items: parseOrderItems(updatedOrder.items),
+              source: updatedOrder.source || updatedOrder.customer_name || "Unknown",
+              status: (updatedOrder.kitchen_status || "new") as any,
+              items: parseOrderItems(updatedOrder.kitchen_items || updatedOrder.items),
               created_at: updatedOrder.created_at,
               updated_at: updatedOrder.updated_at,
-              discount_amount: orderData?.discount_amount || 0,
-              discount_percentage: orderData?.discount_percentage || 0,
+              discount_amount: updatedOrder.discount_amount || 0,
+              discount_percentage: updatedOrder.discount_percentage || 0,
               item_completion_status: Array.isArray(
                 updatedOrder.item_completion_status,
               )

@@ -396,9 +396,9 @@ export const ImprovedSidebarNavigation = ({
   const hasPermissionForItem = (item: NavigationItem): boolean => {
     if (!user) return false;
 
-    // Franchise Portal: strictly for franchise/chain organizations (single restaurants NEVER have access)
+    // Franchise Portal: strictly for franchise/chain organizations with portal access enabled
     if (item.href === "/franchise") {
-      if (!canAccessFranchisePortal) return false;
+      return canAccessFranchisePortal;
     }
 
     const componentName = hrefToComponentMap[item.href];

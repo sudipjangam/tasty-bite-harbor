@@ -26,59 +26,47 @@ export const SyncOrdersButton = () => {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
-      // 1. Fetch all kitchen orders for today that have an order_id, scoped to restaurant
-      const { data: kitchenOrders, error: koError } = await supabase
-        .from("kitchen_orders")
-        .select("*")
+      // 1. Fetch all orders for today that have kitchen_items, scoped to restaurant
+      const { data: ordersToSync, error: ordersError } = await supabase
+        .from("orders")
+        .select("id, kitchen_items, discount_amount")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", today.toISOString())
         .lt("created_at", tomorrow.toISOString())
-        .not("order_id", "is", null);
+        .not("kitchen_items", "is", null);
 
-      if (koError) throw koError;
+      if (ordersError) throw ordersError;
 
-      //push to bitbucket
-      if (!kitchenOrders || kitchenOrders.length === 0) {
+      if (!ordersToSync || ordersToSync.length === 0) {
         toast({
           title: "No orders to sync",
-          description: "No kitchen orders found for today.",
+          description: "No orders found for today.",
         });
         return;
       }
 
-      // 2. Fetch all orders for today to get discount info, scoped to restaurant
-      const { data: existingOrders, error: ordersError } = await supabase
-        .from("orders")
-        .select("id, discount_amount")
-        .eq("restaurant_id", restaurantId)
-        .gte("created_at", today.toISOString())
-        .lt("created_at", tomorrow.toISOString());
-
-      if (ordersError) throw ordersError;
-
-      const ordersMap = new Map(existingOrders?.map((o) => [o.id, o]) || []);
       let updatedCount = 0;
 
-      // 3. Iterate and update corresponding 'orders'
-      for (const ko of kitchenOrders) {
-        if (!ko.items || !Array.isArray(ko.items)) continue;
+      // 2. Iterate and update corresponding 'orders'
+      for (const ord of ordersToSync) {
+        const kItems = ord.kitchen_items as any;
+        if (!kItems || !Array.isArray(kItems)) continue;
 
         // Calculate Gross Total from kitchen items
-        const grossTotal = ko.items.reduce((sum: number, item: any) => {
+        const grossTotal = kItems.reduce((sum: number, item: any) => {
           const price = Number(item.price) || 0;
           const qty = Number(item.quantity) || 1;
           return sum + price * qty;
         }, 0);
 
         // Get existing discount
-        const existingOrder = ordersMap.get(ko.order_id);
-        const discountAmount = Number(existingOrder?.discount_amount) || 0;
+        const discountAmount = Number(ord.discount_amount) || 0;
 
         // Calculate Net Total
         const netTotal = Math.max(0, grossTotal - discountAmount);
 
         // Format items for orders table
-        const formattedItems = ko.items.map((item: any) => {
+        const formattedItems = kItems.map((item: any) => {
           return formatOrderItemString(item.quantity, item.name, item.price, item.notes);
         });
 
@@ -89,12 +77,12 @@ export const SyncOrdersButton = () => {
             total: netTotal,
             items: formattedItems,
           })
-          .eq("id", ko.order_id);
+          .eq("id", ord.id);
 
         if (!updateError) {
           updatedCount++;
         } else {
-          console.error("Failed to update order", ko.order_id, updateError);
+          console.error("Failed to update order", ord.id, updateError);
         }
       }
 

@@ -228,12 +228,14 @@ const PaymentDialog = ({
         try {
           if (item.orderId) {
             await supabase
-              .from("kitchen_orders")
+              .from("orders")
               .update({
                 status: "completed",
+                kitchen_status: "completed",
                 payment_status: item.payment_status,
                 payment_method: item.payment_method,
-                total_amount: item.total_amount,
+                total: item.total_amount,
+                bumped_at: new Date().toISOString(),
                 ...(item.customer_name && { customer_name: item.customer_name }),
                 ...(item.customer_phone && { customer_phone: item.customer_phone }),
               })
@@ -480,8 +482,8 @@ const PaymentDialog = ({
     if (!orderId) return;
     const fetchOrder = async () => {
       const { data } = await supabase
-        .from("kitchen_orders")
-        .select("order_type, customer_name, customer_phone, manual_discount_percent, promotion_id")
+        .from("orders")
+        .select("order_type, customer_name, customer_phone, discount_percentage, promotion_code")
         .eq("id", orderId)
         .maybeSingle();
 
@@ -489,7 +491,7 @@ const PaymentDialog = ({
         if (data.order_type) setOrderType(data.order_type);
         if (data.customer_name) setCustomerName(data.customer_name);
         if (data.customer_phone) setCustomerMobile(data.customer_phone);
-        if (data.manual_discount_percent) setManualDiscountPercent(data.manual_discount_percent);
+        if (data.discount_percentage) setManualDiscountPercent(data.discount_percentage);
       }
     };
     fetchOrder();
@@ -975,67 +977,35 @@ const PaymentDialog = ({
             }
           }
 
-          // 2. Update kitchen order and orders in DB if orderId exists
+          // 2. Update orders in DB if orderId exists
           if (orderId) {
-            // First check if orderId is a kitchen_orders.id
-            const { data: ko } = await supabase
-              .from("kitchen_orders")
-              .select("order_id")
-              .eq("id", orderId)
-              .maybeSingle();
-
-            const targetOrderId = ko?.order_id ?? orderId;
-
-            if (ko) {
-              await supabase
-                .from("kitchen_orders")
-                .update({
-                  status: "completed",
-                  bumped_at: new Date().toISOString(),
-                  ...(customerName.trim() && { customer_name: customerName.trim() }),
-                  ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
-                  ...(method === "nc" && { nc_reason: ncReason }),
-                })
-                .eq("id", orderId);
-            } else {
-              // orderId might be orders.id — update linked kitchen_orders if any
-              await supabase
-                .from("kitchen_orders")
-                .update({
-                  status: "completed",
-                  bumped_at: new Date().toISOString(),
-                  ...(customerName.trim() && { customer_name: customerName.trim() }),
-                  ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
-                  ...(method === "nc" && { nc_reason: ncReason }),
-                })
-                .eq("order_id", orderId);
-            }
+            const targetOrderId = orderId;
 
             // Always update the orders table record so Orders Management reflects completed status and split payments
-            if (targetOrderId) {
-              await supabase
-                .from("orders")
-                .update({
-                  status: method === "nc" ? "nc" : "completed",
-                  payment_status: finalStatus,
-                  payment_method: finalMethod,
-                  total: finalAmount,
-                  updated_at: new Date().toISOString(),
-                  ...(isSplit && splitPayload && { split_payments: splitPayload }),
-                  ...(customerName.trim() && { customer_name: customerName.trim() }),
-                  ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
-                  ...(method === "nc" && { nc_reason: ncReason }),
-                })
-                .eq("id", targetOrderId);
-            }
+            await supabase
+              .from("orders")
+              .update({
+                status: method === "nc" ? "nc" : "completed",
+                kitchen_status: "completed",
+                bumped_at: new Date().toISOString(),
+                payment_status: finalStatus,
+                payment_method: finalMethod,
+                total: finalAmount,
+                updated_at: new Date().toISOString(),
+                ...(isSplit && splitPayload && { split_payments: splitPayload }),
+                ...(customerName.trim() && { customer_name: customerName.trim() }),
+                ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+                ...(method === "nc" && { nc_reason: ncReason }),
+              })
+              .eq("id", targetOrderId);
 
             // 2b. Log pos_transaction (matches MobilePaymentDialog pattern)
             if (method !== "nc" && !isOffline) {
               const { data: authData } = await supabase.auth.getUser();
               await supabase.from("pos_transactions").insert({
                 restaurant_id: targetRestaurantId,
-                order_id: targetOrderId || orderId || null,
-                kitchen_order_id: ko ? orderId : null,
+                order_id: targetOrderId,
+                kitchen_order_id: null,
                 amount: finalAmount,
                 payment_method: finalMethod,
                 status: method === "pay_later" ? "pending" : "completed",

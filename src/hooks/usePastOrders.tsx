@@ -71,12 +71,12 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
 
       // Fetch completed kitchen orders
       const { data: kitchenData, error: kitchenError } = await supabase
-        .from("kitchen_orders")
+        .from("orders")
         .select(
-          "id, source, items, status, created_at, bumped_at, order_id, server_name, customer_name",
+          "id, source, kitchen_items, kitchen_status, created_at, bumped_at, order_id, server_name, customer_name",
         )
         .eq("restaurant_id", restaurantId)
-        .eq("status", "completed")
+        .eq("kitchen_status", "completed")
         .gte("created_at", start)
         .lte("created_at", end)
         .order("bumped_at", { ascending: false });
@@ -130,7 +130,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
       const mappedOrders: PastOrder[] = (data || [])
         .map((order) => {
           const items =
-            (order.items as {
+            (order.kitchen_items as {
               name: string;
               quantity: number;
               price: number;
@@ -171,7 +171,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
             orderId: order.order_id,
             source: order.source || "Unknown",
             items,
-            status: order.status,
+            status: order.kitchen_status,
             createdAt: order.created_at,
             completedAt: order.bumped_at,
             total,
@@ -216,12 +216,12 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
         {
           event: "UPDATE",
           schema: "public",
-          table: "kitchen_orders",
+          table: "orders",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
           // Refetch when an order becomes completed
-          if ((payload.new as any)?.status === "completed") {
+          if ((payload.new as any)?.kitchen_status === "completed") {
             queryClient.invalidateQueries({
               queryKey: ["past-orders", restaurantId],
             });
@@ -238,17 +238,15 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
   // Get order by ID for printing
   const getOrderById = async (orderId: string): Promise<PastOrder | null> => {
     const { data, error } = await supabase
-      .from("kitchen_orders")
-      .select(
-        `*, orders:order_id (total, discount_amount, discount_percentage)`,
-      )
+      .from("orders")
+      .select("*")
       .eq("id", orderId)
       .maybeSingle();
 
     if (error || !data) return null;
 
     const items =
-      (data.items as {
+      (data.kitchen_items as {
         name: string;
         quantity: number;
         price: number;
@@ -261,7 +259,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
     );
 
     // Get linked order data (if available) for actual total with discount
-    const linkedOrder = data.orders as {
+    const linkedOrder = data as {
       total?: number | string;
       discount_amount?: number | string;
       discount_percentage?: number | string;
@@ -292,7 +290,7 @@ export const usePastOrders = (options: UsePastOrdersOptions = {}) => {
       orderId: data.order_id,
       source: data.source || "Unknown",
       items,
-      status: data.status,
+      status: data.kitchen_status,
       createdAt: data.created_at,
       completedAt: data.bumped_at,
       total,

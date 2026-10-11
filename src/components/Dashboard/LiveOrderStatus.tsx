@@ -34,10 +34,10 @@ export const LiveOrderStatus = () => {
 
     const fetchOrders = async () => {
       const { data, error } = await supabase
-        .from('kitchen_orders')
+        .from('orders')
         .select('*')
         .eq('restaurant_id', restaurantId)
-        .in('status', ['preparing', 'ready'])
+        .in('kitchen_status', ['preparing', 'ready'])
         .is('bumped_at', null) // Exclude bumped orders
         .order('created_at', { ascending: false });
 
@@ -46,8 +46,17 @@ export const LiveOrderStatus = () => {
         return;
       }
 
-      const preparing = data.filter(o => o.status === 'preparing');
-      const ready = data.filter(o => o.status === 'ready');
+      const mapOrder = (o: any): KitchenOrder => ({
+        id: o.id,
+        order_id: o.id,
+        source: o.source || o.customer_name || 'Order',
+        status: (o.kitchen_status || 'new') as any,
+        items: (o.kitchen_items as any) || [],
+        created_at: o.created_at,
+      });
+
+      const preparing = (data || []).filter(o => o.kitchen_status === 'preparing').map(mapOrder);
+      const ready = (data || []).filter(o => o.kitchen_status === 'ready').map(mapOrder);
       
       setPreparingOrders(preparing);
       setReadyOrders(ready);
@@ -61,19 +70,29 @@ export const LiveOrderStatus = () => {
     if (!restaurantId) return;
 
     const channel = supabase
-      .channel('kitchen-orders-changes')
+      .channel('orders-kitchen-changes')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'kitchen_orders',
+          table: 'orders',
           filter: `restaurant_id=eq.${restaurantId}`
         },
         (payload) => {
           
           if (payload.eventType === 'UPDATE') {
-            const updatedOrder = payload.new as KitchenOrder & { bumped_at?: string };
+            const raw = payload.new as any;
+            if (!raw) return;
+            const updatedOrder: KitchenOrder & { bumped_at?: string } = {
+              id: raw.id,
+              order_id: raw.id,
+              source: raw.source || raw.customer_name || 'Order',
+              status: (raw.kitchen_status || 'new') as any,
+              items: (raw.kitchen_items as any) || [],
+              created_at: raw.created_at,
+              bumped_at: raw.bumped_at,
+            };
             
             // If order was bumped, remove from both lists
             if (updatedOrder.bumped_at) {
@@ -88,9 +107,6 @@ export const LiveOrderStatus = () => {
               setReadyOrders(prev => {
                 const exists = prev.find(o => o.id === updatedOrder.id);
                 if (!exists) {
-                  // Play notification sound
-                  // audioRef.current?.play().catch(e => console.error('Audio play failed:', e));
-                  
                   // Add to newly ready set for animation
                   setNewlyReadyIds(prevSet => new Set(prevSet).add(updatedOrder.id));
                   
@@ -124,7 +140,16 @@ export const LiveOrderStatus = () => {
             }
           }
           else if (payload.eventType === 'INSERT') {
-            const newOrder = payload.new as KitchenOrder;
+            const raw = payload.new as any;
+            if (!raw || !raw.kitchen_status) return;
+            const newOrder: KitchenOrder = {
+              id: raw.id,
+              order_id: raw.id,
+              source: raw.source || raw.customer_name || 'Order',
+              status: (raw.kitchen_status || 'new') as any,
+              items: (raw.kitchen_items as any) || [],
+              created_at: raw.created_at,
+            };
             if (newOrder.status === 'preparing') {
               setPreparingOrders(prev => [newOrder, ...prev]);
             } else if (newOrder.status === 'ready') {
@@ -132,7 +157,7 @@ export const LiveOrderStatus = () => {
             }
           }
           else if (payload.eventType === 'DELETE') {
-            const deletedOrder = payload.old as KitchenOrder;
+            const deletedOrder = payload.old as any;
             setPreparingOrders(prev => prev.filter(o => o.id !== deletedOrder.id));
             setReadyOrders(prev => prev.filter(o => o.id !== deletedOrder.id));
           }
@@ -148,8 +173,8 @@ export const LiveOrderStatus = () => {
   const handleDismissReady = async (orderId: string) => {
     // Update order status to completed
     const { error } = await supabase
-      .from('kitchen_orders')
-      .update({ status: 'completed' })
+      .from('orders')
+      .update({ kitchen_status: 'completed', bumped_at: new Date().toISOString() })
       .eq('id', orderId);
 
     if (error) {

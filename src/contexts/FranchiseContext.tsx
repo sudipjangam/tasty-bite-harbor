@@ -132,17 +132,55 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     queryKey: ["franchise_portal_data", user?.id, dateRange],
     enabled: !!user?.id && !demoMode,
     queryFn: async () => {
-      // Find organization membership
-      let { data: member } = await supabase
-        .from("organization_members")
-        .select("organization_id, role")
-        .eq("user_id", user!.id)
-        .maybeSingle();
+      const isAdmin =
+        user?.role?.toLowerCase() === "admin" ||
+        user?.role_name_text?.toLowerCase() === "admin";
 
-      let activeOrgId = member?.organization_id;
-      let activeRole = member?.role as OrgRole || "viewer";
+      // 0. Check localStorage for explicitly selected franchise organization
+      let activeOrgId: string | undefined;
+      let activeRole: OrgRole = isAdmin ? "owner" : "viewer";
 
-      // If not in organization_members, check if user owns a franchise organization
+      const storedOrgId = typeof window !== "undefined" ? localStorage.getItem("active_franchise_org_id") : null;
+      if (storedOrgId) {
+        const { data: storedOrg } = await supabase
+          .from("organizations")
+          .select("id, type")
+          .eq("id", storedOrgId)
+          .in("type", ["franchise", "chain"])
+          .maybeSingle();
+
+        if (storedOrg) {
+          activeOrgId = storedOrg.id;
+          activeRole = "owner";
+        }
+      }
+
+      // 1. Find organization membership for franchise/chain org
+      if (!activeOrgId) {
+        const { data: memberRows } = await supabase
+          .from("organization_members")
+          .select(`
+            organization_id,
+            role,
+            organizations (
+              id,
+              type
+            )
+          `)
+          .eq("user_id", user!.id);
+
+        const franchiseMember = (memberRows || []).find((m: any) => {
+          const org = Array.isArray(m.organizations) ? m.organizations[0] : m.organizations;
+          return org?.type === "franchise" || org?.type === "chain";
+        });
+
+        if (franchiseMember) {
+          activeOrgId = franchiseMember.organization_id;
+          activeRole = (franchiseMember.role as OrgRole) || (isAdmin ? "owner" : "viewer");
+        }
+      }
+
+      // 2. If not in organization_members, check if user owns a franchise organization
       if (!activeOrgId) {
         const { data: ownedOrg } = await supabase
           .from("organizations")
@@ -159,7 +197,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
         }
       }
 
-      // If still not found, check if user's restaurant belongs to a franchise/chain organization
+      // 3. If still not found, check if user's restaurant belongs to a franchise/chain organization
       if (!activeOrgId && user?.restaurant_id) {
         const { data: restRow } = await supabase
           .from("restaurants")
@@ -177,17 +215,18 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
 
           if (restOrg) {
             activeOrgId = restOrg.id;
-            activeRole = user?.role === "owner" ? "owner" : "viewer";
+            activeRole = user?.role === "owner" || isAdmin ? "owner" : "viewer";
           }
         }
       }
 
-      // If platform admin and no specific franchise org, allow viewing first franchise org
-      if (!activeOrgId && user?.role === "admin") {
+      // 4. If platform admin and no specific franchise org, allow viewing latest franchise org
+      if (!activeOrgId && isAdmin) {
         const { data: firstFranchise } = await supabase
           .from("organizations")
           .select("id")
           .in("type", ["franchise", "chain"])
+          .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
 

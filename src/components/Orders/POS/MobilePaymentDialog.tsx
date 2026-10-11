@@ -612,40 +612,27 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     if (!isOpen || !orderId) return;
     (async () => {
       try {
-        const { data: ko } = await supabase
-          .from("kitchen_orders")
-          .select("order_id, customer_name, customer_phone")
+        const { data: order } = await supabase
+          .from("orders")
+          .select("customer_name, customer_phone, discount_percentage, discount_amount, promotion_code, promotion_name")
           .eq("id", orderId)
           .maybeSingle();
 
-        if (ko?.customer_name && !["nc", "delivery", "takeaway", "dine-in"].includes(ko.customer_name.toLowerCase())) {
-          setCustomerName(ko.customer_name);
-        }
-        if ((ko as any)?.customer_phone) {
-          setCustomerMobile(String((ko as any).customer_phone));
-        }
-
-        if (ko?.order_id) {
-          const { data: order } = await supabase
-            .from("orders")
-            .select("customer_name, customer_phone, discount_percentage, discount_amount, promotion_code, promotion_name")
-            .eq("id", ko.order_id)
-            .maybeSingle();
-
-          if (order) {
-            if ((order as any).customer_name) setCustomerName((order as any).customer_name);
-            if ((order as any).customer_phone) setCustomerMobile(String((order as any).customer_phone));
-            const pct = parseFloat((order as any).discount_percentage) || 0;
-            setManualDiscountPct(pct);
-            if ((order as any).promotion_code) {
-              setPromoCode((order as any).promotion_code);
-              setAppliedPromo({
-                name: (order as any).promotion_name || "Applied Promotion",
-                code: (order as any).promotion_code,
-                promotion_code: (order as any).promotion_code,
-                discount_percentage: pct,
-              });
-            }
+        if (order) {
+          if ((order as any).customer_name && !["nc", "delivery", "takeaway", "dine-in"].includes((order as any).customer_name.toLowerCase())) {
+            setCustomerName((order as any).customer_name);
+          }
+          if ((order as any).customer_phone) setCustomerMobile(String((order as any).customer_phone));
+          const pct = parseFloat((order as any).discount_percentage) || 0;
+          setManualDiscountPct(pct);
+          if ((order as any).promotion_code) {
+            setPromoCode((order as any).promotion_code);
+            setAppliedPromo({
+              name: (order as any).promotion_name || "Applied Promotion",
+              code: (order as any).promotion_code,
+              promotion_code: (order as any).promotion_code,
+              discount_percentage: pct,
+            });
           }
         }
       } catch (e) {
@@ -1008,56 +995,29 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       }));
 
       if (orderId) {
-        // First try: treat orderId as a kitchen_orders.id
-        const { data: ko } = await supabase
-          .from("kitchen_orders")
-          .select("order_id")
-          .eq("id", orderId)
-          .maybeSingle();
+        const targetOrderId = orderId;
 
-        // orderId may be kitchen_orders.id (POS/QSR) OR orders.id (Orders Management).
-        // Use the linked order_id when available; otherwise treat orderId as orders.id.
-        const targetOrderId = ko?.order_id ?? orderId;
-
-        // Update kitchen_order with completed status and updated items/total
-        if (ko) {
-          await supabase.from("kitchen_orders").update({
-            status: "completed",
-            bumped_at: new Date().toISOString(),
-            items: serializedItems,
-            ...(customerName.trim() && { customer_name: customerName.trim() }),
-            ...(customerMobile && { customer_phone: customerMobile }),
-          }).eq("id", orderId);
-        } else {
-          await supabase.from("kitchen_orders").update({
-            status: "completed",
-            bumped_at: new Date().toISOString(),
-            items: serializedItems,
-            ...(customerName.trim() && { customer_name: customerName.trim() }),
-            ...(customerMobile && { customer_phone: customerMobile }),
-          }).eq("order_id", orderId);
-        }
-
-        if (targetOrderId) {
-          await supabase.from("orders").update({
-            payment_status: finalPaymentStatus,
-            payment_method: finalPaymentMethod,
-            status: "completed",
-            total: finalTotal,
-            subtotal: subtotal,
-            items: serializedItems,
-            updated_at: new Date().toISOString(),
-            discount_amount: isNonChargeable ? subtotal : totalDiscount,
-            discount_percentage: isNonChargeable ? 100 : effectiveDiscountPct,
-            promotion_code: isNonChargeable ? null : (appliedPromo?.promotion_code || appliedPromo?.code || null),
-            promotion_name: isNonChargeable ? null : (appliedPromo?.name || null),
-            ...(discountNotes && { discount_notes: isNonChargeable ? "Non-Chargeable (100% off)" : discountNotes }),
-            ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
-            ...(splitData && { split_payments: splitData }),
-            ...(customerName.trim() && { customer_name: customerName.trim() }),
-            ...(customerMobile && { customer_phone: customerMobile }),
-          }).eq("id", targetOrderId);
-        }
+        await supabase.from("orders").update({
+          payment_status: finalPaymentStatus,
+          payment_method: finalPaymentMethod,
+          status: "completed",
+          kitchen_status: "completed",
+          bumped_at: new Date().toISOString(),
+          total: finalTotal,
+          subtotal: subtotal,
+          items: serializedItems,
+          kitchen_items: serializedItems,
+          updated_at: new Date().toISOString(),
+          discount_amount: isNonChargeable ? subtotal : totalDiscount,
+          discount_percentage: isNonChargeable ? 100 : effectiveDiscountPct,
+          promotion_code: isNonChargeable ? null : (appliedPromo?.promotion_code || appliedPromo?.code || null),
+          promotion_name: isNonChargeable ? null : (appliedPromo?.name || null),
+          ...(discountNotes && { discount_notes: isNonChargeable ? "Non-Chargeable (100% off)" : discountNotes }),
+          ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
+          ...(splitData && { split_payments: splitData }),
+          ...(customerName.trim() && { customer_name: customerName.trim() }),
+          ...(customerMobile && { customer_phone: customerMobile }),
+        }).eq("id", targetOrderId);
 
         onOrderUpdated?.();
 
@@ -1066,7 +1026,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
           await supabase.from("pos_transactions").insert({
             restaurant_id: restaurantId,
             order_id: targetOrderId || null,
-            kitchen_order_id: ko ? orderId : null,
+            kitchen_order_id: null,
             amount: finalTotal,
             payment_method: finalPaymentMethod,
             status: finalPaymentMethod === "pay_later" ? "pending" : "completed",

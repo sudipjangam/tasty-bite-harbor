@@ -396,9 +396,9 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   const hasPermissionForItem = (item: MobileNavItem): boolean => {
     if (!user) return false;
 
-    // Franchise Portal: strictly for franchise/chain organizations (single restaurants NEVER have access)
+    // Franchise Portal: strictly for franchise/chain organizations with portal access enabled
     if (item.id === "franchise-portal" || item.path === "/franchise") {
-      if (!canAccessFranchisePortal) return false;
+      return canAccessFranchisePortal;
     }
 
     // Admin-only items: check role directly

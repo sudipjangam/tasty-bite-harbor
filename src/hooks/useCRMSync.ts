@@ -186,14 +186,7 @@ export const useCRMSync = () => {
             console.error("❌ CRM Sync - Failed to link order:", orderLinkErr);
           }
 
-          // Also try kitchen_orders (orderId might be a kitchen_order ID)
-          const { error: kitchenLinkErr } = await supabase
-            .from("kitchen_orders")
-            .update({ customer_name: trimmedName, customer_phone: trimmedPhone })
-            .eq("id", orderId);
-          if (kitchenLinkErr) {
-            console.error("❌ CRM Sync - Failed to link kitchen order:", kitchenLinkErr);
-          }
+
         }
 
         // --- Step 3: Award loyalty points ---

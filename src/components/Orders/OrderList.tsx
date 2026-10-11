@@ -54,26 +54,21 @@ const OrderList: React.FC<OrderListProps> = ({
     }
 
     try {
+      const orderUpdate: Record<string, any> = {
+        status: newStatus,
+        kitchen_status: newStatus,
+        updated_at: new Date().toISOString(),
+      };
+      if (newStatus === "completed" || newStatus === "cancelled") {
+        orderUpdate.bumped_at = new Date().toISOString();
+      }
+
       const { error } = await supabase
         .from("orders")
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .update(orderUpdate)
         .eq("id", orderId);
 
       if (error) throw error;
-
-      // Sync status to linked kitchen_orders so KDS reflects the change
-      const kitchenUpdate: Record<string, any> = { status: newStatus };
-      if (newStatus === "completed" || newStatus === "cancelled") {
-        kitchenUpdate.bumped_at = new Date().toISOString();
-      }
-      const { error: kitchenError } = await supabase
-        .from("kitchen_orders")
-        .update(kitchenUpdate)
-        .eq("order_id", orderId);
-
-      if (kitchenError) {
-        console.error("Failed to sync kitchen order status:", kitchenError);
-      }
 
       toast({
         title: "Status Updated",
@@ -103,18 +98,14 @@ const OrderList: React.FC<OrderListProps> = ({
         .from("orders")
         .update({
           status: "completed",
+          kitchen_status: "completed",
+          bumped_at: new Date().toISOString(),
           payment_status: paymentMethod === "pay_later" ? "pending" : "paid",
           payment_method: paymentMethod,
           updated_at: new Date().toISOString(),
         })
         .eq("id", order.id);
       if (error) throw error;
-
-      // Sync kitchen_orders
-      await supabase.from("kitchen_orders").update({
-        status: "completed",
-        bumped_at: new Date().toISOString(),
-      }).eq("order_id", order.id);
 
       // Insert pos_transaction
       const { data: authData } = await supabase.auth.getUser();
@@ -160,16 +151,6 @@ const OrderList: React.FC<OrderListProps> = ({
 
       if (error) throw error;
 
-      // Sync priority to kitchen_orders
-      const { error: kitchenError } = await supabase
-        .from("kitchen_orders")
-        .update({ priority })
-        .eq("order_id", orderId);
-
-      if (kitchenError) {
-        console.error("Error updating kitchen priority:", kitchenError);
-      }
-
       toast({
         title: "Priority Updated",
         description: `Order priority changed to ${priority.toUpperCase()}`,
@@ -199,16 +180,6 @@ const OrderList: React.FC<OrderListProps> = ({
     if (!orderToDelete) return;
 
     try {
-      // First delete related kitchen_orders to satisfy foreign key constraints
-      const { error: kitchenError } = await supabase
-        .from("kitchen_orders" as any)
-        .delete()
-        .eq("order_id", orderToDelete);
-
-      if (kitchenError) {
-        console.error("Error deleting kitchen orders:", kitchenError);
-      }
-
       const { error } = await supabase
         .from("orders")
         .delete()

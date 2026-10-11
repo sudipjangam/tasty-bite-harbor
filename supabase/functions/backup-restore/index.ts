@@ -77,7 +77,6 @@ const ALL_TABLES_ORDERED = [
   // POS & Orders
   'orders',
   'orders_unified',
-  'kitchen_orders',
   'pos_transactions',
   'shared_bills',
 

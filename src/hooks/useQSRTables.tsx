@@ -29,12 +29,12 @@ export const useQSRTables = () => {
 
       // Fetch active kitchen orders to determine occupied status
       const { data: activeOrders, error: ordersError } = await supabase
-        .from("kitchen_orders")
+        .from("orders")
         .select(
-          "id, source, items, status, created_at, updated_at, customer_name, item_completion_status, table_number",
+          "id, source, kitchen_items, kitchen_status, created_at, updated_at, customer_name, item_completion_status, table_number",
         )
         .eq("restaurant_id", restaurantId)
-        .in("status", ["new", "preparing", "ready", "held"]);
+        .in("kitchen_status", ["new", "preparing", "ready", "held"]);
 
       if (ordersError) {
         console.error("Error fetching active orders:", ordersError);
@@ -75,8 +75,8 @@ export const useQSRTables = () => {
         let totalItemsCount = 0;
         let servedItemsCount = 0;
 
-        if (tableOrder && tableOrder.items) {
-          const items = tableOrder.items as {
+        if (tableOrder && tableOrder.kitchen_items) {
+          const items = tableOrder.kitchen_items as {
             price: number;
             quantity: number;
           }[];
@@ -105,7 +105,7 @@ export const useQSRTables = () => {
         // item_completion_status array has one entry per item in items array
         const itemCompletionStatus =
           (tableOrder?.item_completion_status as boolean[]) || [];
-        const itemsArray = (tableOrder?.items as unknown[]) || [];
+        const itemsArray = (tableOrder?.kitchen_items as unknown[]) || [];
         const allItemsDelivered =
           itemsArray.length > 0 &&
           itemCompletionStatus.length >= itemsArray.length &&
@@ -164,7 +164,7 @@ export const useQSRTables = () => {
         {
           event: "*",
           schema: "public",
-          table: "kitchen_orders",
+          table: "orders",
         },
         (payload) => {
           // Immediately refetch when order status changes (especially to 'completed')

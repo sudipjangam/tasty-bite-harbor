@@ -815,44 +815,29 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             }
           });
 
-          // Only create kitchen ticket if there are actually NEW items
+          // Only update kitchen items if there are actually NEW items
           if (newKitchenItems.length > 0) {
-            const { data: kitchenOrder, error: kitchenError } = await supabase
-              .from("kitchen_orders")
-              .insert({
-                restaurant_id: restaurantId,
-                source: "QuickServe",
-                status: "preparing",
-                items: newKitchenItems,
-                order_type: isNC ? "non-chargeable" : "takeaway",
-                customer_name: finalCustomerName,
+            await supabase
+              .from("orders")
+              .update({
+                kitchen_items: finalKitchenItems,
+                kitchen_status: "preparing",
                 server_name: attendantName,
-                priority: "normal",
               })
-              .select()
-              .single();
+              .eq("id", existingOrder.id);
 
-            if (!kitchenError && kitchenOrder?.id) {
-              // Link kitchen order → existing order (background)
-              supabase
-                .from("kitchen_orders")
-                .update({ order_id: existingOrder.id })
-                .eq("id", kitchenOrder.id)
-                .then(({ error }) => { if (error) console.error("Link kitchen→order error:", error); });
-
-              // Deduct inventory for new items (background)
-              (async () => {
-                try {
-                  const { data: { session } } = await supabase.auth.getSession();
-                  await supabase.functions.invoke("deduct-inventory-on-prep", {
-                    body: { order_id: kitchenOrder.id },
-                    headers: { Authorization: `Bearer ${session?.access_token}` },
-                  });
-                } catch (err) {
-                  console.error("Inventory deduction failed:", err);
-                }
-              })();
-            }
+            // Deduct inventory for new items (background)
+            (async () => {
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                await supabase.functions.invoke("deduct-inventory-on-prep", {
+                  body: { order_id: existingOrder.id },
+                  headers: { Authorization: `Bearer ${session?.access_token}` },
+                });
+              } catch (err) {
+                console.error("Inventory deduction failed:", err);
+              }
+            })();
           }
         }
 
@@ -942,25 +927,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       // Initialize item completion status (all false)
       const initialCompletionStatus = items.map(() => false);
 
-      // 1. Create kitchen order (with total_amount + payment_method for dashboard)
-      const { data: kitchenOrder, error: kitchenError } = await supabase
-        .from("kitchen_orders")
-        .insert({
-          restaurant_id: restaurantId,
-          source: `QuickServe`,
-          status: "preparing",
-          items: kitchenItems,
-          order_type: isNC ? "non-chargeable" : "takeaway",
-          customer_name: finalCustomerName,
-          server_name: attendantName,
-          priority: "normal",
-          ...(ncReason && { nc_reason: ncReason }),
-        })
-        .select()
-        .single();
-
-      if (kitchenError) throw kitchenError;
-
       const totalDiscountAmount = discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
 
       // Build discount notes for owner visibility
@@ -981,20 +947,24 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         ? Math.round((totalDiscountAmount / itemsSubtotal) * 100)
         : 0;
 
-      // 2. Create order record with token and completion tracking
+      // Create unified order record with token, items, and kitchen tracking
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
           restaurant_id: restaurantId,
           customer_name: finalCustomerName,
           items: formattedItems,
+          kitchen_items: kitchenItems,
           total: orderTotal,
           status: "preparing",
+          kitchen_status: "preparing",
           payment_status: isNC ? "nc" : "pending",
           payment_method: isNC ? "nc" : method,
           source: "quickserve",
           order_type: isNC ? "non-chargeable" : "takeaway",
           attendant: attendantName,
+          server_name: attendantName,
+          priority: "normal",
           order_number: nextOrderNumber,
           item_completion_status: initialCompletionStatus,
           ...(totalDiscountAmount > 0 && { discount_amount: totalDiscountAmount }),
@@ -1010,12 +980,12 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
       if (orderError) throw orderError;
       
-      // ✅ Log POS transaction SYNCHRONOUSLY to prevent race condition with "Mark as Paid" button
+      // ✅ Log POS transaction SYNCHRONOUSLY
       try {
         await supabase.from("pos_transactions").insert({
           restaurant_id: restaurantId,
           order_id: order?.id || null,
-          kitchen_order_id: kitchenOrder?.id || null,
+          kitchen_order_id: null,
           amount: subtotal,
           payment_method: method,
           status: "pending",
@@ -1031,19 +1001,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       setOrderNumber(nextOrderNumber);
       setCreatedOrderId(order?.id || null);
       setPaymentConfirmed(isNC); // NC orders are auto-confirmed
-
-      // ✅ CRITICAL: Link kitchen order → order SYNCHRONOUSLY before success
-      // This MUST complete before showing success, otherwise order_id stays null
-      // and PaymentDialog creates a duplicate order when "Mark as Paid" is clicked
-      if (order?.id && kitchenOrder?.id) {
-        const { error: linkError } = await supabase
-          .from("kitchen_orders")
-          .update({ order_id: order.id })
-          .eq("id", kitchenOrder.id);
-        if (linkError) {
-          console.error("❌ Critical: kitchen→order link failed:", linkError);
-        }
-      }
 
       setStatus("success");
       toast({
@@ -1219,21 +1176,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         .order("order_number", { ascending: false })
         .limit(1);
       const nextOrderNumber = ((maxOrderRow?.[0]?.order_number as number) || 0) + 1;
-      const { data: kitchenOrder, error: kitchenError } = await supabase
-        .from("kitchen_orders")
-        .insert({
-          restaurant_id: restaurantId,
-          source: "QuickServe",
-          status: "preparing",
-          items: kitchenItems,
-          order_type: "takeaway",
-          customer_name: finalCustomerName,
-          server_name: attendantName,
-          priority: "normal",
-        })
-        .select()
-        .single();
-      if (kitchenError) throw kitchenError;
       const totalDiscountAmount = discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
       const { data: order, error: orderError } = await supabase
         .from("orders")
@@ -1241,14 +1183,18 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           restaurant_id: restaurantId,
           customer_name: finalCustomerName,
           items: formattedItems,
+          kitchen_items: kitchenItems,
           total: subtotal,
           status: "preparing",
+          kitchen_status: "preparing",
           payment_status: "pending",
           payment_method: "split",
           split_payments: splitPaymentsData,
           source: "quickserve",
           order_type: "takeaway",
           attendant: attendantName,
+          server_name: attendantName,
+          priority: "normal",
           order_number: nextOrderNumber,
           item_completion_status: items.map(() => false),
           ...(totalDiscountAmount > 0 && { discount_amount: totalDiscountAmount }),
@@ -1260,7 +1206,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       await supabase.from("pos_transactions").insert({
         restaurant_id: restaurantId,
         order_id: order?.id || null,
-        kitchen_order_id: kitchenOrder?.id || null,
+        kitchen_order_id: null,
         amount: subtotal,
         payment_method: "split",
         split_payments: splitPaymentsData,
@@ -1270,9 +1216,6 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         staff_id: user?.id || null,
         discount_amount: 0,
       });
-      if (kitchenOrder?.id && order?.id) {
-        supabase.from("kitchen_orders").update({ order_id: order.id }).eq("id", kitchenOrder.id);
-      }
       setOrderNumber(nextOrderNumber);
       setCreatedOrderId(order?.id || null);
       setShowSplitUI(false);

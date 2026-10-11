@@ -38,6 +38,7 @@ export const useRealtimeAnalytics = () => {
             ['liveActivity'],
             ['realtime-business-data'],
             ['business-dashboard-data'],
+            ['kitchen-orders'],
           ]);
         }
       )
@@ -48,18 +49,6 @@ export const useRealtimeAnalytics = () => {
           debounceInvalidate([
             ['analytics-data'],
             ['dashboard-orders'],
-          ]);
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'kitchen_orders' },
-        () => {
-          debounceInvalidate([
-            ['liveActivity'],
-            ['analytics-data'],
-            ['kitchen-orders'],
-            ['realtime-business-data'],
           ]);
         }
       )

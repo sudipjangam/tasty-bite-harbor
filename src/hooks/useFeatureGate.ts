@@ -168,9 +168,12 @@ export const useFeatureGate = (featureKey: string): UseFeatureGateResult => {
   // Determine if locked (defaults to locked while loading to prevent premature feature reveal)
   const isLocked = useMemo(() => {
     if (loading) return true;
+    if (user?.role?.toLowerCase() === "admin" || user?.role_name_text?.toLowerCase() === "admin") {
+      return false;
+    }
     if (!featureKey) return false;
     return !hasFeatureAccess(featureKey, planComponents);
-  }, [featureKey, planComponents, loading]);
+  }, [featureKey, planComponents, loading, user?.role, user?.role_name_text]);
 
   // Fetch required plan name when locked
   useEffect(() => {

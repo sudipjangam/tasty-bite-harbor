@@ -103,6 +103,7 @@ serve(async (req) => {
             order_type: "delivery",
             source: provider,
             status: store?.auto_accept_orders ? "preparing" : "pending",
+            kitchen_status: "preparing",
             payment_status: "paid",
             payment_method: `${provider}_online`,
             total: grossAmount,
@@ -113,28 +114,17 @@ serve(async (req) => {
               price: i.price,
               notes: i.notes || "",
             })),
+            kitchen_items: order.items.map((i) => ({
+              name: i.name,
+              quantity: i.quantity,
+              notes: i.notes || "",
+            })),
           },
         ])
         .select("id")
         .single();
 
       if (orderInsertError) throw orderInsertError;
-
-      // Insert into Kitchen KOT orders table
-      await supabase.from("kitchen_orders").insert([
-        {
-          restaurant_id: restaurantId,
-          order_id: insertedOrder.id,
-          source: provider.toUpperCase(),
-          status: "preparing",
-          priority: "high",
-          items: order.items.map((i) => ({
-            name: i.name,
-            quantity: i.quantity,
-            notes: i.notes || "",
-          })),
-        },
-      ]);
 
       // Record in aggregator_orders log
       await supabase.from("aggregator_orders").insert([

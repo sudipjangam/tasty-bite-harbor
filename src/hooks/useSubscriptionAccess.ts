@@ -21,6 +21,7 @@ export const useSubscriptionAccess = () => {
       const { data: subscription, error } = await supabase
         .from('restaurant_subscriptions')
         .select(`
+          components,
           subscription_plans (
             components
           )
@@ -34,7 +35,7 @@ export const useSubscriptionAccess = () => {
         return [];
       }
 
-      if (!subscription || !subscription.subscription_plans) {
+      if (!subscription) {
         return [];
       }
 
@@ -46,14 +47,17 @@ export const useSubscriptionAccess = () => {
         planData = subscription.subscription_plans;
       }
 
-      const components = planData?.components ?? [];
+      const planComps = planData?.components ?? [];
+      const branchComps = (subscription as any)?.components ?? [];
+      const planArr = Array.isArray(planComps) ? planComps : [];
+      const branchArr = Array.isArray(branchComps) ? branchComps : [];
       
-      return Array.isArray(components) ? components : [];
+      return Array.from(new Set([...planArr, ...branchArr]));
     },
     enabled: !!user?.restaurant_id
   });
 
-  // ─── Supabase Realtime: auto-invalidate when plan features change ──────
+  // ─── Supabase Realtime: auto-invalidate when plan features or branch overrides change ──────
   useEffect(() => {
     if (!user?.restaurant_id) return; // Don't open WSS without auth
 
@@ -62,19 +66,18 @@ export const useSubscriptionAccess = () => {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
-          table: 'subscription_plans',
+          table: 'restaurant_subscriptions',
+          filter: `restaurant_id=eq.${user.restaurant_id}`,
         },
-        (payload) => {
-          // Invalidate the subscription-components query to trigger re-fetch
+        () => {
           queryClient.invalidateQueries({
-            queryKey: ['subscription-components', user?.restaurant_id],
+            queryKey: ['subscription-components', user.restaurant_id],
           });
         }
       )
-      .subscribe((status) => {
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);

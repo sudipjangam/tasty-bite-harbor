@@ -200,15 +200,6 @@ serve(async (req) => {
         console.error('Error updating order:', orderError);
         // Don't fail — transaction is already updated
       }
-
-      // Also update kitchen_orders if applicable
-      await supabaseClient
-        .from('kitchen_orders')
-        .update({
-          payment_status: 'completed',
-          payment_method: 'upi',
-        })
-        .eq('order_id', transaction.order_id);
     }
 
     console.log(`Webhook processed: orderId=${orderId}, status=${newStatus}`);

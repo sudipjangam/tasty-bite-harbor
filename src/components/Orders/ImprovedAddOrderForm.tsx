@@ -366,74 +366,30 @@ const ImprovedAddOrderForm = ({
         notes: item.notes ? [item.notes] : [],
       }));
 
+      const orderPayload = {
+        ...orderData,
+        kitchen_items: kitchenItems,
+        ...(editingOrder ? {} : { kitchen_status: "new" })
+      };
+
       if (editingOrder) {
         const { error: orderError } = await supabase
           .from("orders")
-          .update(orderData)
+          .update(orderPayload)
           .eq("id", editingOrder.id);
 
         if (orderError) throw orderError;
-
-        const { data: linkedKitchenOrder } = await supabase
-          .from("kitchen_orders")
-          .select("id")
-          .eq("order_id", editingOrder.id)
-          .maybeSingle();
-
-        if (linkedKitchenOrder) {
-          const { error: kitchenError } = await supabase
-            .from("kitchen_orders")
-            .update({
-              items: kitchenItems,
-              source: orderData.customer_name,
-            })
-            .eq("order_id", editingOrder.id);
-
-          if (kitchenError) {
-            console.error("Failed to update kitchen order:", kitchenError);
-            toast({
-              title: "Warning",
-              description: "Order updated but kitchen sync failed.",
-              variant: "destructive",
-            });
-          }
-        }
 
         toast({
           title: "Success",
           description: "Order updated successfully",
         });
       } else {
-        const { data: newOrder, error: orderError } = await supabase
+        const { error: orderError } = await supabase
           .from("orders")
-          .insert([orderData])
-          .select()
-          .single();
+          .insert([orderPayload]);
 
         if (orderError) throw orderError;
-
-        if (newOrder) {
-          const { error: kitchenError } = await supabase
-            .from("kitchen_orders")
-            .insert({
-              restaurant_id: profile.restaurant_id,
-              source: orderData.customer_name,
-              status: "new",
-              items: kitchenItems,
-              order_id: newOrder.id,
-              order_type: orderData.order_type,
-              customer_name: values.customerName,
-            });
-
-          if (kitchenError) {
-            console.error("Failed to create kitchen order:", kitchenError);
-            toast({
-              title: "Warning",
-              description: "Order created but sent to kitchen failed.",
-              variant: "destructive",
-            });
-          }
-        }
 
         toast({
           title: "Success",

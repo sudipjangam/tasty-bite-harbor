@@ -3358,6 +3358,14 @@ export type Database = {
           table_id: string | null
           total: number
           updated_at: string
+          bumped_at: string | null
+          completed_at: string | null
+          estimated_prep_time: number | null
+          kitchen_items: Json | null
+          kitchen_status: string | null
+          round_number: number | null
+          server_name: string | null
+          station: string | null
         }
         Insert: {
           attendant?: string | null
@@ -3394,6 +3402,14 @@ export type Database = {
           table_id?: string | null
           total: number
           updated_at?: string
+          bumped_at?: string | null
+          completed_at?: string | null
+          estimated_prep_time?: number | null
+          kitchen_items?: Json | null
+          kitchen_status?: string | null
+          round_number?: number | null
+          server_name?: string | null
+          station?: string | null
         }
         Update: {
           attendant?: string | null
@@ -3430,6 +3446,14 @@ export type Database = {
           table_id?: string | null
           total?: number
           updated_at?: string
+          bumped_at?: string | null
+          completed_at?: string | null
+          estimated_prep_time?: number | null
+          kitchen_items?: Json | null
+          kitchen_status?: string | null
+          round_number?: number | null
+          server_name?: string | null
+          station?: string | null
         }
         Relationships: [
           {

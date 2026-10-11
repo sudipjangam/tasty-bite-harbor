@@ -24,9 +24,9 @@ export const useKitchenThrottle = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Listen to realtime changes on kitchen_orders
+  // Listen to realtime changes on orders
   useRealtimeSubscription({
-    table: "kitchen_orders",
+    table: "orders",
     queryKey: ["kitchen-throttle-orders", restaurantId],
   });
 
@@ -38,10 +38,10 @@ export const useKitchenThrottle = () => {
     queryFn: async () => {
       if (!restaurantId) return [];
       const { data, error } = await supabase
-        .from("kitchen_orders")
-        .select("id, status, items, priority, created_at")
+        .from("orders")
+        .select("id, kitchen_status, kitchen_items, priority, created_at")
         .eq("restaurant_id", restaurantId)
-        .in("status", ["new", "preparing"]);
+        .in("kitchen_status", ["new", "preparing"]);
 
       if (error) throw error;
       return data || [];
@@ -52,8 +52,8 @@ export const useKitchenThrottle = () => {
   const { totalPendingItems, totalActiveTickets } = useMemo(() => {
     let itemsCount = 0;
     activeOrders.forEach((order) => {
-      if (Array.isArray(order.items)) {
-        order.items.forEach((item: any) => {
+      if (Array.isArray(order.kitchen_items)) {
+        order.kitchen_items.forEach((item: any) => {
           itemsCount += typeof item.quantity === "number" ? item.quantity : 1;
         });
       }

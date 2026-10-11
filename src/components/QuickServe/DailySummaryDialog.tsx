@@ -141,9 +141,9 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         .gte("created_at", dayStart)
         .lte("created_at", dayEnd);
 
-      // 2. Fetch kitchen_orders for items, order types, peak hour
+      // 2. Fetch orders for items, order types, peak hour
       const { data: orders, error } = await supabase
-        .from("kitchen_orders")
+        .from("orders")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", dayStart)
@@ -380,7 +380,7 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         });
       }
 
-      // Order type breakdown (from kitchen_orders)
+      // Order type breakdown (from orders table)
       const orderTypeBreakdown: OrderTypeBreakdown = {
         counter: 0,
         takeaway: 0,
@@ -396,10 +396,10 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         else orderTypeBreakdown.counter++;
       });
 
-      // Top items (from kitchen_orders items array)
+      // Top items (from orders kitchen_items array)
       const itemMap = new Map<string, { quantity: number; revenue: number }>();
       allOrders.forEach((o) => {
-        const items = (o.items as any[]) || [];
+        const items = ((o as any).kitchen_items as any[]) || ((o as any).items as any[]) || [];
         items.forEach((item) => {
           const name = item.name || "Unknown";
           const qty = item.quantity || 1;

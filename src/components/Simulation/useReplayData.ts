@@ -105,15 +105,25 @@ async function fetchDayTimeline(restaurantId: string, date: string): Promise<Rep
   const dayEnd = new Date(`${date}T23:59:59`);
 
   const { data, error } = await supabase
-    .from('kitchen_orders')
-    .select('id, table_number, status, items, created_at, started_at, completed_at, server_name, order_type')
+    .from('orders')
+    .select('id, table_number, kitchen_status, kitchen_items, created_at, started_at, completed_at, server_name, order_type')
     .eq('restaurant_id', restaurantId)
     .gte('created_at', dayStart.toISOString())
     .lte('created_at', dayEnd.toISOString())
     .order('created_at', { ascending: true });
 
   if (error) throw error;
-  const orders: ReplayOrder[] = (data || []) as ReplayOrder[];
+  const orders: ReplayOrder[] = (data || []).map((o: any) => ({
+    id: o.id,
+    table_number: o.table_number,
+    status: o.kitchen_status || o.status || 'new',
+    items: o.kitchen_items || [],
+    created_at: o.created_at,
+    started_at: o.started_at,
+    completed_at: o.completed_at,
+    server_name: o.server_name,
+    order_type: o.order_type,
+  })) as ReplayOrder[];
 
   // Find actual day bounds from data (or use full day)
   const firstOrder = orders[0] ? new Date(orders[0].created_at) : dayStart;

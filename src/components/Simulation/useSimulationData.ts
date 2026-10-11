@@ -95,10 +95,10 @@ export const useSimulationData = (activeBranchId: string | undefined, isDemoMode
       const [tablesRes, layoutRes, ordersRes, staffRes] = await Promise.all([
         supabase.from('restaurant_tables').select('*').eq('restaurant_id', activeBranchId),
         supabase.from('restaurant_layout_objects').select('*').eq('restaurant_id', activeBranchId),
-        supabase.from('kitchen_orders')
-          .select('id, table_number, status')
+        supabase.from('orders')
+          .select('id, table_number, kitchen_status')
           .eq('restaurant_id', activeBranchId)
-          .in('status', ['new', 'preparing', 'ready']),
+          .in('kitchen_status', ['new', 'preparing', 'ready']),
         supabase.from('staff')
           .select('id, name, role')
           .eq('restaurant_id', activeBranchId)
@@ -113,7 +113,11 @@ export const useSimulationData = (activeBranchId: string | undefined, isDemoMode
 
       setTables(tablesRes.data as any || []);
       setLayoutObjects(layoutRes.data as any || []);
-      setOrders(ordersRes.data as any || []);
+      setOrders(((ordersRes.data as any[]) || []).map(o => ({
+        id: o.id,
+        table_number: o.table_number,
+        status: o.kitchen_status || 'new',
+      })));
 
       if (staffRes.data && staffRes.data.length > 0) {
         setStaff(staffRes.data as any);
@@ -154,7 +158,7 @@ export const useSimulationData = (activeBranchId: string | undefined, isDemoMode
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'kitchen_orders',
+        table: 'orders',
         filter: `restaurant_id=eq.${activeBranchId}`
       }, () => loadData())
       .on('postgres_changes', {

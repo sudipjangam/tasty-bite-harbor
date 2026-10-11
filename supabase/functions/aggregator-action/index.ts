@@ -79,13 +79,8 @@ serve(async (req) => {
       if (params?.order_id) {
         await supabase
           .from("orders")
-          .update({ status: "ready" })
+          .update({ status: "ready", kitchen_status: "ready" })
           .eq("id", params.order_id);
-        
-        await supabase
-          .from("kitchen_orders")
-          .update({ status: "ready" })
-          .eq("order_id", params.order_id);
       }
       return new Response(
         JSON.stringify({ success: true, message: "Food marked ready for rider pickup" }),

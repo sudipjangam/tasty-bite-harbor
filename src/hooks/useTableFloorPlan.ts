@@ -610,17 +610,11 @@ export function useTableFloorPlan() {
     }) => {
       if (!restaurantId) throw new Error("No restaurant ID");
 
-      // Insert kitchen alert / priority KOT
-      await supabase.from("kitchen_orders").insert([
-        {
-          restaurant_id: restaurantId,
-          order_id: orderId,
-          source: `FIRE ${courseName.toUpperCase()}`,
-          status: "preparing",
-          priority: "rush",
-          items: [{ name: `🔥 FIRE ${courseName.toUpperCase()} for Table ${tableName}`, quantity: 1 }],
-        },
-      ]);
+      // Update orders record with kitchen alert / priority KOT
+      await supabase.from("orders").update({
+        kitchen_status: "preparing",
+        kitchen_items: [{ name: `🔥 FIRE ${courseName.toUpperCase()} for Table ${tableName}`, quantity: 1 }],
+      }).eq("id", orderId);
     },
     onSuccess: (_, vars) => {
       toast({

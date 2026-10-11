@@ -218,17 +218,13 @@ export const KioskMode: React.FC = () => {
       if (orderErr) throw orderErr;
 
       // 2. Dispatch KOT to Kitchen Display
-      await supabase.from("kitchen_orders").insert({
-        restaurant_id: restaurantId,
-        order_id: order.id,
-        source: `KIOSK (${orderType})`,
-        status: "preparing",
-        priority: "normal",
-        items: cart.map((c) => ({
+      await supabase.from("orders").update({
+        kitchen_status: "preparing",
+        kitchen_items: cart.map((c) => ({
           name: c.name,
           quantity: c.quantity,
         })),
-      });
+      }).eq("id", order.id);
 
       setPlacedOrderId(order.id);
       setPlacedOrderTotal(grandTotal);

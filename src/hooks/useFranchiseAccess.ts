@@ -29,10 +29,35 @@ export const useFranchiseAccess = (): FranchiseAccessInfo => {
   const { restaurantId } = useRestaurantId();
   const { hasSubscriptionAccess, isLoading: subscriptionLoading } = useSubscriptionAccess();
 
+  const isAdmin =
+    user?.role?.toLowerCase() === "admin" ||
+    user?.role_name_text?.toLowerCase() === "admin";
+
   const { data, isLoading: queryLoading } = useQuery({
-    queryKey: ["franchise-access-check", user?.id, restaurantId, user?.restaurant_id],
+    queryKey: ["franchise-access-check", user?.id, restaurantId, user?.restaurant_id, isAdmin],
     queryFn: async () => {
       if (!user) return null;
+
+      // ── Step 0: Check active_franchise_org_id in localStorage ───
+      const storedOrgId = typeof window !== "undefined" ? localStorage.getItem("active_franchise_org_id") : null;
+      if (storedOrgId) {
+        const { data: storedOrg } = await supabase
+          .from("organizations")
+          .select("id, name, type")
+          .eq("id", storedOrgId)
+          .in("type", ["franchise", "chain"])
+          .maybeSingle();
+
+        if (storedOrg) {
+          return {
+            organizationId: storedOrg.id,
+            organizationType: storedOrg.type as "franchise" | "chain",
+            organizationName: storedOrg.name,
+            isFranchise: true,
+            isSingleRestaurant: false,
+          };
+        }
+      }
 
       // ── Step 1: Check organization_members ──────────────────────
       const { data: memberRows, error: memberErr } = await supabase
@@ -109,23 +134,26 @@ export const useFranchiseAccess = (): FranchiseAccessInfo => {
 
           if (orgRow) {
             const isFranchiseType = orgRow.type === "franchise" || orgRow.type === "chain";
-            return {
-              organizationId: orgRow.id,
-              organizationType: orgRow.type as "single" | "franchise" | "chain",
-              organizationName: orgRow.name,
-              isFranchise: isFranchiseType,
-              isSingleRestaurant: !isFranchiseType,
-            };
+            if (isFranchiseType) {
+              return {
+                organizationId: orgRow.id,
+                organizationType: orgRow.type as "franchise" | "chain",
+                organizationName: orgRow.name,
+                isFranchise: true,
+                isSingleRestaurant: false,
+              };
+            }
           }
         }
       }
 
       // ── Step 4: Platform admin fallback ─────────────────────────
-      if (user.role === "admin") {
+      if (isAdmin) {
         const { data: firstFranchise } = await supabase
           .from("organizations")
           .select("id, name, type")
           .in("type", ["franchise", "chain"])
+          .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
 
@@ -157,15 +185,19 @@ export const useFranchiseAccess = (): FranchiseAccessInfo => {
   const isFranchise = Boolean(data?.isFranchise);
   const isSingleRestaurant = data ? data.isSingleRestaurant : true;
 
-  // Has franchise subscription component in plan
+  // Has franchise subscription component in plan or branch overrides
   const hasFranchiseSubscription =
     hasSubscriptionAccess("franchise.dashboard") ||
     hasSubscriptionAccess("franchise");
 
-  // Single restaurant can NEVER access franchise portal
+  // Franchise portal access strictly requires:
+  // 1. Not a single restaurant
+  // 2. Organization is a franchise/chain
+  // 3. Branch has franchise subscription component enabled
   const canAccessFranchisePortal =
     !isSingleRestaurant &&
     isFranchise &&
+    hasFranchiseSubscription &&
     (user?.role === "owner" || user?.role === "admin" || Boolean(data?.organizationId));
 
   return {

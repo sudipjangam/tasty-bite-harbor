@@ -87,7 +87,7 @@ export const MenuEngineering = ({ recipes }: MenuEngineeringProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
-  // Fetch order data from kitchen_orders to calculate popularity
+  // Fetch order data from orders to calculate popularity
   const { data: orderItems = [], isLoading: isLoadingOrders } = useQuery({
     queryKey: ["menu-engineering-orders", restaurantId, periodDays],
     queryFn: async () => {
@@ -96,18 +96,17 @@ export const MenuEngineering = ({ recipes }: MenuEngineeringProps) => {
       const startDate = subDays(new Date(), periodDays).toISOString();
 
       const { data, error } = await supabase
-        .from("kitchen_orders")
-        .select("items, status, created_at")
+        .from("orders")
+        .select("kitchen_items, items, status, kitchen_status, created_at")
         .eq("restaurant_id", restaurantId)
-        .gte("created_at", startDate)
-        .in("status", ["completed", "delivered", "served", "bumped"]);
+        .gte("created_at", startDate);
 
       if (error) throw error;
 
       // Parse items from JSON and count per item name
       const itemCounts: Record<string, number> = {};
       (data || []).forEach((order) => {
-        const items = order.items as any[];
+        const items = ((order.kitchen_items as any[]) || []) as any[];
         if (Array.isArray(items)) {
           items.forEach((item) => {
             const itemName = (item.name || item.item_name || "").trim().toLowerCase();

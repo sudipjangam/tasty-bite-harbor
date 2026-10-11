@@ -173,35 +173,22 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
       const orderSource = `Room Service - ${roomName}`;
       const total = calculateTotal;
 
-      // 1. Create kitchen order
-      const { data: kitchenOrder, error: kitchenError } = await supabase
-        .from('kitchen_orders')
-        .insert({
-          restaurant_id: restaurantId,
-          source: orderSource,
-          items: orderItems.map(item => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price
-          })),
-          status: 'new',
-          customer_name: customerName
-        })
-        .select()
-        .single();
-
-      if (kitchenError) throw kitchenError;
-
-      // 2. Create order record
+      // 1. Create unified order record
       const { data: createdOrder, error: orderError } = await supabase
         .from('orders')
         .insert({
           restaurant_id: restaurantId,
           customer_name: customerName,
           items: orderItems.map(item => formatOrderItemString(item.quantity, item.name, item.price)),
+          kitchen_items: orderItems.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price
+          })),
+          kitchen_status: 'new',
           total: total,
           status: 'pending',
-          source: 'room_service',
+          source: orderSource,
           order_type: 'room-service',
           reservation_id: reservationId,
           payment_status: 'Pending - Room Charge'
@@ -210,14 +197,6 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
         .single();
 
       if (orderError) throw orderError;
-
-      // 3. Link kitchen order to order record
-      if (createdOrder?.id && kitchenOrder?.id) {
-        await supabase
-          .from('kitchen_orders')
-          .update({ order_id: createdOrder.id })
-          .eq('id', kitchenOrder.id);
-      }
 
       // 4. Also create room_food_orders entry
       await supabase.from('room_food_orders').insert({
@@ -258,13 +237,13 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
     try {
       await supabase
         .from('orders')
-        .update({ status: 'cancelled', payment_status: 'Cancelled' })
+        .update({
+          status: 'cancelled',
+          kitchen_status: 'cancelled',
+          bumped_at: new Date().toISOString(),
+          payment_status: 'Cancelled',
+        })
         .eq('id', orderId);
-
-      await supabase
-        .from('kitchen_orders')
-        .update({ status: 'cancelled' })
-        .eq('order_id', orderId);
 
       toast({
         title: "Order Cancelled",

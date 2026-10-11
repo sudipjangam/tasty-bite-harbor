@@ -106,7 +106,7 @@ async function replayWrite(item: QueuedWrite): Promise<void> {
   switch (type) {
     case "kitchen_order":
       await replayWithConflictCheck(
-        "kitchen_orders",
+        "orders",
         payload,
         timestamp,
         item.id,
