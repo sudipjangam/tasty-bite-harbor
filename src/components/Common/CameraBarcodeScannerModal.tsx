@@ -14,11 +14,12 @@ import {
   Flashlight, 
   FlashlightOff, 
   FlipHorizontal, 
-  X, 
   AlertCircle, 
   Check, 
   Barcode, 
-  Loader2 
+  Loader2,
+  Upload,
+  RefreshCw
 } from "lucide-react";
 import { playScanSuccessFeedback } from "@/utils/audioFeedback";
 
@@ -42,6 +43,23 @@ const SUPPORTED_FORMATS = [
   Html5QrcodeSupportedFormats.DATA_MATRIX,
 ];
 
+// Helper to wait until dialog DOM container is mounted
+const waitForElement = (id: string, maxAttempts = 25, delayMs = 50): Promise<boolean> => {
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const check = () => {
+      if (document.getElementById(id)) {
+        resolve(true);
+      } else if (attempts++ < maxAttempts) {
+        setTimeout(check, delayMs);
+      } else {
+        resolve(false);
+      }
+    };
+    check();
+  });
+};
+
 export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps> = ({
   isOpen,
   onClose,
@@ -51,12 +69,14 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
 }) => {
   const scannerContainerId = "html5-barcode-scanner-viewport";
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [cameras, setCameras] = useState<CameraDevice[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
   const [hasTorch, setHasTorch] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isPermissionDenied, setIsPermissionDenied] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
@@ -92,24 +112,61 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
       // Stop scanner immediately upon success to prevent multiple triggers
       await stopScanner();
 
-      // Small delay for user to see success UI
+      // Small delay for user to see success feedback
       setTimeout(() => {
         onScanSuccess(cleanCode);
         onClose();
-      }, 300);
+      }, 350);
     },
     [onScanSuccess, onClose, stopScanner]
   );
 
-  // Start scanner
+  // Query cameras after stream started (devices have full labels once permission is granted)
+  const refreshCameraList = useCallback(async () => {
+    try {
+      const devices = await Html5Qrcode.getCameras();
+      if (devices && devices.length > 0) {
+        setCameras(devices);
+      }
+    } catch {
+      // Ignored if enumeration not allowed
+    }
+  }, []);
+
+  // Start scanner with resilient mobile fallbacks
   const startScanner = useCallback(
-    async (cameraId?: string) => {
+    async (preferredCameraId?: string) => {
       if (!isOpen) return;
       setErrorMsg(null);
+      setIsPermissionDenied(false);
       setIsInitializing(true);
+
+      // Secure context validation (Brave/Chrome on Android block getUserMedia on non-HTTPS)
+      if (typeof window !== "undefined") {
+        const isLocal =
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1";
+        if (!window.isSecureContext && !isLocal) {
+          setErrorMsg("Camera access requires a secure HTTPS connection.");
+          setIsInitializing(false);
+          return;
+        }
+        if (!navigator?.mediaDevices?.getUserMedia) {
+          setErrorMsg("Camera API is not supported in this browser. Please use Chrome, Brave, Safari, or Firefox.");
+          setIsInitializing(false);
+          return;
+        }
+      }
 
       await stopScanner();
       const currentStartId = ++startIdRef.current;
+
+      // Ensure DOM portal node exists
+      const isElementReady = await waitForElement(scannerContainerId);
+      if (!isElementReady || currentStartId !== startIdRef.current || !isOpen) {
+        setIsInitializing(false);
+        return;
+      }
 
       try {
         const scanner = new Html5Qrcode(scannerContainerId, {
@@ -118,34 +175,97 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
         });
         scannerRef.current = scanner;
 
-        // Configuration optimized for both 1D line codes and 2D QR codes
+        // Optimized QR/1D bounding box without rigid aspectRatio (prevents OverconstrainedError on Android Camera2)
         const config = {
           fps: 15,
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            // Horizontal rectangular box ideal for 1D line barcodes & QR
-            const width = Math.floor(Math.min(viewfinderWidth * 0.88, 360));
+            const width = Math.floor(Math.min(viewfinderWidth * 0.9, 360));
             const height = Math.floor(Math.min(viewfinderHeight * 0.55, 200));
             return { width, height };
           },
-          aspectRatio: 1.0,
         };
 
-        const cameraTarget = cameraId
-          ? { deviceId: { exact: cameraId } }
-          : { facingMode: "environment" };
+        const onFrameSuccess = (decodedText: string) => {
+          handleDetected(decodedText);
+        };
+        const onFrameFailure = () => {
+          // Silent frame ignore
+        };
 
-        await scanner.start(
-          cameraTarget,
-          config,
-          (decodedText) => {
-            handleDetected(decodedText);
-          },
-          () => {
-            // Frame ignored without error noise
+        let started = false;
+
+        // Strategy 1: If specific camera selected by user, try it first
+        if (preferredCameraId) {
+          try {
+            await scanner.start(
+              { deviceId: { exact: preferredCameraId } },
+              config,
+              onFrameSuccess,
+              onFrameFailure
+            );
+            started = true;
+            setSelectedCameraId(preferredCameraId);
+          } catch (camErr) {
+            console.warn("Preferred camera start failed, falling back to facingMode:", camErr);
           }
-        );
+        }
 
-        // If cancelled or closed while starting, stop this scanner instance immediately
+        // Strategy 2: Default to environment (back/rear) camera
+        if (!started) {
+          try {
+            await scanner.start(
+              { facingMode: "environment" },
+              config,
+              onFrameSuccess,
+              onFrameFailure
+            );
+            started = true;
+          } catch (envErr: any) {
+            // Check if blocked by user permissions
+            if (
+              envErr?.name === "NotAllowedError" ||
+              envErr?.name === "PermissionDeniedError"
+            ) {
+              throw envErr;
+            }
+
+            console.warn("Environment camera failed, falling back to user camera:", envErr);
+          }
+        }
+
+        // Strategy 3: Fallback to user/front/webcam (for laptops, tablets, or non-back devices)
+        if (!started) {
+          try {
+            await scanner.start(
+              { facingMode: "user" },
+              config,
+              onFrameSuccess,
+              onFrameFailure
+            );
+            started = true;
+          } catch (userErr: any) {
+            if (
+              userErr?.name === "NotAllowedError" ||
+              userErr?.name === "PermissionDeniedError"
+            ) {
+              throw userErr;
+            }
+            console.warn("User camera failed, falling back to any video device:", userErr);
+          }
+        }
+
+        // Strategy 4: Fallback to generic media constraints
+        if (!started) {
+          await scanner.start(
+            true as any,
+            config,
+            onFrameSuccess,
+            onFrameFailure
+          );
+          started = true;
+        }
+
+        // If closed or restarted while starting, clean up
         if (currentStartId !== startIdRef.current || !isOpen) {
           try {
             if (scanner.isScanning) {
@@ -153,13 +273,16 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
             }
             scanner.clear();
           } catch (stopErr) {
-            console.warn("Failed to stop cancelled scanner:", stopErr);
+            console.warn("Failed to stop obsolete scanner:", stopErr);
           }
           if (scannerRef.current === scanner) {
             scannerRef.current = null;
           }
           return;
         }
+
+        // Populate camera list in background now that permissions are active
+        refreshCameraList();
 
         // Check torch capability
         try {
@@ -176,11 +299,21 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
       } catch (err: any) {
         if (currentStartId === startIdRef.current && isOpen) {
           console.error("Camera scanner init failed:", err);
-          const message =
-            err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError"
-              ? "Camera permission denied. Please allow camera access in browser/app settings."
-              : err?.message || "Failed to access camera.";
-          setErrorMsg(message);
+          const errName = err?.name || "";
+          if (errName === "NotAllowedError" || errName === "PermissionDeniedError") {
+            setIsPermissionDenied(true);
+            setErrorMsg(
+              "Camera permission is blocked. Tap the lock/tune icon in your browser address bar, set Camera to 'Allow', then tap Retry."
+            );
+          } else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") {
+            setErrorMsg("No camera device found on this system.");
+          } else if (errName === "NotReadableError" || errName === "TrackStartError") {
+            setErrorMsg("Camera is in use by another app or browser tab. Please close other camera apps and retry.");
+          } else if (errName === "OverconstrainedError") {
+            setErrorMsg("Camera resolution not supported by this device. Try photo upload or manual entry.");
+          } else {
+            setErrorMsg(err?.message || "Failed to access camera.");
+          }
         }
       } finally {
         if (currentStartId === startIdRef.current) {
@@ -188,43 +321,21 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
         }
       }
     },
-    [isOpen, handleDetected, stopScanner]
+    [isOpen, handleDetected, stopScanner, refreshCameraList]
   );
 
-  // Initialize cameras and start when modal opens
+  // Initialize camera directly on open without pre-enumeration blocking
   useEffect(() => {
     let isMounted = true;
 
     if (isOpen) {
       setErrorMsg(null);
+      setIsPermissionDenied(false);
       setLastScannedCode(null);
       setManualCode("");
 
-      Html5Qrcode.getCameras()
-        .then((availableCameras) => {
-          if (!isMounted) return;
-          setCameras(availableCameras);
-
-          // Prefer back camera if available
-          const backCam = availableCameras.find(
-            (c) =>
-              c.label.toLowerCase().includes("back") ||
-              c.label.toLowerCase().includes("rear") ||
-              c.label.toLowerCase().includes("environment")
-          );
-
-          const defaultCamId = backCam?.id || availableCameras[0]?.id;
-          if (defaultCamId) {
-            setSelectedCameraId(defaultCamId);
-          }
-          startScanner(defaultCamId);
-        })
-        .catch(() => {
-          // Fallback to facingMode constraint if camera enum fails
-          if (isMounted) {
-            startScanner();
-          }
-        });
+      // Start scanner immediately using facingMode (no blocking getCameras first)
+      startScanner();
     } else {
       stopScanner();
     }
@@ -259,6 +370,40 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     startScanner(nextCamera.id);
   };
 
+  // Scan from photo / image upload fallback
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsInitializing(true);
+    setErrorMsg(null);
+
+    try {
+      // Create temporary scanner instance for file decode if active stream stopped
+      const tempScanner =
+        scannerRef.current ||
+        new Html5Qrcode(scannerContainerId, {
+          formatsToSupport: SUPPORTED_FORMATS,
+          verbose: false,
+        });
+
+      const decodedText = await tempScanner.scanFile(file, false);
+      if (decodedText) {
+        handleDetected(decodedText);
+      } else {
+        setErrorMsg("No readable barcode found in image. Please try another angle or enter code manually.");
+      }
+    } catch (err: any) {
+      console.warn("File scan error:", err);
+      setErrorMsg("Could not detect barcode from image. Please ensure code is clear and well lit.");
+    } finally {
+      setIsInitializing(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualCode.trim()) return;
@@ -286,7 +431,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
           </div>
         </DialogHeader>
 
-        {/* Camera Container */}
+        {/* Camera Viewport Container */}
         <div className="relative w-full aspect-square max-h-[380px] bg-black overflow-hidden flex items-center justify-center">
           {/* HTML5 QR Code Mount Node */}
           <div
@@ -313,32 +458,58 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
 
           {/* Initializing Spinner */}
           {isInitializing && (
-            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-10">
-              <Loader2 className="w-7 h-7 text-emerald-400 animate-spin" />
-              <p className="text-xs text-slate-300">Starting camera...</p>
+            <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-10">
+              <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+              <p className="text-xs font-medium text-slate-300">Connecting to camera...</p>
             </div>
           )}
 
-          {/* Error Message Display */}
+          {/* Error Message Display & Recovery */}
           {errorMsg && (
-            <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-10">
-              <AlertCircle className="w-10 h-10 text-rose-500 mb-2" />
-              <p className="text-sm font-medium text-slate-200 mb-1">Camera Error</p>
-              <p className="text-xs text-slate-400 mb-4">{errorMsg}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => startScanner(selectedCameraId || undefined)}
-                className="border-slate-700 hover:bg-slate-800 text-xs text-slate-200"
-              >
-                Retry Camera
-              </Button>
+            <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-5 text-center z-10 overflow-y-auto">
+              <div className="p-2.5 rounded-full bg-rose-500/20 text-rose-400 mb-2">
+                <AlertCircle className="w-8 h-8" />
+              </div>
+              <p className="text-sm font-semibold text-slate-100 mb-1">
+                {isPermissionDenied ? "Camera Access Required" : "Camera Error"}
+              </p>
+              <p className="text-xs text-slate-300 max-w-xs leading-relaxed mb-4">
+                {errorMsg}
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => startScanner(selectedCameraId || undefined)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-md transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                  Retry Camera
+                </Button>
+
+                <Button
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-200 text-xs px-3.5 py-2 rounded-lg"
+                >
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />
+                  Scan Photo / File
+                </Button>
+              </div>
+
+              {isPermissionDenied && (
+                <p className="text-[11px] text-amber-400/90 mt-3 max-w-xs">
+                  Tip: On Brave or Chrome, tap the address bar icon to permit camera.
+                </p>
+              )}
             </div>
           )}
 
           {/* Success Flash Overlay */}
           {lastScannedCode && (
-            <div className="absolute inset-0 bg-emerald-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-20 transition-all">
+            <div className="absolute inset-0 bg-emerald-950/90 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-20 transition-all">
               <div className="p-3 bg-emerald-500 text-slate-950 rounded-full animate-bounce">
                 <Check className="w-6 h-6 stroke-[3]" />
               </div>
@@ -389,6 +560,16 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
           </div>
         </div>
 
+        {/* Hidden Photo File Input for Instant Photo Barcode Fallback */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handlePhotoUpload}
+          className="hidden"
+        />
+
         {/* Footer / Manual Fallback Entry */}
         <div className="p-3 bg-slate-900/90 border-t border-slate-800/80">
           <form onSubmit={handleManualSubmit} className="flex gap-2">
@@ -408,9 +589,19 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
               Submit
             </Button>
           </form>
-          <p className="text-[10px] text-slate-500 text-center mt-2">
-            Reads 1D Barcodes (EAN, UPC, Code 128) & 2D QR Codes
-          </p>
+          <div className="flex items-center justify-between mt-2 px-0.5">
+            <p className="text-[10px] text-slate-500">
+              Reads 1D Barcodes (EAN, UPC, Code 128) & 2D QR Codes
+            </p>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="text-[10px] text-emerald-400 hover:underline flex items-center gap-1 font-medium"
+            >
+              <Upload className="w-3 h-3" />
+              Scan from photo
+            </button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
