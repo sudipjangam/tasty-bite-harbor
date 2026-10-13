@@ -25,10 +25,11 @@ export default defineConfig(({ mode }) => {
     console.log(`[Build] Service Worker cache version: swadeshi-${BUILD_TIMESTAMP}`);
 
     // Generate version.json for runtime version checking
+    const buildDateObj = new Date();
     const versionInfo = {
       version: APP_VERSION,
-      buildTimestamp: BUILD_TIMESTAMP,
-      buildDate: new Date().toISOString()
+      buildTimestamp: buildDateObj.getTime().toString(),
+      buildDate: buildDateObj.toISOString()
     };
     fs.writeFileSync(
       path.resolve(__dirname, 'public/version.json'),

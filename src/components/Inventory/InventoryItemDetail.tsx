@@ -31,6 +31,7 @@ import {
   Calendar,
   Plus,
   Hammer,
+  Barcode,
 } from "lucide-react";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { format, isPast, differenceInDays } from "date-fns";
@@ -40,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 interface InventoryItem {
   id: string;
   name: string;
+  barcode?: string | null;
   quantity: number;
   unit: string;
   reorder_level: number | null;
@@ -239,6 +241,15 @@ const InventoryItemDetail: React.FC<InventoryItemDetailProps> = ({
               <Badge variant="outline" className="border-white/40 text-white text-xs">{item.category}</Badge>
               <span>·</span>
               <span>{item.quantity.toFixed(item.quantity % 1 === 0 ? 0 : 2)} {item.unit} in stock</span>
+              {item.barcode && (
+                <>
+                  <span>·</span>
+                  <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/20 px-2 py-0.5 rounded-full text-white">
+                    <Barcode className="h-3 w-3" />
+                    {item.barcode}
+                  </span>
+                </>
+              )}
               {isLow && (
                 <>
                   <span>·</span>

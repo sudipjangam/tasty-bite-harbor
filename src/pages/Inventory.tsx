@@ -38,7 +38,10 @@ import {
   MapPin,
   Home,
   X,
+  Camera,
+  Barcode,
 } from "lucide-react";
+import { CameraBarcodeScannerModal } from "@/components/Common/CameraBarcodeScannerModal";
 import { Switch } from "@/components/ui/switch";
 import { useIsMobile } from "@/hooks/use-mobile";
 import HomemadeIngredientPicker, { RawMaterial } from "@/components/Inventory/HomemadeIngredientPicker";
@@ -107,6 +110,7 @@ import { useOnlineDelivery } from "@/hooks/useOnlineDelivery";
 interface InventoryItem {
   id: string;
   name: string;
+  barcode?: string | null;
   quantity: number;
   unit: string;
   reorder_level: number | null;
@@ -161,13 +165,57 @@ const Inventory = () => {
 
   const queryClient = useQueryClient();
 
+  // Barcode scanner states
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
+  const [scannerTargetMode, setScannerTargetMode] = useState<"search" | "form">("search");
+  const [formBarcode, setFormBarcode] = useState("");
+
   useEffect(() => {
     if (editingItem && editingItem.category) {
       setNewItemCategory(editingItem.category);
     } else if (!editingItem) {
       setNewItemCategory("Other");
     }
-  }, [editingItem]);
+
+    if (editingItem) {
+      setFormBarcode(editingItem.barcode || "");
+    }
+  }, [editingItem, isAddDialogOpen]);
+
+  const handleBarcodeScanSuccess = (scannedCode: string) => {
+    if (scannerTargetMode === "form") {
+      setFormBarcode(scannedCode);
+      toast({
+        title: "Barcode Captured",
+        description: `Captured: ${scannedCode}`,
+      });
+    } else {
+      // Search mode: lookup in loaded inventory items
+      const target = scannedCode.trim().toLowerCase();
+      const matched = items.find(
+        (it) => it.barcode && it.barcode.trim().toLowerCase() === target
+      );
+
+      setSearchQuery(scannedCode);
+
+      if (matched) {
+        toast({
+          title: "Item Found",
+          description: `Found "${matched.name}".`,
+        });
+        setSelectedDetailItem(matched);
+      } else {
+        toast({
+          title: "No Matching Item",
+          description: `No item with barcode "${scannedCode}". Opening create dialog...`,
+        });
+        setEditingItem(null);
+        setFormBarcode(scannedCode);
+        setNewItemCategory("Other");
+        setIsAddDialogOpen(true);
+      }
+    }
+  };
 
   const handleBillDataExtracted = (data: ExtractedBillData) => {
     setExtractedBillData(data);
@@ -367,8 +415,10 @@ const Inventory = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const rawBarcode = (formData.get("barcode") as string)?.trim() || formBarcode.trim();
     const itemData = {
       name: (formData.get("name") as string).trim().toLowerCase(),
+      barcode: rawBarcode ? rawBarcode : null,
       quantity: Math.max(
         0,
         parseFloat(formData.get("quantity") as string) || 0,
@@ -778,10 +828,12 @@ const Inventory = () => {
   // Filter items
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
+      const searchLower = searchQuery.toLowerCase();
       const searchMatch =
         searchQuery === "" ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category?.toLowerCase().includes(searchQuery.toLowerCase());
+        item.name.toLowerCase().includes(searchLower) ||
+        item.category?.toLowerCase().includes(searchLower) ||
+        (item.barcode && item.barcode.toLowerCase().includes(searchLower));
       const categoryMatch =
         filterCategory === "all" || item.category === filterCategory;
       const stockMatch =
@@ -877,6 +929,7 @@ const Inventory = () => {
                   setEditingItem(null);
                   setIsAddingStock(false);
                   setNewItemCategory("Other");
+                  setFormBarcode("");
                   setIsAddDialogOpen(true);
                 }}
                 size="sm"
@@ -1017,6 +1070,7 @@ const Inventory = () => {
                     setEditingItem(null);
                     setIsAddingStock(false);
                     setNewItemCategory("Other");
+                    setFormBarcode("");
                     setIsAddDialogOpen(true);
                   }}
                   className="bg-gradient-to-r from-emerald-400 via-green-500 to-teal-600 hover:from-emerald-500 hover:via-green-600 hover:to-teal-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transform hover:-translate-y-1 hover:scale-[1.02] transition-all duration-300"
@@ -1049,6 +1103,7 @@ const Inventory = () => {
             setEditingItem(null);
             setIsHomemade(false);
             setRawMaterials([]);
+            setFormBarcode("");
           }
           if (open && !editingItem) setNewItemCategory("Other");
           if (open && editingItem)
@@ -1118,6 +1173,53 @@ const Inventory = () => {
                 placeholder="e.g., Olive Oil, Basmati Rice"
                 className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400/60 transition-all backdrop-blur-sm shadow-sm"
               />
+            </div>
+
+            {/* Barcode / SKU Field */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="barcode"
+                  className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
+                >
+                  <Barcode className="h-3.5 w-3.5 text-emerald-500" />
+                  Barcode / SKU <span className="text-[11px] font-normal text-gray-400">(Optional)</span>
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setScannerTargetMode("form");
+                    setIsBarcodeScannerOpen(true);
+                  }}
+                  className="h-7 px-2.5 text-xs gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  Scan Barcode
+                </Button>
+              </div>
+              <div className="relative">
+                <Input
+                  id="barcode"
+                  name="barcode"
+                  value={formBarcode}
+                  onChange={(e) => setFormBarcode(e.target.value)}
+                  placeholder="e.g., 8901030825414"
+                  className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 pr-10 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400/60 transition-all backdrop-blur-sm shadow-sm font-mono text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScannerTargetMode("form");
+                    setIsBarcodeScannerOpen(true);
+                  }}
+                  title="Scan with Camera"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-500 transition-colors p-1"
+                >
+                  <Camera className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Category */}
@@ -1374,6 +1476,19 @@ const Inventory = () => {
                 </div>
 
                 <Button
+                  onClick={() => {
+                    setScannerTargetMode("search");
+                    setIsBarcodeScannerOpen(true);
+                  }}
+                  variant="outline"
+                  className="h-10 md:h-11 px-3 gap-1.5 border-emerald-500/30 hover:border-emerald-500/60 bg-emerald-50/60 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 font-semibold rounded-2xl shadow-sm shrink-0"
+                  title="Scan Barcode / QR with Camera"
+                >
+                  <Barcode className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="hidden sm:inline text-xs">Scan Barcode</span>
+                </Button>
+
+                <Button
                   onClick={() => setIsBillUploadOpen(true)}
                   size="icon"
                   className="md:hidden h-10 w-10 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl shadow-md shrink-0"
@@ -1592,6 +1707,12 @@ const Inventory = () => {
                               <span className="font-semibold px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300">
                                 {item.category}
                               </span>
+                              {item.barcode && (
+                                <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-0.5" title={`Barcode: ${item.barcode}`}>
+                                  <Barcode className="w-2.5 h-2.5 text-emerald-500" />
+                                  {item.barcode}
+                                </span>
+                              )}
                               {item.cost_per_unit ? (
                                 <span className="font-medium text-gray-600 dark:text-gray-300">
                                   {currencySymbol}{item.cost_per_unit}/{item.unit}
@@ -2172,6 +2293,7 @@ const Inventory = () => {
             setEditingItem(null);
             setIsAddingStock(false);
             setNewItemCategory("Other");
+            setFormBarcode("");
             setIsAddDialogOpen(true);
           }}
           className="fixed bottom-20 right-4 z-40 h-13 w-13 rounded-full bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 text-white shadow-xl shadow-emerald-500/40 flex items-center justify-center active:scale-90 hover:scale-105 transition-all duration-200"
@@ -2189,6 +2311,19 @@ const Inventory = () => {
           onClose={() => setShow86Modal(false)}
         />
       )}
+
+      {/* Camera Barcode Scanner Modal */}
+      <CameraBarcodeScannerModal
+        isOpen={isBarcodeScannerOpen}
+        onClose={() => setIsBarcodeScannerOpen(false)}
+        onScanSuccess={handleBarcodeScanSuccess}
+        title={scannerTargetMode === "form" ? "Scan Product Barcode" : "Scan Inventory Item"}
+        description={
+          scannerTargetMode === "form"
+            ? "Point camera at 1D line barcode or QR code to fill item barcode"
+            : "Point camera at item barcode to find or quickly stock/create"
+        }
+      />
     </div>
   );
 };

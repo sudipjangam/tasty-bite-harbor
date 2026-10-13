@@ -261,6 +261,11 @@
 | RoomStatusDashboard.tsx | Dashboard wrapper/view |
 | index.tsx | Component |
 
+### components/Common\n
+| File | Type/Purpose |
+|------|--------------|
+| CameraBarcodeScannerModal.tsx | Dialog / Modal UI for 1D/2D Barcode & QR Camera Scanning |
+
 ### components/Inventory\n
 | File | Type/Purpose |
 |------|--------------|

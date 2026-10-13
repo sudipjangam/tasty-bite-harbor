@@ -10,11 +10,13 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Calculator, Check, AlertTriangle, Save, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Calculator, Check, AlertTriangle, Save, RefreshCw, ChevronLeft, ChevronRight, Barcode } from "lucide-react";
+import { CameraBarcodeScannerModal } from "@/components/Common/CameraBarcodeScannerModal";
 
 interface InventoryItem {
   id: string;
   name: string;
+  barcode?: string | null;
   unit: string;
   quantity: number;
   cost_per_unit: number | null;
@@ -28,6 +30,7 @@ const Stocktake = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [actualCounts, setActualCounts] = useState<Record<string, number>>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const ITEMS_PER_PAGE = 10;
 
   const { data: inventoryItems = [], isLoading } = useQuery({
@@ -46,13 +49,42 @@ const Stocktake = () => {
   });
 
   const filteredItems = useMemo(() => {
+    const searchLower = searchQuery.toLowerCase();
     return inventoryItems.filter(
       (item) =>
         searchQuery === "" ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category?.toLowerCase().includes(searchQuery.toLowerCase())
+        item.name.toLowerCase().includes(searchLower) ||
+        item.category?.toLowerCase().includes(searchLower) ||
+        (item.barcode && item.barcode.toLowerCase().includes(searchLower))
     );
   }, [inventoryItems, searchQuery]);
+
+  const handleScanSuccess = (scannedCode: string) => {
+    const clean = scannedCode.trim().toLowerCase();
+    const matched = inventoryItems.find(
+      (item) => item.barcode && item.barcode.trim().toLowerCase() === clean
+    );
+
+    if (matched) {
+      const current = actualCounts[matched.id] ?? 0;
+      const next = current + 1;
+      setActualCounts((prev) => ({
+        ...prev,
+        [matched.id]: next,
+      }));
+      setSearchQuery(matched.name);
+      toast({
+        title: "Stock Counted",
+        description: `"${matched.name}": counted ${next} ${matched.unit}`,
+      });
+    } else {
+      toast({
+        title: "Barcode Not Found",
+        description: `No inventory item matches barcode "${scannedCode}".`,
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleCountChange = (itemId: string, value: string) => {
     const parsed = value === "" ? undefined : parseFloat(value);
@@ -210,6 +242,16 @@ const Stocktake = () => {
               className="pl-9 bg-white dark:bg-gray-800"
             />
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsScannerOpen(true)}
+            className="border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 gap-1.5 whitespace-nowrap"
+            title="Scan Barcode to Count"
+          >
+            <Barcode className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <span className="hidden sm:inline">Scan to Count</span>
+          </Button>
           <Button 
             onClick={() => processAdjustmentsMutation.mutate()} 
             disabled={discrepanciesCount === 0 || processAdjustmentsMutation.isPending}
@@ -260,7 +302,17 @@ const Stocktake = () => {
                           
                           return (
                             <TableRow key={item.id} className={isModified ? "bg-amber-50/50 dark:bg-amber-900/10" : ""}>
-                              <TableCell className="font-semibold">{item.name}</TableCell>
+                              <TableCell className="font-semibold">
+                                <div className="flex flex-col">
+                                  <span>{item.name}</span>
+                                  {item.barcode && (
+                                    <span className="inline-flex items-center gap-1 font-mono text-[10px] text-gray-400">
+                                      <Barcode className="w-3 h-3 text-emerald-500" />
+                                      {item.barcode}
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
                               <TableCell>{item.category || 'Other'}</TableCell>
                               <TableCell>
                                 <span className="font-medium">{item.quantity}</span> <span className="text-gray-500 text-xs">{item.unit}</span>
@@ -352,6 +404,14 @@ const Stocktake = () => {
         </CardContent>
       </Card>
       
+      {/* Camera Barcode Scanner Modal */}
+      <CameraBarcodeScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={handleScanSuccess}
+        title="Stocktake Barcode Scanner"
+        description="Point camera at item barcode to instantly register count"
+      />
     </div>
   );
 };
