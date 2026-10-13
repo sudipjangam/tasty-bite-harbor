@@ -19,7 +19,8 @@ import {
   Barcode, 
   Loader2,
   Upload,
-  RefreshCw
+  RefreshCw,
+  ShieldCheck
 } from "lucide-react";
 import { playScanSuccessFeedback } from "@/utils/audioFeedback";
 
@@ -80,6 +81,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
   const [isInitializing, setIsInitializing] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
+  const [permissionState, setPermissionState] = useState<"checking" | "prompt" | "granted" | "denied">("checking");
 
   const startIdRef = useRef(0);
 
@@ -134,8 +136,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
   }, []);
 
   // Pre-acquire camera permission via raw getUserMedia.
-  // Brave Android shields block html5-qrcode's internal getUserMedia unless
-  // a direct call triggers the native permission prompt first.
+  // Triggers native mobile browser permission prompt with direct user gesture context.
   const acquireCameraPermission = useCallback(async (): Promise<MediaStream | null> => {
     const constraints: MediaStreamConstraints[] = [
       { video: { facingMode: "environment" } },
@@ -148,11 +149,9 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
         const stream = await navigator.mediaDevices.getUserMedia(constraint);
         return stream;
       } catch (err: any) {
-        // Permission denied is fatal — don't try other constraints
         if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
           throw err;
         }
-        // Other errors (OverconstrainedError, NotFoundError) — try next constraint
         console.warn("getUserMedia constraint failed, trying next:", constraint, err?.name);
       }
     }
@@ -173,14 +172,14 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
           window.location.hostname === "localhost" ||
           window.location.hostname === "127.0.0.1";
         if (!window.isSecureContext && !isLocal) {
-          setErrorMsg("Camera requires HTTPS. Open this site with https:// or use localhost.");
+          setErrorMsg("Camera access requires HTTPS. Please access using a secure connection.");
+          setPermissionState("denied");
           setIsInitializing(false);
           return;
         }
         if (!navigator?.mediaDevices?.getUserMedia) {
-          setErrorMsg(
-            "Camera API not available. If using Brave, go to Settings → Shields → disable 'Block Fingerprinting', then retry."
-          );
+          setErrorMsg("Camera API is not supported in this browser. Please use Chrome, Brave, Safari, or Firefox.");
+          setPermissionState("denied");
           setIsInitializing(false);
           return;
         }
@@ -198,22 +197,21 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
 
       try {
         // Step 1: Pre-acquire permission via direct getUserMedia.
-        // This triggers the native browser permission prompt on Brave/Chrome Android.
-        // Without this, html5-qrcode's internal getUserMedia gets silently blocked.
         let preStream: MediaStream | null = null;
         try {
           preStream = await acquireCameraPermission();
+          setPermissionState("granted");
         } catch (permErr: any) {
-          // Permission explicitly denied
+          setPermissionState("denied");
+          setIsPermissionDenied(true);
           throw permErr;
         }
 
-        // Release pre-acquired stream — html5-qrcode will open its own
+        // Release pre-acquired stream — html5-qrcode will mount its own video stream
         if (preStream) {
           preStream.getTracks().forEach((t) => t.stop());
         }
 
-        // Bail if stale
         if (currentStartId !== startIdRef.current || !isOpen) {
           setIsInitializing(false);
           return;
@@ -316,10 +314,10 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
         }
 
         if (!started) {
-          throw new Error("All camera strategies failed. Please use 'Scan from photo' or enter barcode manually.");
+          throw new Error("Unable to start video feed. Please use photo scan or enter code manually.");
         }
 
-        // Stale check after async start
+        // Stale check
         if (currentStartId !== startIdRef.current || !isOpen) {
           try {
             if (scanner.isScanning) await scanner.stop();
@@ -349,18 +347,19 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
           console.error("Camera scanner init failed:", err?.name, err?.message, err);
           const errName = err?.name || "";
           if (errName === "NotAllowedError" || errName === "PermissionDeniedError") {
+            setPermissionState("denied");
             setIsPermissionDenied(true);
             setErrorMsg(
-              "Camera permission blocked. Steps to fix:\n1. Tap the lock/tune icon in your browser address bar\n2. Set Camera → Allow\n3. If using Brave: also disable Shield for this site\n4. Tap Retry below"
+              "Camera permission is blocked. Tap the tune/lock icon in browser URL bar to allow camera, then tap Retry below."
             );
           } else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") {
-            setErrorMsg("No camera found on this device.");
+            setErrorMsg("No camera device found on this system.");
           } else if (errName === "NotReadableError" || errName === "TrackStartError") {
             setErrorMsg("Camera is busy. Close other apps using camera, then retry.");
           } else if (errName === "OverconstrainedError") {
-            setErrorMsg("Camera hardware incompatible. Use 'Scan from photo' or enter barcode manually.");
+            setErrorMsg("Camera resolution not supported by this device. Try photo upload or manual entry.");
           } else {
-            setErrorMsg(err?.message || "Failed to access camera. Use 'Scan from photo' or enter barcode manually.");
+            setErrorMsg(err?.message || "Failed to access camera. Use photo upload or manual entry.");
           }
         }
       } finally {
@@ -372,21 +371,61 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     [isOpen, handleDetected, stopScanner, refreshCameraList, acquireCameraPermission]
   );
 
-  // Initialize camera directly on open without pre-enumeration blocking
+  // Check initial permission state on modal open
   useEffect(() => {
     let isMounted = true;
 
-    if (isOpen) {
-      setErrorMsg(null);
-      setIsPermissionDenied(false);
-      setLastScannedCode(null);
-      setManualCode("");
-
-      // Start scanner immediately using facingMode (no blocking getCameras first)
-      startScanner();
-    } else {
+    if (!isOpen) {
       stopScanner();
+      return;
     }
+
+    setErrorMsg(null);
+    setIsPermissionDenied(false);
+    setLastScannedCode(null);
+    setManualCode("");
+
+    const evaluatePermissions = async () => {
+      if (typeof window === "undefined" || !navigator?.mediaDevices?.getUserMedia) {
+        if (isMounted) {
+          setPermissionState("denied");
+          setErrorMsg("Camera is not supported on this device/browser.");
+        }
+        return;
+      }
+
+      // Check if browser permission query API is supported
+      if (navigator?.permissions?.query) {
+        try {
+          const status = await navigator.permissions.query({ name: "camera" as any });
+          if (!isMounted) return;
+
+          if (status.state === "granted") {
+            setPermissionState("granted");
+            startScanner();
+            return;
+          } else if (status.state === "denied") {
+            setPermissionState("denied");
+            setIsPermissionDenied(true);
+            setErrorMsg("Camera permission was blocked. Tap the tune/lock icon in your URL bar, allow Camera, then tap Retry.");
+            return;
+          } else {
+            // 'prompt' state: Show explicit "Allow Camera" screen for clean user gesture
+            setPermissionState("prompt");
+            return;
+          }
+        } catch {
+          // Unsupported query parameter in some browsers (e.g. Safari)
+        }
+      }
+
+      // Default fallback: show prompt card so user's tap provides clean user gesture context
+      if (isMounted) {
+        setPermissionState("prompt");
+      }
+    };
+
+    evaluatePermissions();
 
     return () => {
       isMounted = false;
@@ -427,7 +466,6 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     setErrorMsg(null);
 
     try {
-      // Create temporary scanner instance for file decode if active stream stopped
       const tempScanner =
         scannerRef.current ||
         new Html5Qrcode(scannerContainerId, {
@@ -487,8 +525,8 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
             className="w-full h-full [&_video]:object-cover [&_video]:w-full [&_video]:h-full"
           />
 
-          {/* Aiming Reticle Overlay (Active when no error and camera ready) */}
-          {!errorMsg && (
+          {/* Aiming Reticle Overlay (Active when camera ready and running) */}
+          {permissionState === "granted" && !errorMsg && !isInitializing && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               {/* Semi-dark frosted surround */}
               <div className="relative w-[85%] max-w-[340px] h-[52%] max-h-[190px] border-2 border-emerald-400/80 rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]">
@@ -504,6 +542,46 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
             </div>
           )}
 
+          {/* Prompt State: Ask for Permission with clear action */}
+          {permissionState === "prompt" && !errorMsg && !isInitializing && (
+            <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-20">
+              <div className="p-3.5 rounded-2xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 mb-3 shadow-lg">
+                <Camera className="w-9 h-9" />
+              </div>
+              <p className="text-base font-semibold text-slate-100 mb-1">
+                Camera Access Required
+              </p>
+              <p className="text-xs text-slate-400 max-w-xs leading-relaxed mb-5">
+                Grant camera access to scan item barcodes and QR codes directly from your device.
+              </p>
+
+              <div className="flex flex-col w-full max-w-xs gap-2.5">
+                <Button
+                  size="default"
+                  onClick={() => {
+                    setPermissionState("granted");
+                    startScanner();
+                  }}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-2.5 rounded-lg shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  Allow & Start Camera
+                </Button>
+
+                <Button
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300 text-xs py-2 rounded-lg"
+                >
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />
+                  Scan from Photo / Snapshot
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Initializing Spinner */}
           {isInitializing && (
             <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-10">
@@ -514,7 +592,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
 
           {/* Error Message Display & Recovery */}
           {errorMsg && (
-            <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-5 text-center z-10 overflow-y-auto">
+            <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-5 text-center z-20 overflow-y-auto">
               <div className="p-2.5 rounded-full bg-rose-500/20 text-rose-400 mb-2">
                 <AlertCircle className="w-8 h-8" />
               </div>
@@ -528,7 +606,10 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <Button
                   size="sm"
-                  onClick={() => startScanner(selectedCameraId || undefined)}
+                  onClick={() => {
+                    setPermissionState("granted");
+                    startScanner(selectedCameraId || undefined);
+                  }}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-md transition-colors"
                 >
                   <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
@@ -557,7 +638,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
 
           {/* Success Flash Overlay */}
           {lastScannedCode && (
-            <div className="absolute inset-0 bg-emerald-950/90 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-20 transition-all">
+            <div className="absolute inset-0 bg-emerald-950/90 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-30 transition-all">
               <div className="p-3 bg-emerald-500 text-slate-950 rounded-full animate-bounce">
                 <Check className="w-6 h-6 stroke-[3]" />
               </div>
@@ -571,41 +652,43 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
           )}
 
           {/* Camera Controls (Torch & Switch Camera) */}
-          <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
-            {hasTorch && (
-              <Button
-                type="button"
-                size="icon"
-                variant="secondary"
-                onClick={toggleTorch}
-                title={isTorchOn ? "Turn off torch" : "Turn on torch"}
-                className={`w-9 h-9 rounded-full backdrop-blur-md transition-colors ${
-                  isTorchOn
-                    ? "bg-amber-500 text-slate-950 hover:bg-amber-400"
-                    : "bg-slate-900/80 text-slate-200 hover:bg-slate-800 border border-slate-700/60"
-                }`}
-              >
-                {isTorchOn ? (
-                  <Flashlight className="w-4 h-4 fill-current" />
-                ) : (
-                  <FlashlightOff className="w-4 h-4" />
-                )}
-              </Button>
-            )}
+          {permissionState === "granted" && !errorMsg && (
+            <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+              {hasTorch && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  onClick={toggleTorch}
+                  title={isTorchOn ? "Turn off torch" : "Turn on torch"}
+                  className={`w-9 h-9 rounded-full backdrop-blur-md transition-colors ${
+                    isTorchOn
+                      ? "bg-amber-500 text-slate-950 hover:bg-amber-400"
+                      : "bg-slate-900/80 text-slate-200 hover:bg-slate-800 border border-slate-700/60"
+                  }`}
+                >
+                  {isTorchOn ? (
+                    <Flashlight className="w-4 h-4 fill-current" />
+                  ) : (
+                    <FlashlightOff className="w-4 h-4" />
+                  )}
+                </Button>
+              )}
 
-            {cameras.length > 1 && (
-              <Button
-                type="button"
-                size="icon"
-                variant="secondary"
-                onClick={switchCamera}
-                title="Switch Camera"
-                className="w-9 h-9 rounded-full bg-slate-900/80 text-slate-200 hover:bg-slate-800 border border-slate-700/60 backdrop-blur-md"
-              >
-                <FlipHorizontal className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
+              {cameras.length > 1 && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  onClick={switchCamera}
+                  title="Switch Camera"
+                  className="w-9 h-9 rounded-full bg-slate-900/80 text-slate-200 hover:bg-slate-800 border border-slate-700/60 backdrop-blur-md"
+                >
+                  <FlipHorizontal className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Hidden Photo File Input for Instant Photo Barcode Fallback */}
