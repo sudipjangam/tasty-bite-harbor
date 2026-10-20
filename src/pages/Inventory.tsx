@@ -183,36 +183,47 @@ const Inventory = () => {
   }, [editingItem, isAddDialogOpen]);
 
   const handleBarcodeScanSuccess = (scannedCode: string) => {
-    if (scannerTargetMode === "form") {
-      setFormBarcode(scannedCode);
+    const cleanCode = scannedCode.trim();
+    if (!cleanCode) return;
+
+    const target = cleanCode.toLowerCase();
+    const matched = items.find(
+      (it) => it.barcode && it.barcode.trim().toLowerCase() === target
+    );
+
+    if (matched) {
+      // Existing item found in inventory: load its details and open Add Stock form
+      setSearchQuery(matched.name);
+      setEditingItem(matched);
+      setIsAddingStock(true);
+      setNewItemCategory(matched.category || "Other");
+      setFormBarcode(matched.barcode || cleanCode);
+      setIsAddDialogOpen(true);
+
       toast({
-        title: "Barcode Captured",
-        description: `Captured: ${scannedCode}`,
+        title: "Existing Item Found",
+        description: `Loaded "${matched.name}" (Current stock: ${matched.quantity} ${matched.unit}). Enter quantity to add stock.`,
       });
     } else {
-      // Search mode: lookup in loaded inventory items
-      const target = scannedCode.trim().toLowerCase();
-      const matched = items.find(
-        (it) => it.barcode && it.barcode.trim().toLowerCase() === target
-      );
-
-      setSearchQuery(scannedCode);
-
-      if (matched) {
+      // New item not in inventory
+      setSearchQuery(cleanCode);
+      if (scannerTargetMode === "form") {
+        setFormBarcode(cleanCode);
         toast({
-          title: "Item Found",
-          description: `Found "${matched.name}".`,
+          title: "Barcode Captured",
+          description: `Barcode ${cleanCode} set for this item.`,
         });
-        setSelectedDetailItem(matched);
       } else {
-        toast({
-          title: "No Matching Item",
-          description: `No item with barcode "${scannedCode}". Opening create dialog...`,
-        });
         setEditingItem(null);
-        setFormBarcode(scannedCode);
+        setIsAddingStock(false);
+        setFormBarcode(cleanCode);
         setNewItemCategory("Other");
         setIsAddDialogOpen(true);
+
+        toast({
+          title: "New Item Barcode",
+          description: `Barcode "${cleanCode}" not found in inventory. Enter details to create it.`,
+        });
       }
     }
   };
@@ -417,20 +428,20 @@ const Inventory = () => {
     const formData = new FormData(e.currentTarget);
     const rawBarcode = (formData.get("barcode") as string)?.trim() || formBarcode.trim();
     const itemData = {
-      name: (formData.get("name") as string).trim().toLowerCase(),
+      name: (formData.get("name") as string)?.trim()?.toLowerCase() || editingItem?.name || "",
       barcode: rawBarcode ? rawBarcode : null,
       quantity: Math.max(
         0,
         parseFloat(formData.get("quantity") as string) || 0,
       ),
-      unit: formData.get("unit") as string,
+      unit: (formData.get("unit") as string) || editingItem?.unit || "kg",
       reorder_level: formData.get("reorderLevel")
         ? Math.max(0, parseFloat(formData.get("reorderLevel") as string))
-        : null,
+        : (editingItem?.reorder_level ?? null),
       cost_per_unit: formData.get("costPerUnit")
         ? Math.max(0, parseFloat(formData.get("costPerUnit") as string))
-        : null,
-      category: (formData.get("category") as string) || "Other",
+        : (editingItem?.cost_per_unit ?? null),
+      category: (formData.get("category") as string) || newItemCategory || editingItem?.category || "Other",
       expiryDate: (formData.get("expiryDate") as string) || null,
     };
 
@@ -1151,10 +1162,51 @@ const Inventory = () => {
           </div>
 
           <form
-            key={editingItem?.id || "new"}
+            key={`${editingItem?.id || "new"}-${isAddingStock ? "addstock" : "edit"}-${formBarcode}`}
             onSubmit={handleSubmit}
             className="p-6 space-y-5 overflow-y-auto flex-1 bg-white/50 dark:bg-gray-900/50"
           >
+            {/* Mode selector when an existing item is loaded */}
+            {editingItem && (
+              <div className="space-y-2">
+                <div className="flex rounded-xl bg-gray-100 dark:bg-gray-800/80 p-1 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingStock(true)}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                      isAddingStock
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                    }`}
+                  >
+                    + Add Stock (New Batch)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingStock(false)}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                      !isAddingStock
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                    }`}
+                  >
+                    ✏️ Edit Item Info
+                  </button>
+                </div>
+
+                {isAddingStock && (
+                  <div className="p-3 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/50 rounded-xl flex items-center justify-between text-xs">
+                    <span className="text-gray-600 dark:text-gray-300 font-medium">
+                      Current Stock on Hand:
+                    </span>
+                    <span className="font-bold text-emerald-700 dark:text-emerald-400 font-mono text-sm">
+                      {editingItem.quantity} {editingItem.unit}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Item Name */}
             <div className="space-y-1.5">
               <Label
@@ -1204,7 +1256,21 @@ const Inventory = () => {
                   id="barcode"
                   name="barcode"
                   value={formBarcode}
-                  onChange={(e) => setFormBarcode(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormBarcode(val);
+                    const target = val.trim().toLowerCase();
+                    if (target && !editingItem) {
+                      const matched = items.find(
+                        (it) => it.barcode && it.barcode.trim().toLowerCase() === target
+                      );
+                      if (matched) {
+                        setEditingItem(matched);
+                        setIsAddingStock(true);
+                        setNewItemCategory(matched.category || "Other");
+                      }
+                    }
+                  }}
                   placeholder="e.g., 8901030825414"
                   className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 pr-10 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400/60 transition-all backdrop-blur-sm shadow-sm font-mono text-sm"
                 />
@@ -1300,7 +1366,10 @@ const Inventory = () => {
                   className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
                 >
                   <Box className="h-3.5 w-3.5 text-violet-500" />
-                  Quantity <span className="text-red-400">*</span>
+                  {editingItem && isAddingStock
+                    ? `Qty to Add (${editingItem.unit})`
+                    : "Quantity"}{" "}
+                  <span className="text-red-400">*</span>
                 </Label>
                 <Input
                   id="quantity"
@@ -1310,7 +1379,7 @@ const Inventory = () => {
                   min="0"
                   defaultValue={editingItem && !isAddingStock ? editingItem.quantity : ""}
                   required
-                  placeholder="0"
+                  placeholder={editingItem && isAddingStock ? "e.g., 5" : "0"}
                 />
               </div>
               <div className="space-y-1.5">
@@ -1318,6 +1387,7 @@ const Inventory = () => {
                 <Select
                   name="unit"
                   defaultValue={editingItem?.unit || "kg"}
+                  disabled={!!(editingItem && isAddingStock)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select unit" />
