@@ -40,8 +40,10 @@ import {
   X,
   Camera,
   Barcode,
+  Loader2,
 } from "lucide-react";
 import { CameraBarcodeScannerModal } from "@/components/Common/CameraBarcodeScannerModal";
+import { lookupProductDetails } from "@/utils/productLookup";
 import { Switch } from "@/components/ui/switch";
 import { useIsMobile } from "@/hooks/use-mobile";
 import HomemadeIngredientPicker, { RawMaterial } from "@/components/Inventory/HomemadeIngredientPicker";
@@ -165,24 +167,49 @@ const Inventory = () => {
 
   const queryClient = useQueryClient();
 
-  // Barcode scanner states
+  // Barcode scanner & product lookup states
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [scannerTargetMode, setScannerTargetMode] = useState<"search" | "form">("search");
   const [formBarcode, setFormBarcode] = useState("");
+  const [formItemName, setFormItemName] = useState("");
+  const [formQuantity, setFormQuantity] = useState("");
+  const [formUnit, setFormUnit] = useState("kg");
+  const [formCostPerUnit, setFormCostPerUnit] = useState("");
+  const [formReorderLevel, setFormReorderLevel] = useState("");
+  const [isLookingUpProduct, setIsLookingUpProduct] = useState(false);
 
   useEffect(() => {
-    if (editingItem && editingItem.category) {
-      setNewItemCategory(editingItem.category);
-    } else if (!editingItem) {
-      setNewItemCategory("Other");
-    }
-
     if (editingItem) {
+      setFormItemName(editingItem.name || "");
+      setNewItemCategory(editingItem.category || "Other");
       setFormBarcode(editingItem.barcode || "");
+      setFormUnit(editingItem.unit || "kg");
+      setFormCostPerUnit(
+        editingItem.cost_per_unit != null ? String(editingItem.cost_per_unit) : ""
+      );
+      setFormReorderLevel(
+        editingItem.reorder_level != null ? String(editingItem.reorder_level) : ""
+      );
+      if (isAddingStock) {
+        setFormQuantity("");
+      } else {
+        setFormQuantity(
+          editingItem.quantity != null ? String(editingItem.quantity) : ""
+        );
+      }
+    } else if (!isAddDialogOpen) {
+      // Clean up form states when dialog closes
+      setFormItemName("");
+      setNewItemCategory("Other");
+      setFormBarcode("");
+      setFormQuantity("");
+      setFormUnit("kg");
+      setFormCostPerUnit("");
+      setFormReorderLevel("");
     }
-  }, [editingItem, isAddDialogOpen]);
+  }, [editingItem, isAddingStock, isAddDialogOpen]);
 
-  const handleBarcodeScanSuccess = (scannedCode: string) => {
+  const handleBarcodeScanSuccess = async (scannedCode: string) => {
     const cleanCode = scannedCode.trim();
     if (!cleanCode) return;
 
@@ -198,33 +225,123 @@ const Inventory = () => {
       setIsAddingStock(true);
       setNewItemCategory(matched.category || "Other");
       setFormBarcode(matched.barcode || cleanCode);
+      setFormItemName(matched.name);
+      setFormUnit(matched.unit || "kg");
+      setFormCostPerUnit(matched.cost_per_unit != null ? String(matched.cost_per_unit) : "");
+      setFormReorderLevel(matched.reorder_level != null ? String(matched.reorder_level) : "");
+      setFormQuantity("");
       setIsAddDialogOpen(true);
 
       toast({
         title: "Existing Item Found",
         description: `Loaded "${matched.name}" (Current stock: ${matched.quantity} ${matched.unit}). Enter quantity to add stock.`,
       });
-    } else {
-      // New item not in inventory
-      setSearchQuery(cleanCode);
-      if (scannerTargetMode === "form") {
-        setFormBarcode(cleanCode);
-        toast({
-          title: "Barcode Captured",
-          description: `Barcode ${cleanCode} set for this item.`,
-        });
-      } else {
-        setEditingItem(null);
-        setIsAddingStock(false);
-        setFormBarcode(cleanCode);
-        setNewItemCategory("Other");
-        setIsAddDialogOpen(true);
+      return;
+    }
+
+    // New item not in inventory
+    setSearchQuery(cleanCode);
+    setEditingItem(null);
+    setIsAddingStock(false);
+    setFormBarcode(cleanCode);
+    setIsAddDialogOpen(true);
+    setIsLookingUpProduct(true);
+
+    toast({
+      title: "🤖 Fetching Product Details...",
+      description: `Analyzing barcode "${cleanCode}" with Gemini AI...`,
+    });
+
+    try {
+      const details = await lookupProductDetails(cleanCode);
+      if (details && details.name) {
+        setFormItemName(details.name);
+        setNewItemCategory(details.category || "Other");
+        setFormQuantity(details.quantity ? String(details.quantity) : "1");
+        setFormUnit(details.unit || "piece");
+        if (details.cost_per_unit != null) {
+          setFormCostPerUnit(String(details.cost_per_unit));
+        }
+        setFormBarcode(details.barcode || cleanCode);
 
         toast({
+          title: `✨ Product Identified via ${details.source === "gemini" ? "Gemini AI" : "Barcode DB"}`,
+          description: `Auto-filled "${details.name}" (${details.quantity} ${details.unit}). Verify details and tap Add.`,
+        });
+      } else {
+        toast({
           title: "New Item Barcode",
-          description: `Barcode "${cleanCode}" not found in inventory. Enter details to create it.`,
+          description: `Barcode "${cleanCode}" scanned. Fill in remaining details to add item.`,
         });
       }
+    } catch (lookupErr) {
+      console.warn("Product lookup error:", lookupErr);
+    } finally {
+      setIsLookingUpProduct(false);
+    }
+  };
+
+  const handleManualBarcodeLookup = async () => {
+    const clean = formBarcode.trim();
+    if (!clean) {
+      toast({
+        title: "No Barcode Entered",
+        description: "Please enter or scan a barcode/SKU first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const target = clean.toLowerCase();
+    const matched = items.find(
+      (it) => it.barcode && it.barcode.trim().toLowerCase() === target
+    );
+
+    if (matched) {
+      setEditingItem(matched);
+      setIsAddingStock(true);
+      setNewItemCategory(matched.category || "Other");
+      setFormItemName(matched.name);
+      setFormUnit(matched.unit || "kg");
+      setFormCostPerUnit(matched.cost_per_unit != null ? String(matched.cost_per_unit) : "");
+      setFormQuantity("");
+      toast({
+        title: "Existing Item Found",
+        description: `Loaded "${matched.name}". Enter quantity to add stock.`,
+      });
+      return;
+    }
+
+    setIsLookingUpProduct(true);
+    toast({
+      title: "🤖 Fetching Details...",
+      description: `Analyzing SKU "${clean}" with Gemini AI...`,
+    });
+
+    try {
+      const details = await lookupProductDetails(clean);
+      if (details && details.name) {
+        setFormItemName(details.name);
+        setNewItemCategory(details.category || "Other");
+        setFormQuantity(details.quantity ? String(details.quantity) : "1");
+        setFormUnit(details.unit || "piece");
+        if (details.cost_per_unit != null) {
+          setFormCostPerUnit(String(details.cost_per_unit));
+        }
+        toast({
+          title: `✨ Auto-filled by ${details.source === "gemini" ? "Gemini AI" : "Product DB"}`,
+          description: `Found "${details.name}" (${details.quantity} ${details.unit}). Verify and save.`,
+        });
+      } else {
+        toast({
+          title: "Product details not found",
+          description: "Could not auto-detect product. Please enter details manually.",
+        });
+      }
+    } catch (lookupErr) {
+      console.warn("Manual lookup failed:", lookupErr);
+    } finally {
+      setIsLookingUpProduct(false);
     }
   };
 
@@ -428,18 +545,22 @@ const Inventory = () => {
     const formData = new FormData(e.currentTarget);
     const rawBarcode = (formData.get("barcode") as string)?.trim() || formBarcode.trim();
     const itemData = {
-      name: (formData.get("name") as string)?.trim()?.toLowerCase() || editingItem?.name || "",
+      name: (formData.get("name") as string)?.trim() || formItemName.trim() || editingItem?.name || "",
       barcode: rawBarcode ? rawBarcode : null,
       quantity: Math.max(
         0,
-        parseFloat(formData.get("quantity") as string) || 0,
+        parseFloat((formData.get("quantity") as string) || formQuantity) || 0,
       ),
-      unit: (formData.get("unit") as string) || editingItem?.unit || "kg",
+      unit: (formData.get("unit") as string) || formUnit || editingItem?.unit || "kg",
       reorder_level: formData.get("reorderLevel")
         ? Math.max(0, parseFloat(formData.get("reorderLevel") as string))
+        : formReorderLevel
+        ? Math.max(0, parseFloat(formReorderLevel))
         : (editingItem?.reorder_level ?? null),
       cost_per_unit: formData.get("costPerUnit")
         ? Math.max(0, parseFloat(formData.get("costPerUnit") as string))
+        : formCostPerUnit
+        ? Math.max(0, parseFloat(formCostPerUnit))
         : (editingItem?.cost_per_unit ?? null),
       category: (formData.get("category") as string) || newItemCategory || editingItem?.category || "Other",
       expiryDate: (formData.get("expiryDate") as string) || null,
@@ -750,6 +871,12 @@ const Inventory = () => {
       setIsAddDialogOpen(false);
       setEditingItem(null);
       setIsAddingStock(false);
+      setFormItemName("");
+      setFormBarcode("");
+      setFormQuantity("");
+      setFormUnit("kg");
+      setFormCostPerUnit("");
+      setFormReorderLevel("");
     } catch (error) {
       console.error("Error:", error);
       toast({
@@ -1112,9 +1239,15 @@ const Inventory = () => {
           setIsAddDialogOpen(open);
           if (!open) {
             setEditingItem(null);
+            setIsAddingStock(false);
             setIsHomemade(false);
             setRawMaterials([]);
             setFormBarcode("");
+            setFormItemName("");
+            setFormQuantity("");
+            setFormUnit("kg");
+            setFormCostPerUnit("");
+            setFormReorderLevel("");
           }
           if (open && !editingItem) setNewItemCategory("Other");
           if (open && editingItem)
@@ -1219,7 +1352,8 @@ const Inventory = () => {
               <Input
                 id="name"
                 name="name"
-                defaultValue={editingItem?.name}
+                value={formItemName}
+                onChange={(e) => setFormItemName(e.target.value)}
                 disabled={!!(editingItem && isAddingStock)}
                 required
                 placeholder="e.g., Olive Oil, Basmati Rice"
@@ -1237,19 +1371,37 @@ const Inventory = () => {
                   <Barcode className="h-3.5 w-3.5 text-emerald-500" />
                   Barcode / SKU <span className="text-[11px] font-normal text-gray-400">(Optional)</span>
                 </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setScannerTargetMode("form");
-                    setIsBarcodeScannerOpen(true);
-                  }}
-                  className="h-7 px-2.5 text-xs gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  Scan Barcode
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isLookingUpProduct || !formBarcode.trim()}
+                    onClick={handleManualBarcodeLookup}
+                    className="h-7 px-2.5 text-xs gap-1 text-purple-600 dark:text-purple-400 border-purple-500/30 hover:bg-purple-50 dark:hover:bg-purple-950/30 rounded-lg font-medium"
+                    title="Auto-fill details using Gemini AI"
+                  >
+                    {isLookingUpProduct ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                    )}
+                    AI Auto-fill
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setScannerTargetMode("form");
+                      setIsBarcodeScannerOpen(true);
+                    }}
+                    className="h-7 px-2.5 text-xs gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    Scan Barcode
+                  </Button>
+                </div>
               </div>
               <div className="relative">
                 <Input
@@ -1268,24 +1420,51 @@ const Inventory = () => {
                         setEditingItem(matched);
                         setIsAddingStock(true);
                         setNewItemCategory(matched.category || "Other");
+                        setFormItemName(matched.name);
+                        setFormUnit(matched.unit || "kg");
+                        setFormCostPerUnit(matched.cost_per_unit != null ? String(matched.cost_per_unit) : "");
+                        setFormQuantity("");
                       }
                     }
                   }}
-                  placeholder="e.g., 8901030825414"
-                  className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 pr-10 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400/60 transition-all backdrop-blur-sm shadow-sm font-mono text-sm"
+                  placeholder="e.g., 8901030825414 or 1279IN"
+                  className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 pr-16 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400/60 transition-all backdrop-blur-sm shadow-sm font-mono text-sm"
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setScannerTargetMode("form");
-                    setIsBarcodeScannerOpen(true);
-                  }}
-                  title="Scan with Camera"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-500 transition-colors p-1"
-                >
-                  <Camera className="w-5 h-5" />
-                </button>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {formBarcode.trim() && (
+                    <button
+                      type="button"
+                      disabled={isLookingUpProduct}
+                      onClick={handleManualBarcodeLookup}
+                      title="Auto-fill details with Gemini AI"
+                      className="text-purple-600 dark:text-purple-400 hover:text-purple-700 p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors"
+                    >
+                      {isLookingUpProduct ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScannerTargetMode("form");
+                      setIsBarcodeScannerOpen(true);
+                    }}
+                    title="Scan with Camera"
+                    className="text-gray-400 hover:text-emerald-500 transition-colors p-1.5"
+                  >
+                    <Camera className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
+              {isLookingUpProduct && (
+                <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/30 px-3 py-1.5 rounded-lg border border-purple-200 dark:border-purple-800/40 animate-pulse">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Gemini AI is identifying product details (name, weight, price)...</span>
+                </div>
+              )}
             </div>
 
             {/* Category */}
@@ -1377,22 +1556,25 @@ const Inventory = () => {
                   type="number"
                   step="0.01"
                   min="0"
-                  defaultValue={editingItem && !isAddingStock ? editingItem.quantity : ""}
+                  value={formQuantity}
+                  onChange={(e) => setFormQuantity(e.target.value)}
                   required
                   placeholder={editingItem && isAddingStock ? "e.g., 5" : "0"}
+                  className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400/60 transition-all backdrop-blur-sm shadow-sm"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="unit">Unit *</Label>
                 <Select
                   name="unit"
-                  defaultValue={editingItem?.unit || "kg"}
+                  value={formUnit}
+                  onValueChange={setFormUnit}
                   disabled={!!(editingItem && isAddingStock)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 backdrop-blur-sm shadow-sm">
                     <SelectValue placeholder="Select unit" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-xl">
                     {commonUnits.map((unit) => (
                       <SelectItem key={unit} value={unit}>
                         {unit}
@@ -1413,8 +1595,10 @@ const Inventory = () => {
                   type="number"
                   step="0.01"
                   min="0"
-                  defaultValue={editingItem?.reorder_level || ""}
+                  value={formReorderLevel}
+                  onChange={(e) => setFormReorderLevel(e.target.value)}
                   placeholder="Low stock alert threshold"
+                  className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400/60 transition-all backdrop-blur-sm shadow-sm"
                 />
               </div>
               <div className="space-y-1.5">
@@ -1427,8 +1611,10 @@ const Inventory = () => {
                   type="number"
                   step="0.01"
                   min="0"
-                  defaultValue={editingItem?.cost_per_unit || ""}
+                  value={formCostPerUnit}
+                  onChange={(e) => setFormCostPerUnit(e.target.value)}
                   placeholder="0.00"
+                  className="bg-white/70 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/50 rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400/60 transition-all backdrop-blur-sm shadow-sm font-mono"
                 />
               </div>
             </div>
@@ -2364,6 +2550,11 @@ const Inventory = () => {
             setIsAddingStock(false);
             setNewItemCategory("Other");
             setFormBarcode("");
+            setFormItemName("");
+            setFormQuantity("");
+            setFormUnit("kg");
+            setFormCostPerUnit("");
+            setFormReorderLevel("");
             setIsAddDialogOpen(true);
           }}
           className="fixed bottom-20 right-4 z-40 h-13 w-13 rounded-full bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 text-white shadow-xl shadow-emerald-500/40 flex items-center justify-center active:scale-90 hover:scale-105 transition-all duration-200"
