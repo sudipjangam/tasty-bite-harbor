@@ -66,7 +66,7 @@ const formatAuditDetails = (raw: any): { text: string; fields?: Array<{ label: s
             key !== "room_id" &&
             key !== "qr_session_id"
           ) {
-            let cleanKey = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+            const cleanKey = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
             if (key === "total" || key === "original_subtotal") {
               fields.push({ label: cleanKey, value: `₹${Number(val).toLocaleString("en-IN")}` });
             } else {
@@ -212,7 +212,7 @@ const FranchiseSettings: React.FC = () => {
         if (logsError) throw logsError;
 
         const userIds = Array.from(new Set((logsData || []).map((l: any) => l.user_id).filter(Boolean)));
-        let profileMap: Record<string, string> = {};
+        const profileMap: Record<string, string> = {};
 
         if (userIds.length > 0) {
           const { data: profilesData } = await supabase

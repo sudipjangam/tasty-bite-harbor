@@ -124,7 +124,7 @@ export async function fetchWidgetData(
     }
 
     case "inventory": {
-      let query = supabase
+      const query = supabase
         .from("inventory_items")
         .select("id, name, quantity, reorder_level, unit, cost_per_unit, category")
         .eq("restaurant_id", restaurantId);

@@ -71,11 +71,6 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 10,
   });
 
-  // If food truck mode, render specialized dashboard
-  if (locationType === "mobile") {
-    return <FoodTruckDashboard />;
-  }
-
   const [permissionDialog, setPermissionDialog] = useState<{
     open: boolean;
     featureName: string;
@@ -85,6 +80,11 @@ const Dashboard = () => {
     featureName: "",
     requiredPermission: "",
   });
+
+  // If food truck mode, render specialized dashboard
+  if (locationType === "mobile") {
+    return <FoodTruckDashboard />;
+  }
 
   const handleNavigationWithPermission = (
     path: string,

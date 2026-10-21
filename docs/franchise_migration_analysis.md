@@ -975,4 +975,34 @@ Migration: `supabase/migrations/20261011140000_franchise_branch_management_and_m
 - **`FranchiseContext.tsx`**:
   - Added `deleteBranch` method and wired menu clone into `addBranch`.
 
+---
+
+## 16. Enterprise Franchise Competitor Parity Modules (2026-10-21)
+
+### Parity Target: Petpooja Enterprise / POSist (Restroworks) / Toast Franchise Management
+
+### Database Architecture Updates
+Migration: `supabase/migrations/20261021100000_franchise_enterprise_modules.sql`
+
+1. **Central Kitchen Indenting & Stock Transfers**:
+   - `branch_transfer_requests`: Indent $\to$ Dispatch $\to$ GRN receipt workflow with transit loss tracking (`transit_loss_cost`).
+   - `branch_transfer_items`: Per-item requested quantity, dispatched quantity, received quantity, and damage loss quantities with automated branch inventory updates.
+2. **Franchise Royalty & Fee Invoicing Engine**:
+   - `franchise_royalty_settings`: Branch-level revenue share agreements (Royalty %, Marketing Fund %, and fixed tech/licensing fees with invoicing period controls).
+   - `franchise_royalty_invoices`: Monthly auto-aggregated bill statements computed against branch orders, status workflow (`draft`, `issued`, `paid`, `waived`).
+3. **Inter-Branch Customer Loyalty Ledger**:
+   - `inter_branch_loyalty_ledger`: Multi-branch clearinghouse for tracking customer loyalty points earned at Branch A and redeemed at Branch B with monetary reimbursement values.
+4. **Store Compliance & QSC Brand Audits**:
+   - `branch_compliance_records`: License tracking (FSSAI, Fire NOC, Municipal Trade License, Liquor, Lease) with expiration alert notifications.
+   - `branch_audit_checklists`: Quality, Service, Cleanliness (QSC) audit scorecards with weighted section scoring (Food Safety, Brand Hygiene, Service Standard) and remedial action plans.
+5. **Security & RLS**:
+   - Organization-scoped Row Level Security on all 7 new tables preventing cross-tenant leakage.
+
+### Frontend Integration
+- **`StockTransfers.tsx` (`/franchise/transfers`)**: Central indents, dispatch status, and Goods Received Note (GRN) verification modal with live stock replenishment.
+- **`FranchiseRoyalty.tsx` (`/franchise/royalties`)**: Royalty rate agreement setup, one-click period revenue aggregation from completed orders, invoice PDF/status generation, and mark-as-paid ledgering.
+- **`BranchCompliance.tsx` (`/franchise/compliance`)**: License expiry monitor with urgent warnings (<30 days, expired) and interactive QSC brand standards audit checklist with automatic weighted grading.
+- **`FranchiseLayout.tsx` & `AppRoutes.tsx`**: Registered navigation items and lazy-loaded routes with seamless desktop & mobile drawer access.
+
+
 

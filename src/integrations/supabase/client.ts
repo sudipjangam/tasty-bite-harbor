@@ -36,7 +36,7 @@ export const SUPABASE_DIRECT_URL = 'https://clmsoetktmvhazctlans.supabase.co';
 // When using a proxy URL, override the realtime endpoint to connect directly to Supabase.
 // Derived from SUPABASE_DIRECT_URL to avoid duplicate hardcoding.
 if (!rawSupabaseUrl.startsWith('http')) {
-  // @ts-ignore - accessing internal realtime client to set correct WSS endpoint
+  // @ts-expect-error - accessing internal realtime client to set correct WSS endpoint
   supabase.realtime.endPoint = `${SUPABASE_DIRECT_URL.replace('https://', 'wss://')}/realtime/v1/websocket`;
 }
 

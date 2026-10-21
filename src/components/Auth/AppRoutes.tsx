@@ -113,6 +113,9 @@ const TeamManagement = lazy(() => import("@/pages/Franchise/TeamManagement"));
 const MenuSync = lazy(() => import("@/pages/Franchise/MenuSync"));
 const CrossBranchOrders = lazy(() => import("@/pages/Franchise/CrossBranchOrders"));
 const CrossBranchInventory = lazy(() => import("@/pages/Franchise/CrossBranchInventory"));
+const StockTransfers = lazy(() => import("@/pages/Franchise/StockTransfers"));
+const FranchiseRoyalty = lazy(() => import("@/pages/Franchise/FranchiseRoyalty"));
+const BranchCompliance = lazy(() => import("@/pages/Franchise/BranchCompliance"));
 const CrossBranchStaff = lazy(() => import("@/pages/Franchise/CrossBranchStaff"));
 const CrossBranchPnL = lazy(() => import("@/pages/Franchise/CrossBranchPnL"));
 const FranchiseSettings = lazy(() => import("@/pages/Franchise/FranchiseSettings"));
@@ -132,6 +135,29 @@ const AdminRoleGuard = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Security Guard for platform-wide administrative routes (superadmin only)
+const PlatformRoleGuard = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  const roleName = (user.role_name_text || user.role || "").toLowerCase();
+  const isPlatformSuperAdmin =
+    roleName === "superadmin" ||
+    roleName === "super_admin" ||
+    roleName === "platform_admin" ||
+    roleName === "platform admin" ||
+    (roleName === "admin" && !user.restaurant_id);
+
+  if (!isPlatformSuperAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 /**
  * Suspense wrapper component for lazy-loaded routes
  */
@@ -144,14 +170,13 @@ const LazyRoute = ({ children }: { children: React.ReactNode }) => (
  * All page components are now lazy-loaded for optimal performance
  */
 export const AppRoutes = () => {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const location = useLocation();
+
   // ── Native Android → operations-only shell (no sidebar, no admin routes) ──
   if (isNativeApp()) {
     return <OperationsMobileLayout />;
   }
-
-  // ── Web browser → full sidebar layout ────────────────────────────────────
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const location = useLocation();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -463,11 +488,11 @@ export const AppRoutes = () => {
           <Route
             path="/admin"
             element={
-              <PermissionGuard permission="users.manage">
+              <PlatformRoleGuard>
                 <LazyRoute>
                   <AdminPanel />
                 </LazyRoute>
-              </PermissionGuard>
+              </PlatformRoleGuard>
             }
           />
           <Route
@@ -521,28 +546,32 @@ export const AppRoutes = () => {
             }
           />
 
-          {/* Dev Tools - Admin only */}
+          {/* Dev Tools - Platform Superadmin & Dev only */}
           <Route
             path="/email-tester"
             element={
-              <AdminRoleGuard>
-                <LazyRoute>
-                  <div className="p-6">
-                    <EmailTester />
-                  </div>
-                </LazyRoute>
-              </AdminRoleGuard>
+              import.meta.env.DEV ? (
+                <PlatformRoleGuard>
+                  <LazyRoute>
+                    <div className="p-6">
+                      <EmailTester />
+                    </div>
+                  </LazyRoute>
+                </PlatformRoleGuard>
+              ) : (
+                <Navigate to="/" replace />
+              )
             }
           />
 
           <Route
             path="/platform"
             element={
-              <AdminRoleGuard>
+              <PlatformRoleGuard>
                 <LazyRoute>
                   <PlatformLayout />
                 </LazyRoute>
-              </AdminRoleGuard>
+              </PlatformRoleGuard>
             }
           >
             <Route
@@ -656,6 +685,9 @@ export const AppRoutes = () => {
             <Route path="menu-sync" element={<LazyRoute><MenuSync /></LazyRoute>} />
             <Route path="orders" element={<LazyRoute><CrossBranchOrders /></LazyRoute>} />
             <Route path="inventory" element={<LazyRoute><CrossBranchInventory /></LazyRoute>} />
+            <Route path="transfers" element={<LazyRoute><StockTransfers /></LazyRoute>} />
+            <Route path="royalties" element={<LazyRoute><FranchiseRoyalty /></LazyRoute>} />
+            <Route path="compliance" element={<LazyRoute><BranchCompliance /></LazyRoute>} />
             <Route path="staff" element={<LazyRoute><CrossBranchStaff /></LazyRoute>} />
             <Route path="pnl" element={<LazyRoute><CrossBranchPnL /></LazyRoute>} />
             <Route path="customers" element={<LazyRoute><CrossBranchCustomers /></LazyRoute>} />

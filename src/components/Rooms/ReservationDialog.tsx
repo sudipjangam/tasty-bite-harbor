@@ -75,7 +75,6 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
   setReservation,
   handleCreateReservation,
 }) => {
-  if (!room) return null;
   const { symbol: currencySymbol } = useCurrencyContext();
 
   // Corporate booking state
@@ -84,8 +83,10 @@ const ReservationDialog: React.FC<ReservationDialogProps> = ({
     companyName: "",
     gstNumber: "",
     billingAddress: "",
-    corporateRate: room.price,
+    corporateRate: room?.price || 0,
   });
+
+  if (!room) return null;
 
   const calculateDuration = () => {
     const startDate = new Date(reservation.start_date);

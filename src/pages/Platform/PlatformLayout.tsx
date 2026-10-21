@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -98,6 +98,18 @@ const PlatformLayout = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  const roleName = (user?.role_name_text || user?.role || "").toLowerCase();
+  const isPlatformSuperAdmin =
+    roleName === "superadmin" ||
+    roleName === "super_admin" ||
+    roleName === "platform_admin" ||
+    roleName === "platform admin" ||
+    (roleName === "admin" && !user?.restaurant_id);
+
+  if (!isPlatformSuperAdmin) {
+    return <Navigate to="/" replace />;
+  }
 
   const isActive = (href: string) => {
     if (href === "/platform") {

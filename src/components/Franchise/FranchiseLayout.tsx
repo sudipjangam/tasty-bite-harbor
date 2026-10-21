@@ -27,6 +27,9 @@ import {
   AlertTriangle,
   Award,
   Bell,
+  ArrowRightLeft,
+  Receipt,
+  ShieldCheck,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -70,6 +73,24 @@ const franchiseNavItems = [
     icon: Package,
     href: "/franchise/inventory",
     description: "Stock across branches",
+  },
+  {
+    title: "Stock Transfers",
+    icon: ArrowRightLeft,
+    href: "/franchise/transfers",
+    description: "Central indents & GRN",
+  },
+  {
+    title: "Royalties & Billing",
+    icon: Receipt,
+    href: "/franchise/royalties",
+    description: "Franchise fees & invoices",
+  },
+  {
+    title: "Compliance & Audits",
+    icon: ShieldCheck,
+    href: "/franchise/compliance",
+    description: "Licenses & QSC checklists",
   },
   {
     title: "Staff",

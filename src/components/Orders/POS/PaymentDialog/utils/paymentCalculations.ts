@@ -45,11 +45,19 @@ export function calculateOrderTotals({
   customTotalOverride = null,
   isNonChargeable = false,
 }: CalculateOrderTotalsOptions): CalculatedTotals {
-  // 1. Calculate base subtotal
-  const subtotal = orderItems.reduce((sum, item) => {
-    const unitPrice = item.customPrice !== undefined ? item.customPrice : item.price;
-    return sum + unitPrice * item.quantity;
-  }, 0);
+  // 1. Calculate base subtotal (sanitizing negative/invalid values)
+  const subtotal = Number(
+    orderItems
+      .reduce((sum, item) => {
+        const unitPrice =
+          item.customPrice !== undefined
+            ? Math.max(0, item.customPrice)
+            : Math.max(0, item.price || 0);
+        const qty = Math.max(0, item.quantity || 0);
+        return sum + unitPrice * qty;
+      }, 0)
+      .toFixed(2)
+  );
 
   if (isNonChargeable) {
     return {
@@ -72,54 +80,73 @@ export function calculateOrderTotals({
 
   // 2. Promotion discount
   let promotionDiscountAmount = 0;
-  if (appliedPromotion) {
+  if (appliedPromotion && subtotal > 0) {
     if (appliedPromotion.discount_percentage) {
-      promotionDiscountAmount = (subtotal * appliedPromotion.discount_percentage) / 100;
+      const pct = Math.min(100, Math.max(0, appliedPromotion.discount_percentage));
+      promotionDiscountAmount = Number(((subtotal * pct) / 100).toFixed(2));
     } else if (appliedPromotion.discount_amount) {
-      promotionDiscountAmount = Math.min(appliedPromotion.discount_amount, subtotal);
+      promotionDiscountAmount = Number(
+        Math.min(Math.max(0, appliedPromotion.discount_amount), subtotal).toFixed(2)
+      );
     }
   }
 
   // 3. Manual discount: percentage or flat cash
-  const taxableAmountAfterPromo = Math.max(0, subtotal - promotionDiscountAmount);
+  const taxableAmountAfterPromo = Number(Math.max(0, subtotal - promotionDiscountAmount).toFixed(2));
   let manualDiscountAmount = 0;
   if (manualDiscountPercent > 0) {
-    manualDiscountAmount = (taxableAmountAfterPromo * manualDiscountPercent) / 100;
+    const pct = Math.min(100, Math.max(0, manualDiscountPercent));
+    manualDiscountAmount = Number(((taxableAmountAfterPromo * pct) / 100).toFixed(2));
   } else if (manualDiscountCash > 0) {
-    manualDiscountAmount = Math.min(manualDiscountCash, taxableAmountAfterPromo);
+    manualDiscountAmount = Number(
+      Math.min(Math.max(0, manualDiscountCash), taxableAmountAfterPromo).toFixed(2)
+    );
   }
 
   // 4. Loyalty points discount
-  const loyaltyDiscountAmount = Math.min(
-    loyaltyDiscount,
-    Math.max(0, taxableAmountAfterPromo - manualDiscountAmount)
+  const loyaltyDiscountAmount = Number(
+    Math.min(
+      Math.max(0, loyaltyDiscount),
+      Math.max(0, taxableAmountAfterPromo - manualDiscountAmount)
+    ).toFixed(2)
   );
 
   // 5. Total discount
-  const totalDiscountAmount = Math.min(
-    subtotal,
-    promotionDiscountAmount + manualDiscountAmount + loyaltyDiscountAmount
+  const totalDiscountAmount = Number(
+    Math.min(
+      subtotal,
+      promotionDiscountAmount + manualDiscountAmount + loyaltyDiscountAmount
+    ).toFixed(2)
   );
 
   // 6. Net taxable amount
-  const netTaxableAmount = Math.max(0, subtotal - totalDiscountAmount);
+  const netTaxableAmount = Number(Math.max(0, subtotal - totalDiscountAmount).toFixed(2));
 
   // 7. Taxes (GST - CGST / SGST)
   let taxAmount = 0;
-  if (gstPercent > 0 && netTaxableAmount > 0) {
+  let cgstAmount = 0;
+  let sgstAmount = 0;
+  const safeGstPercent = Math.max(0, gstPercent);
+  if (safeGstPercent > 0 && netTaxableAmount > 0) {
+    let rawTax = 0;
     if (isTaxInclusive) {
-      const taxableBase = netTaxableAmount / (1 + gstPercent / 100);
-      taxAmount = netTaxableAmount - taxableBase;
+      const taxableBase = netTaxableAmount / (1 + safeGstPercent / 100);
+      rawTax = netTaxableAmount - taxableBase;
     } else {
-      taxAmount = (netTaxableAmount * gstPercent) / 100;
+      rawTax = (netTaxableAmount * safeGstPercent) / 100;
     }
+    // Half tax rounded to 2 decimal places, remaining assigned to SGST for exact sum equality
+    cgstAmount = Number((rawTax / 2).toFixed(2));
+    sgstAmount = Number((rawTax - cgstAmount).toFixed(2));
+    taxAmount = Number((cgstAmount + sgstAmount).toFixed(2));
   }
-  const cgstAmount = taxAmount / 2;
-  const sgstAmount = taxAmount / 2;
 
   // 8. Raw total before round-off & tip
-  const baseOrderTotal = isTaxInclusive ? netTaxableAmount : netTaxableAmount + taxAmount;
-  const rawTotalWithTip = baseOrderTotal + Math.max(0, tipAmount);
+  const safeTipAmount = Number(Math.max(0, tipAmount).toFixed(2));
+  const baseOrderTotal = isTaxInclusive
+    ? netTaxableAmount
+    : Number((netTaxableAmount + taxAmount).toFixed(2));
+  const rawTotalWithTip = Number((baseOrderTotal + safeTipAmount).toFixed(2));
 
   // 9. Round-off calculation
   let roundOffAmount = 0;
@@ -127,15 +154,15 @@ export function calculateOrderTotals({
 
   if (isAutoRoundOff) {
     const rounded = Math.round(rawTotalWithTip);
-    roundOffAmount = rounded - rawTotalWithTip;
+    roundOffAmount = Number((rounded - rawTotalWithTip).toFixed(2));
     total = rounded;
   }
 
   // 10. Custom Total Override Adjustment
   let customAdjustmentAmount = 0;
   if (customTotalOverride !== null && !isNaN(customTotalOverride) && customTotalOverride >= 0) {
-    total = customTotalOverride;
-    customAdjustmentAmount = customTotalOverride - rawTotalWithTip;
+    total = Number(customTotalOverride.toFixed(2));
+    customAdjustmentAmount = Number((total - rawTotalWithTip).toFixed(2));
     roundOffAmount = 0;
   }
 
@@ -146,11 +173,11 @@ export function calculateOrderTotals({
     loyaltyDiscountAmount,
     totalDiscountAmount,
     netTaxableAmount,
-    gstPercent,
+    gstPercent: safeGstPercent,
     taxAmount,
     cgstAmount,
     sgstAmount,
-    tipAmount: Math.max(0, tipAmount),
+    tipAmount: safeTipAmount,
     roundOffAmount,
     customAdjustmentAmount,
     total,

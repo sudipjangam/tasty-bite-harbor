@@ -257,8 +257,8 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
         <div className="relative flex-1">
           {/* Lock icon when name disabled, user icon otherwise */}
           {(() => {
-            // Name locked: as soon as phone has digits, until lookup confirms NEW customer
-            const nameDisabled = customerPhone.length > 0 && (!lookupDone || isSearching || !!foundCustomer);
+            // Name locked: as soon as phone has digits (and name not pre-filled), until lookup confirms NEW customer
+            const nameDisabled = customerPhone.length > 0 && !customerName && (!lookupDone || isSearching || !!foundCustomer);
             return (
               <>
                 {nameDisabled ? (
@@ -267,7 +267,7 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-orange-400/60 dark:text-orange-500/40" />
                 )}
                 <Input
-                  placeholder={isSearching ? "Looking up..." : customerPhone.length > 0 && !lookupDone ? "Enter 10-digit phone first" : "Name"}
+                  placeholder={isSearching ? "Looking up..." : customerPhone.length > 0 && !lookupDone && !customerName ? "Enter 10-digit phone first" : "Name"}
                   value={customerName}
                   onChange={(e) => onNameChange(e.target.value)}
                   disabled={nameDisabled}

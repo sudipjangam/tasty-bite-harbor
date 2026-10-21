@@ -67,14 +67,6 @@ describe("QSOrderPanel Component", () => {
   it("handles item increment and decrement clicks", () => {
     renderWithProviders(<QSOrderPanel {...defaultProps} />);
 
-    // Use getAllByRole as there are multiple Plus buttons, one for custom and one for items
-    // Button order in DOM: Header Plus(CustomItem), Item1 Minus, Item1 Plus, Item2 Trash, Item2 Plus
-    const [_, incrementBurger] = screen
-      .getAllByRole("button", { name: "" })
-      .filter((btn) => btn.innerHTML.includes("lucide-plus")); // just checking it renders, standard fireEvent.click gets tricky with icons, let's select by other means or assume there are multiple
-
-    // Better way: We know there is a 2 (quantity) with a minus and plus next to it.
-    // However, vitest fireEvent works on any element.
     const plusButtons = screen
       .getAllByRole("button")
       .filter((b) => b.innerHTML.includes("lucide-plus"));

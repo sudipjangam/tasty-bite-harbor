@@ -27,23 +27,38 @@ export async function enqueueWrite(
   type: QueuedWrite["type"],
   payload: Record<string, unknown>,
 ): Promise<string> {
-  const db = await getDB();
   const id = uuidv4();
-  const item: QueuedWrite = {
-    id,
-    type,
-    payload,
-    timestamp: Date.now(),
-    retries: 0,
-  };
-  await db.put("writeQueue", item);
+  try {
+    if (typeof window === "undefined" || typeof indexedDB === "undefined") {
+      console.warn("[SyncManager] IndexedDB not available, skipping enqueue");
+      return id;
+    }
+    const db = await getDB();
+    const item: QueuedWrite = {
+      id,
+      type,
+      payload,
+      timestamp: Date.now(),
+      retries: 0,
+    };
+    await db.put("writeQueue", item);
+  } catch (err) {
+    console.error("[SyncManager] Failed to enqueue write to IndexedDB:", err);
+  }
   return id;
 }
 
 /** How many items are currently waiting to be synced */
 export async function getPendingCount(): Promise<number> {
-  const db = await getDB();
-  return db.count("writeQueue");
+  try {
+    if (typeof window === "undefined" || typeof indexedDB === "undefined") {
+      return 0;
+    }
+    const db = await getDB();
+    return await db.count("writeQueue");
+  } catch {
+    return 0;
+  }
 }
 
 // ─── Flush ────────────────────────────────────────────────────────────────────
@@ -61,10 +76,12 @@ export async function flushQueue(
   isFlushing = true;
 
   try {
+    if (typeof window === "undefined" || typeof indexedDB === "undefined") {
+      return;
+    }
     const db = await getDB();
     // Fetch all items sorted by timestamp (oldest first)
     const items = await db.getAllFromIndex("writeQueue", "by-timestamp");
-
 
     for (const item of items) {
       try {
@@ -73,26 +90,37 @@ export async function flushQueue(
         const remaining = await db.count("writeQueue");
         onProgress?.(remaining);
       } catch (err) {
-        const nextRetries = item.retries + 1;
-        if (nextRetries >= MAX_RETRIES) {
-          // BUG-03 fix: evict to conflict log as dead letter instead of retrying forever
-          console.error(`[SyncManager] Max retries (${MAX_RETRIES}) exceeded for ${item.type}/${item.id}, moving to dead letter`);
-          const deadLetter: ConflictRecord = {
-            id: item.id,
-            type: item.type,
-            localTimestamp: item.timestamp,
-            serverTimestamp: 0,
-            resolvedAt: Date.now(),
-            payload: { ...item.payload, _deadLetterReason: String(err), _retries: nextRetries },
-          };
-          await db.put("conflictLog", deadLetter);
-          await db.delete("writeQueue", item.id);
-        } else {
-          console.error(`[SyncManager] Failed to flush ${item.type} (retry ${nextRetries}/${MAX_RETRIES}):`, err);
-          await db.put("writeQueue", { ...item, retries: nextRetries });
+        const nextRetries = (item.retries || 0) + 1;
+        try {
+          if (nextRetries >= MAX_RETRIES) {
+            // BUG-03 fix: evict to conflict log as dead letter instead of retrying forever
+            console.error(
+              `[SyncManager] Max retries (${MAX_RETRIES}) exceeded for ${item.type}/${item.id}, moving to dead letter`
+            );
+            const deadLetter: ConflictRecord = {
+              id: item.id,
+              type: item.type,
+              localTimestamp: item.timestamp,
+              serverTimestamp: 0,
+              resolvedAt: Date.now(),
+              payload: { ...item.payload, _deadLetterReason: String(err), _retries: nextRetries },
+            };
+            await db.put("conflictLog", deadLetter);
+            await db.delete("writeQueue", item.id);
+          } else {
+            console.error(
+              `[SyncManager] Failed to flush ${item.type} (retry ${nextRetries}/${MAX_RETRIES}):`,
+              err
+            );
+            await db.put("writeQueue", { ...item, retries: nextRetries });
+          }
+        } catch (idbErr) {
+          console.error("[SyncManager] IndexedDB error during retry handling:", idbErr);
         }
       }
     }
+  } catch (flushErr) {
+    console.error("[SyncManager] Fatal error during flushQueue:", flushErr);
   } finally {
     isFlushing = false;
   }
@@ -120,7 +148,12 @@ async function replayWrite(item: QueuedWrite): Promise<void> {
 
     case "pos_transaction":
       // POS transactions are append-only — no conflict check needed
-      await supabase.from("pos_transactions").insert(payload as never);
+      {
+        const { error: posError } = await (supabase as any)
+          .from("pos_transactions")
+          .insert(payload);
+        if (posError) throw posError;
+      }
       break;
 
     case "table_status":
@@ -159,11 +192,13 @@ async function replayWithConflictCheck(
   }
 
   // Check if server has a newer version
-  const { data: existing } = await (supabase as any)
+  const { data: existing, error: selectError } = await (supabase as any)
     .from(table)
     .select("updated_at, created_at")
     .eq("id", payload.id)
     .maybeSingle();
+
+  if (selectError) throw selectError;
 
   if (existing) {
     const serverTs = new Date(
@@ -175,16 +210,20 @@ async function replayWithConflictCheck(
       console.warn(
         `[SyncManager] Conflict on ${table}/${payload.id}: server newer, skipping`,
       );
-      const db = await getDB();
-      const conflict: ConflictRecord = {
-        id: queueId,
-        type,
-        localTimestamp,
-        serverTimestamp: serverTs,
-        resolvedAt: Date.now(),
-        payload,
-      };
-      await db.put("conflictLog", conflict);
+      try {
+        const db = await getDB();
+        const conflict: ConflictRecord = {
+          id: queueId,
+          type,
+          localTimestamp,
+          serverTimestamp: serverTs,
+          resolvedAt: Date.now(),
+          payload,
+        };
+        await db.put("conflictLog", conflict);
+      } catch (err) {
+        console.error("[SyncManager] Failed to record conflict log:", err);
+      }
       return;
     }
 

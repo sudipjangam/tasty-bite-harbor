@@ -43,7 +43,7 @@ export const sanitizeOrderItemDisplay = (itemStr: string): string => {
   if (!itemStr) return "";
   
   // Remove " ([])", " ()", " (  )", etc.
-  let sanitized = itemStr
+  const sanitized = itemStr
     .replace(/\s*\(\s*\[\s*\]\s*\)/g, "") // Remove " ([])"
     .replace(/\s*\(\s*\)/g, "")           // Remove " ()"
     .replace(/\s*\[\s*\]/g, "");          // Remove "[]"

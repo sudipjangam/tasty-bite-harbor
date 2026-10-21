@@ -222,6 +222,9 @@ All routes below are wrapped inside the `<FranchiseProvider>` context and use th
 | `/franchise/menu-sync` | `pages/Franchise/MenuSync.tsx` | Franchise Owner/Admin | **Menu Sync** | Central menu manager with status, overrides, and inheritance |
 | `/franchise/orders` | `pages/Franchise/CrossBranchOrders.tsx` | Franchise role | **Orders** | Cross-branch order logs with branch switcher filter |
 | `/franchise/inventory` | `pages/Franchise/CrossBranchInventory.tsx` | Franchise role | **Inventory** | Stock overview, transfer stock, and allocate bulk purchase |
+| `/franchise/transfers` | `pages/Franchise/StockTransfers.tsx` | Franchise role | **Stock Transfers** | Central kitchen indents, dispatch tracking & GRN receipt |
+| `/franchise/royalties` | `pages/Franchise/FranchiseRoyalty.tsx` | Franchise Owner/Admin | **Royalties & Billing** | Royalty & marketing fee calculation, invoices & payment logging |
+| `/franchise/compliance` | `pages/Franchise/BranchCompliance.tsx` | Franchise role | **Store Compliance** | FSSAI/Fire NOC licenses tracker & QSC brand quality audit checklists |
 | `/franchise/staff` | `pages/Franchise/CrossBranchStaff.tsx` | Franchise role | **Staff** | Daily attendance and roaming staff configurations |
 | `/franchise/pnl` | `pages/Franchise/CrossBranchPnL.tsx` | Franchise role | **P&L Report** | Financial P&L, period scaling, date range picker & CSV export |
 | `/franchise/settings` | `pages/Franchise/FranchiseSettings.tsx` | Franchise Owner/Admin | **Settings** | Organization details, profile metadata, audit logger |
@@ -306,6 +309,9 @@ All under `/platform/*`:
 │  Menu Sync (/franchise/menu-sync)            │
 │  Orders (/franchise/orders)                  │
 │  Inventory (/franchise/inventory)            │
+│  Transfers (/franchise/transfers)            │
+│  Royalties (/franchise/royalties)            │
+│  Compliance (/franchise/compliance)          │
 │  Staff (/franchise/staff)                    │
 │  P&L Report (/franchise/pnl)                 │
 │  Settings (/franchise/settings)              │

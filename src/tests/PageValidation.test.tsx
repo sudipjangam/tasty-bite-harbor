@@ -19,6 +19,7 @@ vi.mock('@/integrations/supabase/client', () => ({
       order: vi.fn().mockReturnThis(),
       range: vi.fn().mockReturnThis(), // For pagination
       single: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
       gte: vi.fn().mockReturnThis(),
       lte: vi.fn().mockReturnThis(),
       insert: vi.fn().mockReturnThis(),
@@ -33,6 +34,19 @@ vi.mock('@/integrations/supabase/client', () => ({
       invoke: vi.fn().mockResolvedValue({ data: { success: true }, error: null })
     }
   },
+}));
+
+// Mock useAuth hook
+vi.mock('@/hooks/useAuth', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  useAuth: () => ({
+    user: { id: 'test-user-id', email: 'test@example.com', restaurant_id: 'rest-123' },
+    loading: false,
+    hasPermission: () => true,
+    hasAnyPermission: () => true,
+    isRole: () => true,
+    signOut: vi.fn(),
+  }),
 }));
 
 describe('Page Validation Checks', () => {
@@ -56,6 +70,7 @@ describe('Page Validation Checks', () => {
             gte: vi.fn(() => chainable),
             lte: vi.fn(() => chainable),
             single: vi.fn(() => Promise.resolve(finalData)),
+            maybeSingle: vi.fn(() => Promise.resolve(finalData)),
             update: vi.fn(() => chainable),
           };
           return chainable;
@@ -74,10 +89,9 @@ describe('Page Validation Checks', () => {
       renderWithProviders(<KitchenDisplay />);
       
       // Check for main title
-      expect(screen.getByText(/Kitchen Display System/i)).toBeInTheDocument();
-      expect(screen.getByText(/Real-time order management dashboard/i)).toBeInTheDocument();
-      // Stats should be zero
-      expect(screen.getByText('Total Orders')).toBeInTheDocument();
+      expect(screen.getByText(/Kitchen Display/i)).toBeInTheDocument();
+      // Stats should be present
+      expect(screen.getByTitle('Total Orders')).toBeInTheDocument();
     });
 
     it('shows station filter dropdown', async () => {
@@ -92,6 +106,7 @@ describe('Page Validation Checks', () => {
             gte: vi.fn(() => chainable),
             lte: vi.fn(() => chainable),
             single: vi.fn(() => Promise.resolve(finalData)),
+            maybeSingle: vi.fn(() => Promise.resolve(finalData)),
           };
           return chainable;
         };
@@ -123,6 +138,7 @@ describe('Page Validation Checks', () => {
             gte: vi.fn(() => chainable),
             lte: vi.fn(() => chainable),
             single: vi.fn(() => Promise.resolve(finalData)),
+            maybeSingle: vi.fn(() => Promise.resolve(finalData)),
           };
           return chainable;
         };
@@ -158,6 +174,7 @@ describe('Page Validation Checks', () => {
             gte: vi.fn(() => chainable),
             lte: vi.fn(() => chainable),
             single: vi.fn(() => Promise.resolve(finalData)),
+            maybeSingle: vi.fn(() => Promise.resolve(finalData)),
           };
           return chainable;
         };

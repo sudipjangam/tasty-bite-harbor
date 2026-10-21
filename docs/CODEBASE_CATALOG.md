@@ -48,9 +48,12 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 | `/franchise/menu-sync`   | franchise roles (`owner`/`admin`)                       |
 | `/franchise/orders`      | franchise roles (`owner`/`admin`/`member`/`viewer`) |
 | `/franchise/inventory`   | franchise roles (`owner`/`admin`/`member`/`viewer`) |
+| `/franchise/transfers`   | franchise roles (`owner`/`admin`/`member`/`viewer`) |
+| `/franchise/royalties`   | franchise roles (`owner`/`admin`)                   |
+| `/franchise/compliance`  | franchise roles (`owner`/`admin`/`member`/`viewer`) |
 | `/franchise/staff`       | franchise roles (`owner`/`admin`/`member`/`viewer`) |
 | `/franchise/pnl`         | franchise roles (`owner`/`admin`/`member`/`viewer`) |
-| `/franchise/settings`    | franchise roles (`owner`/`admin`)                       |
+| `/franchise/settings`    | franchise roles (`owner`/`admin`)                   |
 
 ## 2. Pages Inventory (`src/pages`)
 
@@ -69,14 +72,17 @@ Primary route permissions from `src/components/Auth/AppRoutes.tsx`.
 - `EnhancedDashboard.tsx`
 - `Expenses.tsx`
 - `Financial.tsx`
+- `Franchise/BranchCompliance.tsx`
 - `Franchise/BranchManagement.tsx`
 - `Franchise/CrossBranchInventory.tsx`
 - `Franchise/CrossBranchOrders.tsx`
 - `Franchise/CrossBranchPnL.tsx`
 - `Franchise/CrossBranchStaff.tsx`
 - `Franchise/FranchiseDashboard.tsx`
+- `Franchise/FranchiseRoyalty.tsx`
 - `Franchise/FranchiseSettings.tsx`
 - `Franchise/MenuSync.tsx`
+- `Franchise/StockTransfers.tsx`
 - `Franchise/TeamManagement.tsx`
 - `Housekeeping.tsx`
 - `Index.tsx`

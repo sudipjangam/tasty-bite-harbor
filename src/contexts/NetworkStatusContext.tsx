@@ -44,8 +44,12 @@ export function NetworkStatusProvider({
 
   // Refresh pending count from IDB
   const refreshCount = useCallback(async () => {
-    const count = await getPendingCount();
-    setPendingCount(count);
+    try {
+      const count = await getPendingCount();
+      setPendingCount(count);
+    } catch {
+      setPendingCount(0);
+    }
   }, []);
 
   // Flush queue and update count
@@ -53,9 +57,11 @@ export function NetworkStatusProvider({
     if (flushingRef.current) return;
     flushingRef.current = true;
     try {
-      await flushQueue(async (remaining) => {
+      await flushQueue((remaining) => {
         setPendingCount(remaining);
       });
+    } catch (err) {
+      console.error("[NetworkStatus] Sync flush error:", err);
     } finally {
       flushingRef.current = false;
       await refreshCount();
@@ -68,13 +74,17 @@ export function NetworkStatusProvider({
 
     const handleOnline = () => {
       setIsOnline(true);
-      triggerSync();
+      triggerSync().catch((err) => {
+        console.error("[NetworkStatus] triggerSync on online error:", err);
+      });
       // BUG-08 fix: skip Service Worker sync on native Capacitor — no SW registered
       if (!isNativeApp()) {
         try {
-          navigator.serviceWorker?.ready.then((reg) => {
-            (reg as any).sync?.register("sync-orders").catch(() => {});
-          });
+          navigator.serviceWorker?.ready
+            ?.then((reg) => {
+              (reg as any).sync?.register("sync-orders").catch(() => {});
+            })
+            .catch(() => {});
         } catch (_) {}
       }
     };
@@ -85,7 +95,9 @@ export function NetworkStatusProvider({
     // Listen for FLUSH_QUEUE messages from the Service Worker (background sync)
     const handleSWMessage = (event: MessageEvent) => {
       if (event.data?.type === "FLUSH_QUEUE") {
-        triggerSync();
+        triggerSync().catch((err) => {
+          console.error("[NetworkStatus] triggerSync on SW message error:", err);
+        });
       }
     };
 

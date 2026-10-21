@@ -135,11 +135,9 @@ const OrderDetailsDialog = ({
     }
   }, [order?.id]);
 
-  if (!order) return null;
-
   // Fetch the order details including discount info from orders table
   const { data: orderDetails } = useQuery({
-    queryKey: ["order-details", order.id],
+    queryKey: ["order-details", order?.id],
     queryFn: async () => {
       if (!order?.id) return null;
 
@@ -169,6 +167,8 @@ const OrderDetailsDialog = ({
     },
     enabled: isOpen && !!order?.id,
   });
+
+  if (!order) return null;
 
   // Calculate total - use the provided price from the item itself
   const subtotal = order.items.reduce((sum, item) => {

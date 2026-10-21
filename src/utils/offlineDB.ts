@@ -105,6 +105,9 @@ const DB_VERSION = 1;
 let dbPromise: Promise<IDBPDatabase<SwadeshiDB>> | null = null;
 
 export function getDB(): Promise<IDBPDatabase<SwadeshiDB>> {
+  if (typeof window === "undefined" || typeof indexedDB === "undefined") {
+    return Promise.reject(new Error("IndexedDB is not supported in this environment"));
+  }
   if (!dbPromise) {
     dbPromise = openDB<SwadeshiDB>(DB_NAME, DB_VERSION, {
       upgrade(db) {
@@ -134,6 +137,9 @@ export function getDB(): Promise<IDBPDatabase<SwadeshiDB>> {
           ts.createIndex("by-restaurant", "restaurant_id");
         }
       },
+    }).catch((err) => {
+      dbPromise = null; // Clear so subsequent calls can retry
+      throw err;
     });
   }
   return dbPromise;
@@ -146,12 +152,17 @@ export async function cacheAll<T extends { id: string }>(
   storeName: "restaurants" | "menuItems" | "categories" | "tables",
   items: T[],
 ): Promise<void> {
-  const db = await getDB();
-  const tx = db.transaction(storeName, "readwrite");
-  await Promise.all([
-    ...items.map((item) => tx.store.put(item as never)),
-    tx.done,
-  ]);
+  try {
+    if (typeof window === "undefined" || typeof indexedDB === "undefined") return;
+    const db = await getDB();
+    const tx = db.transaction(storeName, "readwrite");
+    await Promise.all([
+      ...items.map((item) => tx.store.put(item as never)),
+      tx.done,
+    ]);
+  } catch (err) {
+    console.error(`[OfflineDB] Failed to cacheAll for ${storeName}:`, err);
+  }
 }
 
 /** Read all cached items for a restaurant from a store */
@@ -159,18 +170,30 @@ export async function getCachedByRestaurant<T>(
   storeName: "menuItems" | "categories" | "tables",
   restaurantId: string,
 ): Promise<T[]> {
-  const db = await getDB();
-  return db.getAllFromIndex(
-    storeName,
-    "by-restaurant",
-    restaurantId,
-  ) as Promise<T[]>;
+  try {
+    if (typeof window === "undefined" || typeof indexedDB === "undefined") return [];
+    const db = await getDB();
+    return await (db.getAllFromIndex(
+      storeName,
+      "by-restaurant",
+      restaurantId,
+    ) as Promise<T[]>);
+  } catch (err) {
+    console.error(`[OfflineDB] Failed to getCachedByRestaurant for ${storeName}:`, err);
+    return [];
+  }
 }
 
 /** Get a single cached restaurant */
 export async function getCachedRestaurant(
   restaurantId: string,
 ): Promise<CachedRestaurant | undefined> {
-  const db = await getDB();
-  return db.get("restaurants", restaurantId);
+  try {
+    if (typeof window === "undefined" || typeof indexedDB === "undefined") return undefined;
+    const db = await getDB();
+    return await db.get("restaurants", restaurantId);
+  } catch (err) {
+    console.error(`[OfflineDB] Failed to getCachedRestaurant:`, err);
+    return undefined;
+  }
 }

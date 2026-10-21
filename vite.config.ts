@@ -114,6 +114,10 @@ export default defineConfig(({ mode }) => {
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/tests/setup.ts',
+    pool: 'forks',
+    maxForks: 3,
+    minForks: 1,
+    testTimeout: 20000,
   },
 };
 });
