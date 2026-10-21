@@ -12,10 +12,12 @@ const ALLOWED_ORIGIN_PATTERNS = [
   // Netlify — branch deploys and deploy previews (auto-allowed)
   /^https:\/\/[a-z0-9-]+--[a-z0-9-]+\.netlify\.app$/,
   /^https:\/\/[a-z0-9-]+\.netlify\.app$/,
-  // Local dev & local admin subdomains
-  /^http:\/\/localhost:\d+$/,
-  /^http:\/\/admin\.localhost:\d+$/,
-  /^http:\/\/127\.0\.0\.1:\d+$/,
+  // Local dev, local admin subdomains & Capacitor Native mobile app
+  /^http:\/\/localhost(:\d+)?$/,
+  /^http:\/\/admin\.localhost(:\d+)?$/,
+  /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+  /^capacitor:\/\/localhost$/,
+  /^ionic:\/\/localhost$/,
 ];
 
 /**

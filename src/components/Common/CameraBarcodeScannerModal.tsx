@@ -39,9 +39,7 @@ const SUPPORTED_FORMATS = [
   Html5QrcodeSupportedFormats.CODE_39,
   Html5QrcodeSupportedFormats.UPC_A,
   Html5QrcodeSupportedFormats.UPC_E,
-  Html5QrcodeSupportedFormats.ITF,
   Html5QrcodeSupportedFormats.QR_CODE,
-  Html5QrcodeSupportedFormats.DATA_MATRIX,
 ];
 
 // Helper to wait until dialog DOM container is mounted
@@ -84,10 +82,12 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
   const [permissionState, setPermissionState] = useState<"checking" | "prompt" | "granted" | "denied">("checking");
 
   const startIdRef = useRef(0);
+  const isStartingRef = useRef(false);
 
   // Stop scanner safely
   const stopScanner = useCallback(async () => {
     startIdRef.current++;
+    isStartingRef.current = false;
     if (scannerRef.current) {
       const scanner = scannerRef.current;
       scannerRef.current = null;
@@ -135,33 +135,11 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     }
   }, []);
 
-  // Pre-acquire camera permission via raw getUserMedia.
-  // Triggers native mobile browser permission prompt with direct user gesture context.
-  const acquireCameraPermission = useCallback(async (): Promise<MediaStream | null> => {
-    const constraints: MediaStreamConstraints[] = [
-      { video: { facingMode: "environment" } },
-      { video: { facingMode: "user" } },
-      { video: true },
-    ];
-
-    for (const constraint of constraints) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia(constraint);
-        return stream;
-      } catch (err: any) {
-        if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
-          throw err;
-        }
-        console.warn("getUserMedia constraint failed, trying next:", constraint, err?.name);
-      }
-    }
-    return null;
-  }, []);
-
-  // Start scanner with resilient mobile fallbacks
+  // Start scanner with resilient mobile fallbacks & watchdog timeout
   const startScanner = useCallback(
     async (preferredCameraId?: string) => {
-      if (!isOpen) return;
+      if (!isOpen || isStartingRef.current) return;
+      isStartingRef.current = true;
       setErrorMsg(null);
       setIsPermissionDenied(false);
       setIsInitializing(true);
@@ -175,12 +153,14 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
           setErrorMsg("Camera access requires HTTPS. Please access using a secure connection.");
           setPermissionState("denied");
           setIsInitializing(false);
+          isStartingRef.current = false;
           return;
         }
         if (!navigator?.mediaDevices?.getUserMedia) {
           setErrorMsg("Camera API is not supported in this browser. Please use Chrome, Brave, Safari, or Firefox.");
           setPermissionState("denied");
           setIsInitializing(false);
+          isStartingRef.current = false;
           return;
         }
       }
@@ -189,45 +169,30 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
       const currentStartId = ++startIdRef.current;
 
       // Ensure DOM portal node exists (Radix dialog portal race)
-      const isElementReady = await waitForElement(scannerContainerId);
+      const isElementReady = await waitForElement(scannerContainerId, 30, 40);
       if (!isElementReady || currentStartId !== startIdRef.current || !isOpen) {
         setIsInitializing(false);
+        isStartingRef.current = false;
         return;
       }
 
+      let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+
       try {
-        // Step 1: Pre-acquire permission via direct getUserMedia.
-        let preStream: MediaStream | null = null;
-        try {
-          preStream = await acquireCameraPermission();
-          setPermissionState("granted");
-        } catch (permErr: any) {
-          setPermissionState("denied");
-          setIsPermissionDenied(true);
-          throw permErr;
-        }
-
-        // Release pre-acquired stream — html5-qrcode will mount its own video stream
-        if (preStream) {
-          preStream.getTracks().forEach((t) => t.stop());
-        }
-
-        if (currentStartId !== startIdRef.current || !isOpen) {
-          setIsInitializing(false);
-          return;
-        }
-
         const scanner = new Html5Qrcode(scannerContainerId, {
           formatsToSupport: SUPPORTED_FORMATS,
           verbose: false,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true,
+          },
         });
         scannerRef.current = scanner;
 
         const config = {
-          fps: 15,
+          fps: 10,
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            const width = Math.floor(Math.min(viewfinderWidth * 0.9, 360));
-            const height = Math.floor(Math.min(viewfinderHeight * 0.55, 200));
+            const width = Math.floor(Math.min(viewfinderWidth * 0.88, 320));
+            const height = Math.floor(Math.min(viewfinderHeight * 0.52, 190));
             return { width, height };
           },
         };
@@ -239,83 +204,100 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
           // Silent frame ignore
         };
 
-        let started = false;
+        // Watchdog timeout to prevent mobile camera HAL freeze
+        const startAttempt = async () => {
+          let started = false;
 
-        // Strategy 1: User-selected specific camera
-        if (preferredCameraId) {
-          try {
-            await scanner.start(
-              { deviceId: { exact: preferredCameraId } },
-              config,
-              onFrameSuccess,
-              onFrameFailure
-            );
-            started = true;
-            setSelectedCameraId(preferredCameraId);
-          } catch (camErr: any) {
-            console.warn("Preferred camera failed:", camErr?.name, camErr?.message);
-          }
-        }
-
-        // Strategy 2: Back/rear camera
-        if (!started) {
-          try {
-            await scanner.start(
-              { facingMode: "environment" },
-              config,
-              onFrameSuccess,
-              onFrameFailure
-            );
-            started = true;
-          } catch (envErr: any) {
-            if (envErr?.name === "NotAllowedError" || envErr?.name === "PermissionDeniedError") {
-              throw envErr;
-            }
-            console.warn("Environment camera failed:", envErr?.name, envErr?.message);
-          }
-        }
-
-        // Strategy 3: Front/user camera (laptops, tablets)
-        if (!started) {
-          try {
-            await scanner.start(
-              { facingMode: "user" },
-              config,
-              onFrameSuccess,
-              onFrameFailure
-            );
-            started = true;
-          } catch (userErr: any) {
-            if (userErr?.name === "NotAllowedError" || userErr?.name === "PermissionDeniedError") {
-              throw userErr;
-            }
-            console.warn("User camera failed:", userErr?.name, userErr?.message);
-          }
-        }
-
-        // Strategy 4: Enumerate devices and try first available by deviceId
-        if (!started) {
-          try {
-            const devices = await Html5Qrcode.getCameras();
-            if (devices && devices.length > 0) {
-              setCameras(devices);
+          // Strategy 1: Specific camera device ID
+          if (preferredCameraId) {
+            try {
               await scanner.start(
-                { deviceId: { exact: devices[0].id } },
+                { deviceId: { exact: preferredCameraId } },
                 config,
                 onFrameSuccess,
                 onFrameFailure
               );
               started = true;
-              setSelectedCameraId(devices[0].id);
+              setSelectedCameraId(preferredCameraId);
+            } catch (camErr: any) {
+              console.warn("Preferred camera failed:", camErr?.name, camErr?.message);
             }
-          } catch (enumErr: any) {
-            console.warn("Enumerate+start failed:", enumErr?.name, enumErr?.message);
           }
-        }
 
-        if (!started) {
-          throw new Error("Unable to start video feed. Please use photo scan or enter code manually.");
-        }
+          // Strategy 2: Environment (rear) camera
+          if (!started) {
+            try {
+              await scanner.start(
+                { facingMode: "environment" },
+                config,
+                onFrameSuccess,
+                onFrameFailure
+              );
+              started = true;
+            } catch (envErr: any) {
+              if (envErr?.name === "NotAllowedError" || envErr?.name === "PermissionDeniedError") {
+                throw envErr;
+              }
+              console.warn("facingMode environment failed, trying fallback:", envErr?.name);
+            }
+          }
+
+          // Strategy 3: Enumerate cameras and pick back camera or first device
+          if (!started) {
+            try {
+              const devices = await Html5Qrcode.getCameras();
+              if (devices && devices.length > 0) {
+                setCameras(devices);
+                const backDevice = devices.find((d) => {
+                  const lbl = (d.label || "").toLowerCase();
+                  return lbl.includes("back") || lbl.includes("rear") || lbl.includes("environment");
+                }) || devices[0];
+
+                await scanner.start(
+                  { deviceId: { exact: backDevice.id } },
+                  config,
+                  onFrameSuccess,
+                  onFrameFailure
+                );
+                started = true;
+                setSelectedCameraId(backDevice.id);
+              }
+            } catch (enumErr: any) {
+              console.warn("Device enumeration strategy failed:", enumErr?.name);
+            }
+          }
+
+          // Strategy 4: Front / default camera fallback
+          if (!started) {
+            try {
+              await scanner.start(
+                { facingMode: "user" },
+                config,
+                onFrameSuccess,
+                onFrameFailure
+              );
+              started = true;
+            } catch (userErr: any) {
+              if (userErr?.name === "NotAllowedError" || userErr?.name === "PermissionDeniedError") {
+                throw userErr;
+              }
+              console.warn("User camera failed:", userErr?.name);
+            }
+          }
+
+          if (!started) {
+            throw new Error("Unable to start video feed. Please use photo scan or enter code manually.");
+          }
+        };
+
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutTimer = setTimeout(() => {
+            reject(new Error("Camera initialization timed out. Please tap Retry or scan from photo."));
+          }, 7000);
+        });
+
+        await Promise.race([startAttempt(), timeoutPromise]);
+        setPermissionState("granted");
 
         // Stale check
         if (currentStartId !== startIdRef.current || !isOpen) {
@@ -327,7 +309,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
           return;
         }
 
-        // Populate camera list in background now that permission is active
+        // Query camera list in background once permission granted
         refreshCameraList();
 
         // Check torch capability
@@ -350,7 +332,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
             setPermissionState("denied");
             setIsPermissionDenied(true);
             setErrorMsg(
-              "Camera permission is blocked. Tap the tune/lock icon in browser URL bar to allow camera, then tap Retry below."
+              "Camera permission is blocked. Tap the tune/lock icon in your browser URL bar to allow camera, then tap Retry below."
             );
           } else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") {
             setErrorMsg("No camera device found on this system.");
@@ -363,12 +345,14 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
           }
         }
       } finally {
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+        isStartingRef.current = false;
         if (currentStartId === startIdRef.current) {
           setIsInitializing(false);
         }
       }
     },
-    [isOpen, handleDetected, stopScanner, refreshCameraList, acquireCameraPermission]
+    [isOpen, handleDetected, stopScanner, refreshCameraList]
   );
 
   // Check initial permission state on modal open
