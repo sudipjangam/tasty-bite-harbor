@@ -854,16 +854,46 @@ const PaymentDialog = ({
         hour12: false,
       })}`;
 
+      // Generate real bill URL (stored in shared_bills table)
+      const billUrl = await getBillUrl({
+        restaurantId: restaurantInfo?.id || hookRestaurantId,
+        restaurantName: resolvedRestaurantName,
+        restaurantAddress: restaurantInfo?.address,
+        restaurantPhone: restaurantInfo?.phone,
+        items: orderItems.map((i) => ({ name: i.name, quantity: i.quantity, price: i.customPrice ?? i.price })),
+        subtotal,
+        total,
+        discount: totalDiscountAmount > 0 ? totalDiscountAmount : undefined,
+        tableNumber: tableNumber || undefined,
+        customerName: customerName || undefined,
+        orderDate: now.toLocaleString("en-IN"),
+        currencySymbol,
+      });
+
+      const billUrlSuffix = billUrl
+        ? (billUrl.split("/bill/").pop() ?? billUrl)
+        : "pending";
+
+      // Extract social links for smart template selection
+      const rawIgUrl = (restaurantInfo?.social_media as any)?.instagram_url || "";
+      const igHandle = rawIgUrl
+        .replace(/^https?:\/\/(www\.)?instagram\.com\//, "")
+        .replace(/\/$/, "") || "";
+      const googleReviewUrl = (restaurantInfo?.social_media as any)?.google_review_url || "";
+      const contactNumber = restaurantInfo?.phone || "-";
+
       const { templateName, variables, buttons } = resolveInvoiceTemplate({
         customerName: customerName || "Customer",
         restaurantName: resolvedRestaurantName,
         amount: formattedAmount,
         billDate: formattedDate,
-        billUrlSuffix: "paid",
-        contactNumber: restaurantInfo?.phone || "-",
+        billUrlSuffix,
+        igHandle,
+        googleReviewUrl,
+        contactNumber,
       });
 
-      await supabase.functions.invoke("send-whatsapp-unified", {
+      const { data: waResponse, error: waError } = await supabase.functions.invoke("send-whatsapp-unified", {
         body: {
           phoneNumber: phoneWithCode,
           restaurantId: restaurantInfo?.id || hookRestaurantId,
@@ -872,10 +902,25 @@ const PaymentDialog = ({
           buttons,
         },
       });
-    } catch (e) {
-      console.warn("WhatsApp auto-send error:", e);
+
+      if (waError || !waResponse?.success) {
+        throw new Error(waError?.message || waResponse?.error || "WhatsApp API failure");
+      }
+
+      toast({
+        title: "Bill sent via WhatsApp ✓",
+        description: `Bill sent to ${customerMobile}`,
+      });
+    } catch (e: any) {
+      console.error("WhatsApp auto-send error:", e);
+      toast({
+        title: "WhatsApp Bill Failed",
+        description: e?.message || "Could not send bill via WhatsApp. Please retry.",
+        variant: "destructive",
+      });
     }
-  }, [customerMobile, restaurantInfo, hookRestaurantId, resolvedRestaurantName, total, customerName]);
+  }, [customerMobile, restaurantInfo, hookRestaurantId, resolvedRestaurantName, total, customerName, orderItems, subtotal, totalDiscountAmount, tableNumber, currencySymbol, getBillUrl, toast]);
+
 
   // ─── 1-CLICK INSTANT PAYMENT EXECUTION ───────────────────────────────────
   const handleQuickPay = useCallback(
@@ -1086,9 +1131,9 @@ const PaymentDialog = ({
         // 6. Auto-print bill (forceBrowser: true ensures browser print dialog fires when no thermal printer is connected)
         handlePrint({ forceBrowser: true }).catch(console.warn);
 
-        // 7. Auto-send WhatsApp if checkbox enabled
+        // 7. Auto-send WhatsApp if checkbox enabled (fire-and-forget, has own error toast)
         if (sendBillToWhatsApp && customerMobile.trim()) {
-          handleAutoSendWhatsApp().catch(console.warn);
+          handleAutoSendWhatsApp();
         }
 
         toast({
