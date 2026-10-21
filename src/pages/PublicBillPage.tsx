@@ -438,6 +438,11 @@ const PublicBillPage = () => {
                         src={billData.logoUrl}
                         alt="Restaurant Logo"
                         className="w-full h-full object-contain rounded-2xl"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                          const placeholder = e.currentTarget.closest("div")?.parentElement?.querySelector(".logo-placeholder") as HTMLElement | null;
+                          if (placeholder) placeholder.style.display = "flex";
+                        }}
                       />
                     </div>
                   ) : (

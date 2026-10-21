@@ -860,6 +860,7 @@ const PaymentDialog = ({
         restaurantName: resolvedRestaurantName,
         restaurantAddress: restaurantInfo?.address,
         restaurantPhone: restaurantInfo?.phone,
+        logoUrl: restaurantInfo?.logo_url || localStorage.getItem("restaurant_logo_url") || undefined,
         items: orderItems.map((i) => ({ name: i.name, quantity: i.quantity, price: i.customPrice ?? i.price })),
         subtotal,
         total,
