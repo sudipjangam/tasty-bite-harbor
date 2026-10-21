@@ -70,6 +70,13 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Persistent callback refs to prevent camera restart cascades from parent re-renders
+  const onScanSuccessRef = useRef(onScanSuccess);
+  onScanSuccessRef.current = onScanSuccess;
+
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   const [cameras, setCameras] = useState<CameraDevice[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
   const [hasTorch, setHasTorch] = useState(false);
@@ -116,11 +123,11 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
 
       // Small delay for user to see success feedback
       setTimeout(() => {
-        onScanSuccess(cleanCode);
-        onClose();
+        onScanSuccessRef.current?.(cleanCode);
+        onCloseRef.current?.();
       }, 350);
     },
-    [onScanSuccess, onClose, stopScanner]
+    [stopScanner]
   );
 
   // Query cameras after stream started (devices have full labels once permission is granted)
@@ -188,14 +195,20 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
         });
         scannerRef.current = scanner;
 
-        const config = {
-          fps: 10,
+        const createScanConfig = (customConstraints?: MediaTrackConstraints) => ({
+          fps: 8,
+          disableFlip: true,
+          videoConstraints: customConstraints || {
+            facingMode: "environment",
+            width: { min: 640, ideal: 1280, max: 1280 },
+            height: { min: 480, ideal: 720, max: 720 },
+          },
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
             const width = Math.floor(Math.min(viewfinderWidth * 0.88, 320));
             const height = Math.floor(Math.min(viewfinderHeight * 0.52, 190));
             return { width, height };
           },
-        };
+        });
 
         const onFrameSuccess = (decodedText: string) => {
           handleDetected(decodedText);
@@ -211,9 +224,14 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
           // Strategy 1: Specific camera device ID
           if (preferredCameraId) {
             try {
+              const cfg = createScanConfig({
+                deviceId: { exact: preferredCameraId },
+                width: { min: 640, ideal: 1280, max: 1280 },
+                height: { min: 480, ideal: 720, max: 720 },
+              });
               await scanner.start(
                 { deviceId: { exact: preferredCameraId } },
-                config,
+                cfg,
                 onFrameSuccess,
                 onFrameFailure
               );
@@ -227,9 +245,14 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
           // Strategy 2: Environment (rear) camera
           if (!started) {
             try {
+              const cfg = createScanConfig({
+                facingMode: "environment",
+                width: { min: 640, ideal: 1280, max: 1280 },
+                height: { min: 480, ideal: 720, max: 720 },
+              });
               await scanner.start(
                 { facingMode: "environment" },
-                config,
+                cfg,
                 onFrameSuccess,
                 onFrameFailure
               );
@@ -253,9 +276,14 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
                   return lbl.includes("back") || lbl.includes("rear") || lbl.includes("environment");
                 }) || devices[0];
 
+                const cfg = createScanConfig({
+                  deviceId: { exact: backDevice.id },
+                  width: { min: 640, ideal: 1280, max: 1280 },
+                  height: { min: 480, ideal: 720, max: 720 },
+                });
                 await scanner.start(
                   { deviceId: { exact: backDevice.id } },
-                  config,
+                  cfg,
                   onFrameSuccess,
                   onFrameFailure
                 );
@@ -270,9 +298,14 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
           // Strategy 4: Front / default camera fallback
           if (!started) {
             try {
+              const cfg = createScanConfig({
+                facingMode: "user",
+                width: { min: 640, ideal: 1280, max: 1280 },
+                height: { min: 480, ideal: 720, max: 720 },
+              });
               await scanner.start(
                 { facingMode: "user" },
-                config,
+                cfg,
                 onFrameSuccess,
                 onFrameFailure
               );
@@ -355,12 +388,18 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     [isOpen, handleDetected, stopScanner, refreshCameraList]
   );
 
+  const startScannerRef = useRef(startScanner);
+  startScannerRef.current = startScanner;
+
+  const stopScannerRef = useRef(stopScanner);
+  stopScannerRef.current = stopScanner;
+
   // Check initial permission state on modal open
   useEffect(() => {
     let isMounted = true;
 
     if (!isOpen) {
-      stopScanner();
+      stopScannerRef.current();
       return;
     }
 
@@ -386,7 +425,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
 
           if (status.state === "granted") {
             setPermissionState("granted");
-            startScanner();
+            startScannerRef.current();
             return;
           } else if (status.state === "denied") {
             setPermissionState("denied");
@@ -399,7 +438,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
             return;
           }
         } catch {
-          // Unsupported query parameter in some browsers (e.g. Safari)
+          // Unsupported query parameter in some browsers (e.g. Safari / Android WebView)
         }
       }
 
@@ -413,9 +452,9 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
 
     return () => {
       isMounted = false;
-      stopScanner();
+      stopScannerRef.current();
     };
-  }, [isOpen, startScanner, stopScanner]);
+  }, [isOpen]);
 
   // Toggle Torch/Flashlight
   const toggleTorch = async () => {

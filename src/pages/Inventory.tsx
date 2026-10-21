@@ -209,7 +209,7 @@ const Inventory = () => {
     }
   }, [editingItem, isAddingStock, isAddDialogOpen]);
 
-  const handleBarcodeScanSuccess = async (scannedCode: string) => {
+  const handleBarcodeScanSuccess = useCallback(async (scannedCode: string) => {
     const cleanCode = scannedCode.trim();
     if (!cleanCode) return;
 
@@ -279,7 +279,7 @@ const Inventory = () => {
     } finally {
       setIsLookingUpProduct(false);
     }
-  };
+  }, [items, toast]);
 
   const handleManualBarcodeLookup = async () => {
     const clean = formBarcode.trim();
