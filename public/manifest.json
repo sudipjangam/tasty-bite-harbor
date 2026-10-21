@@ -19,46 +19,64 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "../icons/icon-48.webp",
-      "type": "image/webp",
-      "sizes": "48x48",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "../icons/icon-72.webp",
-      "type": "image/webp",
+      "src": "/icons/icon-72x72.png",
+      "type": "image/png",
       "sizes": "72x72",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "../icons/icon-96.webp",
-      "type": "image/webp",
+      "src": "/icons/icon-96x96.png",
+      "type": "image/png",
       "sizes": "96x96",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "../icons/icon-128.webp",
-      "type": "image/webp",
+      "src": "/icons/icon-128x128.png",
+      "type": "image/png",
       "sizes": "128x128",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "../icons/icon-192.webp",
-      "type": "image/webp",
+      "src": "/icons/icon-144x144.png",
+      "type": "image/png",
+      "sizes": "144x144",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "type": "image/png",
+      "sizes": "152x152",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "../icons/icon-256.webp",
-      "type": "image/webp",
-      "sizes": "256x256",
-      "purpose": "any maskable"
+      "src": "/icons/icon-maskable-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
     },
     {
-      "src": "../icons/icon-512.webp",
-      "type": "image/webp",
+      "src": "/icons/icon-384x384.png",
+      "type": "image/png",
+      "sizes": "384x384",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [
@@ -150,10 +168,5 @@
   "note_taking": {
     "new_note_url": "/order-management"
   },
-  "scope_extensions": [
-    {
-      "origin": "https://swadeshisolutions.co.in"
-    }
-  ],
   "version": "1.0.1"
 }
