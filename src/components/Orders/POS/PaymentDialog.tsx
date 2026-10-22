@@ -70,6 +70,7 @@ import { PaymentDialogProps } from "./PaymentDialog/types";
 import { resolveInvoiceTemplate } from "@/utils/resolveInvoiceTemplate";
 import { buildReceiptHtml } from "./PaymentDialog/utils/buildReceiptHtml";
 import { calculateOrderTotals } from "./PaymentDialog/utils/paymentCalculations";
+import { BillPreviewStep } from "./PaymentDialog/steps/BillPreviewStep";
 
 interface CustomerLoyaltyProfile {
   id: string;
@@ -92,6 +93,8 @@ const PaymentDialog = ({
   itemCompletionStatus: initialItemCompletionStatus,
   isNonChargeable = false,
   serverName,
+  initialCustomerName = "",
+  initialCustomerMobile = "",
 }: PaymentDialogProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -103,7 +106,9 @@ const PaymentDialog = ({
   const hasRoomsPlan = hasAccess("rooms") || hasAccess("hotel");
 
   // ─── Flow State ──────────────────────────────────────────────────────────
-  const [currentStep, setCurrentStep] = useState<"checkout" | "qr" | "split" | "edit" | "success" | "pay_later">("checkout");
+  const [currentStep, setCurrentStep] = useState<"bill" | "checkout" | "qr" | "split" | "edit" | "success" | "pay_later">("bill");
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
+  const [isPrintingBill, setIsPrintingBill] = useState(false);
 
   // ─── Items & Custom Pricing State ────────────────────────────────────────
   const [orderItems, setOrderItems] = useState<(OrderItem & { customPrice?: number })[]>(initialOrderItems || []);
@@ -114,8 +119,8 @@ const PaymentDialog = ({
   const [tempTotalInput, setTempTotalInput] = useState<string>("");
 
   // ─── Customer Details & Sharing ──────────────────────────────────────────
-  const [customerName, setCustomerName] = useState("");
-  const [customerMobile, setCustomerMobile] = useState("");
+  const [customerName, setCustomerName] = useState(initialCustomerName);
+  const [customerMobile, setCustomerMobile] = useState(initialCustomerMobile);
   const [customerEmail, setCustomerEmail] = useState("");
   const [sendBillToWhatsApp, setSendBillToWhatsApp] = useState(false);
   const [orderType, setOrderType] = useState<string | null>(null);
@@ -177,7 +182,9 @@ const PaymentDialog = ({
     if (!isNewOrder && prevOrderKeyRef.current !== "") return; // already initialised this order
     prevOrderKeyRef.current = orderKey;
 
-    setCurrentStep("checkout");
+    setCurrentStep("bill");
+    setIsSendingWhatsApp(false);
+    setIsPrintingBill(false);
     setIsProcessingPayment(false);
     setCustomTotalOverride(null);
     setEditingItemIdx(null);
@@ -201,6 +208,9 @@ const PaymentDialog = ({
     setSplitCard("");
     setQrCodeUrl("");
     setOrderItems(initialOrderItems || []);
+    // Seed customer fields from the POS screen — only when a new order is opened
+    setCustomerName(initialCustomerName || "");
+    setCustomerMobile(initialCustomerMobile || "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, orderId, tableNumber]);
 
@@ -922,9 +932,66 @@ const PaymentDialog = ({
     }
   }, [customerMobile, restaurantInfo, hookRestaurantId, resolvedRestaurantName, total, customerName, orderItems, subtotal, totalDiscountAmount, tableNumber, currencySymbol, getBillUrl, toast]);
 
+  // ─── Mark Order as Payment Pending (bill sent/printed before payment) ────
+  const handleMarkPaymentPending = useCallback(async () => {
+    if (!orderId) return;
+    try {
+      // Resolve kitchen_orders.id → orders.id
+      const { data: ko } = await supabase
+        .from("kitchen_orders")
+        .select("order_id")
+        .eq("id", orderId)
+        .maybeSingle();
+
+      const targetOrderId = ko?.order_id ?? orderId;
+      if (!targetOrderId) return;
+
+      await supabase
+        .from("orders")
+        .update({
+          payment_status: "pending",
+          updated_at: new Date().toISOString(),
+          ...(customerName.trim() && { customer_name: customerName.trim() }),
+          ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+        })
+        .eq("id", targetOrderId);
+
+      // Refresh active orders so it appears in the 💰 Unpaid filter immediately
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    } catch (err) {
+      console.warn("[PaymentDialog] handleMarkPaymentPending error:", err);
+    }
+  }, [orderId, customerName, customerMobile, queryClient]);
+
+  // ─── Bill-Preview WhatsApp: send + mark pending ───────────────────────────
+  const handleSendBillWhatsApp = useCallback(async () => {
+    setIsSendingWhatsApp(true);
+    try {
+      await handleAutoSendWhatsApp();
+      await handleMarkPaymentPending();
+    } finally {
+      setIsSendingWhatsApp(false);
+    }
+  }, [handleAutoSendWhatsApp, handleMarkPaymentPending]);
+
+  // ─── Bill-Preview Print: print + mark pending + close dialog ────────────
+  const handlePrintBill = useCallback(async () => {
+    setIsPrintingBill(true);
+    try {
+      await handlePrint({ forceBrowser: true });
+      await handleMarkPaymentPending();
+      // Close dialog so staff can move on after handing the bill
+      setCurrentStep("bill");
+      onClose();
+    } finally {
+      setIsPrintingBill(false);
+    }
+  }, [handlePrint, handleMarkPaymentPending, onClose]);
 
   // ─── 1-CLICK INSTANT PAYMENT EXECUTION ───────────────────────────────────
   const handleQuickPay = useCallback(
+
     async (
       method: "cash" | "upi" | "card" | "pay_later" | "room" | "nc",
       splitPayload?: Array<{ method: string; amount: number }>
@@ -1226,7 +1293,7 @@ const PaymentDialog = ({
       if (["INPUT", "TEXTAREA", "SELECT"].includes((document.activeElement as HTMLElement)?.tagName)) {
         return;
       }
-      if (!isOpen || currentStep !== "checkout") return;
+      if (!isOpen || (currentStep !== "checkout" && currentStep !== "bill")) return;
 
       if (e.key === "Enter" || e.code === "Space") {
         e.preventDefault();
@@ -1259,7 +1326,7 @@ const PaymentDialog = ({
         open={isOpen}
         onOpenChange={(open) => {
           if (!open) {
-            setCurrentStep("checkout");
+            setCurrentStep("bill");
             onClose();
           }
         }}
@@ -1286,7 +1353,7 @@ const PaymentDialog = ({
                 <Button onClick={() => handlePrint({ forceBrowser: true })} variant="outline" size="sm" className="gap-2">
                   <Printer className="w-4 h-4" /> Print Again
                 </Button>
-                {sendBillToWhatsApp && customerMobile && (
+                {customerMobile && (
                   <Button onClick={handleAutoSendWhatsApp} variant="outline" size="sm" className="gap-2 text-emerald-600">
                     <Share2 className="w-4 h-4" /> Resend WhatsApp
                   </Button>
@@ -1550,6 +1617,35 @@ const PaymentDialog = ({
                 </Button>
               </div>
             </div>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {/* STEP 0: BILL PREVIEW — send/print before payment                 */}
+          {/* ════════════════════════════════════════════════════════════════ */}
+          {currentStep === "bill" && (
+            <BillPreviewStep
+              orderItems={orderItems}
+              subtotal={subtotal}
+              totalDiscountAmount={totalDiscountAmount}
+              promotionDiscountAmount={promotionDiscountAmount}
+              manualDiscountAmount={manualDiscountAmount}
+              loyaltyDiscountAmount={loyaltyDiscountAmount}
+              total={total}
+              currencySymbol={currencySymbol}
+              tableNumber={tableNumber}
+              restaurantName={resolvedRestaurantName}
+              appliedPromotion={appliedPromotion}
+              manualDiscountPercent={manualDiscountPercent}
+              customerName={customerName}
+              setCustomerName={setCustomerName}
+              customerMobile={customerMobile}
+              setCustomerMobile={setCustomerMobile}
+              onPrint={handlePrintBill}
+              onSendWhatsApp={handleSendBillWhatsApp}
+              onContinue={() => setCurrentStep("checkout")}
+              isSendingWhatsApp={isSendingWhatsApp}
+              isPrinting={isPrintingBill}
+            />
           )}
 
           {/* ════════════════════════════════════════════════════════════════ */}

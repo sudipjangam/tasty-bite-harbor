@@ -1999,6 +1999,8 @@ export const QSRPosMain: React.FC = () => {
         orderId={pendingKitchenOrderId || recalledKitchenOrderId || undefined}
         isNonChargeable={orderMode === "nc"}
         serverName={attendantName}
+        initialCustomerName={customerName}
+        initialCustomerMobile={customerPhone}
       />
 
       {/* Delete Order Confirmation Dialog */}

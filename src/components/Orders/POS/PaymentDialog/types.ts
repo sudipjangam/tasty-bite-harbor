@@ -27,6 +27,9 @@ export interface PaymentDialogProps {
   onOrderUpdated?: () => void;
   isNonChargeable?: boolean; // NC orders - no charge required
   serverName?: string;
+  // Pre-fill from the POS screen's customer fields
+  initialCustomerName?: string;
+  initialCustomerMobile?: string;
 }
 
 // Applied promotion state

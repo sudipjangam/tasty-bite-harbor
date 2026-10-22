@@ -1,3 +1,4 @@
+export { BillPreviewStep } from "./BillPreviewStep";
 export { ConfirmStep } from "./ConfirmStep";
 export { PaymentMethodStep } from "./PaymentMethodStep";
 export { QRPaymentStep } from "./QRPaymentStep";
