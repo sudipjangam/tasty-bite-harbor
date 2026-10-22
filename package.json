@@ -1,21 +1,22 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.0.126",
+  "version": "1.0.127",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm version patch --no-git-tag-version && vite build",
+    "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "test": "vitest",
     "preview": "vite preview",
+    "version:release": "npm version patch --no-git-tag-version && node scripts/sync-version.js",
     "cap:sync": "node scripts/sync-version.js && npx cap sync",
     "cap:open": "npx cap open android",
     "build:apk": "npm run build && npm run cap:sync && cd android && .\\gradlew assembleDebug",
-    "build:apk:release": "npm run build && npm run cap:sync && cd android && .\\gradlew assembleRelease",
+    "build:apk:release": "npm run version:release && npm run build && npx cap sync && cd android && .\\gradlew assembleRelease",
     "build:aab": "npm run build && npm run cap:sync && cd android && .\\gradlew bundleDebug",
-    "build:aab:release": "npm run build && npm run cap:sync && cd android && .\\gradlew bundleRelease",
+    "build:aab:release": "npm run version:release && npm run build && npx cap sync && cd android && .\\gradlew bundleRelease",
     "publish:apk": "npm run build:apk:release && node scripts/publish-apk.js"
   },
   "dependencies": {

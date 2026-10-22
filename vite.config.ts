@@ -11,7 +11,8 @@ const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.
 const APP_VERSION = packageJson.version;
 
 // Generate build timestamp for service worker cache busting
-const BUILD_TIMESTAMP = Date.now().toString();
+const BUILD_DATE = new Date();
+const BUILD_TIMESTAMP = BUILD_DATE.getTime().toString();
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -28,7 +29,7 @@ export default defineConfig(({ mode }) => {
     const versionInfo = {
       version: APP_VERSION,
       buildTimestamp: BUILD_TIMESTAMP,
-      buildDate: new Date().toISOString()
+      buildDate: BUILD_DATE.toISOString()
     };
     fs.writeFileSync(
       path.resolve(__dirname, 'public/version.json'),

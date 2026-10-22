@@ -421,7 +421,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             restaurantDetails?.logo_url ||
             (() => {
               try {
-                return localStorage.getItem("restaurant_logo_url") || undefined;
+                return (restaurantId ? localStorage.getItem(`restaurant_logo_url_${restaurantId}`) : null) || undefined;
               } catch {
                 return undefined;
               }

@@ -3,6 +3,7 @@ import type { AppliedPromotion, RestaurantInfo, PaymentSettings } from "../types
 
 export interface BuildReceiptOptions {
   restaurantInfo: RestaurantInfo | null;
+  restaurantId?: string;
   restaurantName?: string;
   orderItems: (OrderItem & { customPrice?: number })[];
   subtotal: number;
@@ -29,6 +30,7 @@ export interface BuildReceiptOptions {
 
 export function buildReceiptHtml({
   restaurantInfo,
+  restaurantId,
   restaurantName,
   orderItems,
   subtotal,
@@ -69,7 +71,12 @@ export function buildReceiptHtml({
     localStorage.getItem("restaurant_name") ||
     localStorage.getItem("cached_restaurant_name") ||
     "Tasty Bite Harbor";
-  const savedLogo = localStorage.getItem("restaurant_logo_url");
+  const resolvedRestaurantId = (restaurantInfo as any)?.id || restaurantId;
+  const savedLogo =
+    (restaurantInfo as any)?.logo_url ||
+    (resolvedRestaurantId
+      ? localStorage.getItem(`restaurant_logo_url_${resolvedRestaurantId}`)
+      : null);
 
   // Build items rows HTML
   const itemRowsHtml = orderItems

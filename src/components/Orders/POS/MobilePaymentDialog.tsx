@@ -974,7 +974,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         restaurantName: restaurantInfo?.name || "Restaurant",
         restaurantAddress: restaurantInfo?.address,
         restaurantPhone: restaurantInfo?.phone,
-        logoUrl: (restaurantInfo as any)?.logo_url || localStorage.getItem("restaurant_logo_url") || undefined,
+        logoUrl: (restaurantInfo as any)?.logo_url || ((restaurantInfo as any)?.id ? localStorage.getItem(`restaurant_logo_url_${(restaurantInfo as any).id}`) : null) || undefined,
         items: localItems.map((i) => ({ name: i.name, quantity: i.quantity, price: getItemUnitPrice(i) })),
         subtotal,
         total: finalTotal,

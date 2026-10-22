@@ -37,6 +37,7 @@ import {
   Download,
   Copy,
   Check,
+  AlertCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -67,7 +68,7 @@ import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 const Settings = () => {
-  const { restaurantName } = useRestaurantId();
+  const { restaurantId: activeRestaurantId, restaurantName, isLoading: loadingRestaurantId } = useRestaurantId();
   const { toast } = useToast();
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
@@ -75,20 +76,38 @@ const Settings = () => {
   const [loading, setLoading] = useState(false);
   const { symbol: currencySymbol } = useCurrencyContext();
 
-  // Logo state — load from localStorage first (fast), then sync from DB
-  const [logoUrl, setLogoUrl] = useState(() => {
-    try {
-      return localStorage.getItem("restaurant_logo_url") || "";
-    } catch {
-      return "";
-    }
-  });
+  // Logo state — starts empty, synchronized from active restaurant in DB
+  const [logoUrl, setLogoUrl] = useState("");
 
   const [logoUploading, setLogoUploading] = useState(false);
   const [showShortcutDialog, setShowShortcutDialog] = useState(false);
   const [copiedCommand, setCopiedCommand] = useState(false);
 
+  // Fetch user and profile data
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ["profile", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user?.id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const restaurantId = !loadingRestaurantId
+    ? (activeRestaurantId || profile?.restaurant_id || undefined)
+    : undefined;
+  const isLogoActionDisabled = logoUploading || loadingRestaurantId || !restaurantId;
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const targetRestaurantId = restaurantId;
+    if (loadingRestaurantId || !targetRestaurantId) return;
+
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -114,18 +133,24 @@ const Settings = () => {
       const url = await uploadImage(file, { resize: false });
 
       // Persist to DB
-      if (profile?.restaurant_id) {
-        const { error: dbError } = await supabase
-          .from("restaurants")
-          .update({ logo_url: url })
-          .eq("id", profile.restaurant_id);
-        if (dbError) throw dbError;
-      }
+      const { error: dbError } = await supabase
+        .from("restaurants")
+        .update({ logo_url: url })
+        .eq("id", targetRestaurantId);
+      if (dbError) throw dbError;
 
       setLogoUrl(url);
       try {
         localStorage.setItem("restaurant_logo_url", url);
+        localStorage.setItem(`restaurant_logo_url_${targetRestaurantId}`, url);
       } catch {}
+
+      queryClient.invalidateQueries({ queryKey: ["restaurant", targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["restaurant-info-pos", targetRestaurantId] });
+      if (profile?.restaurant_id && profile.restaurant_id !== targetRestaurantId) {
+        queryClient.invalidateQueries({ queryKey: ["restaurant", profile.restaurant_id] });
+        queryClient.invalidateQueries({ queryKey: ["restaurant-info-pos", profile.restaurant_id] });
+      }
 
       toast({
         title: "Logo uploaded! ✅",
@@ -144,17 +169,26 @@ const Settings = () => {
   };
 
   const handleLogoRemove = async () => {
+    const targetRestaurantId = restaurantId;
+    if (loadingRestaurantId || !targetRestaurantId) return;
+
     setLogoUrl("");
     try {
       localStorage.removeItem("restaurant_logo_url");
+      localStorage.removeItem(`restaurant_logo_url_${targetRestaurantId}`);
     } catch {}
     
     // Clear from DB too
-    if (profile?.restaurant_id) {
-      await supabase
-        .from("restaurants")
-        .update({ logo_url: null })
-        .eq("id", profile.restaurant_id);
+    await supabase
+      .from("restaurants")
+      .update({ logo_url: null })
+      .eq("id", targetRestaurantId);
+
+    queryClient.invalidateQueries({ queryKey: ["restaurant", targetRestaurantId] });
+    queryClient.invalidateQueries({ queryKey: ["restaurant-info-pos", targetRestaurantId] });
+    if (profile?.restaurant_id && profile.restaurant_id !== targetRestaurantId) {
+      queryClient.invalidateQueries({ queryKey: ["restaurant", profile.restaurant_id] });
+      queryClient.invalidateQueries({ queryKey: ["restaurant-info-pos", profile.restaurant_id] });
     }
     
     toast({
@@ -163,31 +197,15 @@ const Settings = () => {
     });
   };
 
-  // Fetch user and profile data
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ["profile", user?.id],
-    enabled: !!user?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user?.id)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
   // Fetch restaurant data
   const { data: restaurant, isLoading: restaurantLoading } = useQuery({
-    queryKey: ["restaurant", profile?.restaurant_id],
-    enabled: !!profile?.restaurant_id,
+    queryKey: ["restaurant", restaurantId],
+    enabled: !!restaurantId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("restaurants")
         .select("*")
-        .eq("id", profile?.restaurant_id)
+        .eq("id", restaurantId)
         .single();
 
       if (error) throw error;
@@ -197,13 +215,13 @@ const Settings = () => {
 
   // Fetch subscription data
   const { data: subscription, isLoading: subscriptionLoading } = useQuery({
-    queryKey: ["subscription", profile?.restaurant_id],
-    enabled: !!profile?.restaurant_id,
+    queryKey: ["subscription", restaurantId],
+    enabled: !!restaurantId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("restaurant_subscriptions")
         .select("*, subscription_plans(*)")
-        .eq("restaurant_id", profile?.restaurant_id)
+        .eq("restaurant_id", restaurantId)
         .eq("status", "active")
         .single();
 
@@ -214,14 +232,24 @@ const Settings = () => {
 
   // Sync logo URL from DB when restaurant data loads
   useEffect(() => {
-    if (restaurant && (restaurant as any).logo_url) {
-      const dbLogoUrl = (restaurant as any).logo_url as string;
+    if (restaurant) {
+      const dbLogoUrl = ((restaurant as any).logo_url as string) || "";
       setLogoUrl(dbLogoUrl);
       try {
-        localStorage.setItem("restaurant_logo_url", dbLogoUrl);
+        if (dbLogoUrl) {
+          localStorage.setItem("restaurant_logo_url", dbLogoUrl);
+          if (restaurantId) {
+            localStorage.setItem(`restaurant_logo_url_${restaurantId}`, dbLogoUrl);
+          }
+        } else {
+          localStorage.removeItem("restaurant_logo_url");
+          if (restaurantId) {
+            localStorage.removeItem(`restaurant_logo_url_${restaurantId}`);
+          }
+        }
       } catch {}
     }
-  }, [restaurant]);
+  }, [restaurant, restaurantId]);
 
   // Handle logout
   const handleLogout = async () => {
@@ -229,6 +257,9 @@ const Settings = () => {
       setLoading(true);
       // Clear all queries from the cache on logout
       queryClient.clear();
+      try {
+        localStorage.removeItem("restaurant_logo_url");
+      } catch {}
 
       await signOut();
 
@@ -251,7 +282,7 @@ const Settings = () => {
     }
   };
 
-  if (profileLoading || restaurantLoading || subscriptionLoading) {
+  if (loadingRestaurantId || profileLoading || restaurantLoading || subscriptionLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
         <div className="flex flex-col items-center gap-4">
@@ -524,8 +555,20 @@ const Settings = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-8">
-                {/* Restaurant Logo */}
-                <div className="mb-10">
+                {!restaurantId ? (
+                  <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-center gap-4 text-amber-800 dark:text-amber-300">
+                    <AlertCircle className="h-6 w-6 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                    <div>
+                      <p className="font-semibold">No Restaurant Associated</p>
+                      <p className="text-sm opacity-90">
+                        No active restaurant or profile restaurant was found for this account. Please select a branch or associate your profile with a restaurant.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Restaurant Logo */}
+                    <div className="mb-10">
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
                     <ImagePlus className="h-5 w-5 text-rose-600" />
                     Restaurant Logo
@@ -552,8 +595,14 @@ const Settings = () => {
                           PNG, JPG or SVG. Max 2MB. Used on bills and receipts.
                         </p>
                         <div className="flex gap-2">
-                          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-lg hover:from-rose-600 hover:to-pink-600 transition-all shadow-md">
-                            {logoUploading ? (
+                          <label
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all shadow-md ${
+                              isLogoActionDisabled
+                                ? "bg-gray-400 text-gray-200 cursor-not-allowed opacity-60"
+                                : "cursor-pointer bg-gradient-to-r from-rose-500 to-pink-500 text-white hover:from-rose-600 hover:to-pink-600"
+                            }`}
+                          >
+                            {logoUploading || loadingRestaurantId ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             ) : (
                               <Upload className="h-3.5 w-3.5" />
@@ -564,13 +613,18 @@ const Settings = () => {
                               accept="image/*"
                               className="hidden"
                               onChange={handleLogoUpload}
-                              disabled={logoUploading}
+                              disabled={isLogoActionDisabled}
                             />
                           </label>
                           {logoUrl && (
                             <button
                               onClick={handleLogoRemove}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-all"
+                              disabled={isLogoActionDisabled}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                                isLogoActionDisabled
+                                  ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
+                                  : "text-red-600 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50"
+                              }`}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                               Remove
@@ -793,7 +847,9 @@ const Settings = () => {
                       : "N/A"}
                   </p>
                 </div>
-              </CardContent>
+              </>
+            )}
+          </CardContent>
             </Card>
           </TabsContent>
 
@@ -815,7 +871,17 @@ const Settings = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-8">
-                {subscription ? (
+                {!restaurantId ? (
+                  <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-center gap-4 text-amber-800 dark:text-amber-300">
+                    <AlertCircle className="h-6 w-6 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                    <div>
+                      <p className="font-semibold">No Restaurant Associated</p>
+                      <p className="text-sm opacity-90">
+                        No active restaurant or profile restaurant was found for this account. Please select a branch to view subscription details.
+                      </p>
+                    </div>
+                  </div>
+                ) : subscription ? (
                   <>
                     <div className="bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-600 p-8 rounded-3xl text-white mb-8 shadow-2xl">
                       <div className="flex justify-between items-start">

@@ -781,6 +781,7 @@ const PaymentDialog = ({
       // Browser iframe print fallback with dynamic restaurant name
       const html = buildReceiptHtml({
         restaurantInfo: restaurantInfo || null,
+        restaurantId: restaurantInfo?.id || hookRestaurantId,
         restaurantName: resolvedRestaurantName,
         orderItems,
         subtotal,
@@ -878,12 +879,16 @@ const PaymentDialog = ({
       })}`;
 
       // Generate real bill URL (stored in shared_bills table)
+      const billRestaurantId = restaurantInfo?.id || hookRestaurantId;
       const billUrl = await getBillUrl({
-        restaurantId: restaurantInfo?.id || hookRestaurantId,
+        restaurantId: billRestaurantId,
         restaurantName: resolvedRestaurantName,
         restaurantAddress: restaurantInfo?.address,
         restaurantPhone: restaurantInfo?.phone,
-        logoUrl: restaurantInfo?.logo_url || localStorage.getItem("restaurant_logo_url") || undefined,
+        logoUrl:
+          restaurantInfo?.logo_url ||
+          (billRestaurantId ? localStorage.getItem(`restaurant_logo_url_${billRestaurantId}`) : null) ||
+          undefined,
         items: orderItems.map((i) => ({ name: i.name, quantity: i.quantity, price: i.customPrice ?? i.price })),
         subtotal,
         total,
