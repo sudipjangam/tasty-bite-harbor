@@ -212,7 +212,20 @@ const PaymentDialog = ({
     setCustomerName(initialCustomerName || "");
     setCustomerMobile(initialCustomerMobile || "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, orderId, tableNumber]);
+  }, [isOpen, orderId, tableNumber, initialCustomerName, initialCustomerMobile]);
+
+  // Sync customer details whenever parent screen updates them
+  useEffect(() => {
+    if (initialCustomerName) {
+      setCustomerName(initialCustomerName);
+    }
+  }, [initialCustomerName]);
+
+  useEffect(() => {
+    if (initialCustomerMobile) {
+      setCustomerMobile(initialCustomerMobile);
+    }
+  }, [initialCustomerMobile]);
 
 
   // ─── Hooks ───────────────────────────────────────────────────────────────
@@ -937,32 +950,56 @@ const PaymentDialog = ({
     if (!orderId) return;
     try {
       // Resolve kitchen_orders.id → orders.id
-      const { data: ko } = await supabase
+      const { data: ko, error: koErr } = await supabase
         .from("kitchen_orders")
         .select("order_id")
         .eq("id", orderId)
         .maybeSingle();
 
+      if (koErr) throw koErr;
+
       const targetOrderId = ko?.order_id ?? orderId;
       if (!targetOrderId) return;
 
-      await supabase
+      // Only update payment_status to pending if not already paid
+      const { data: existingOrder, error: fetchErr } = await supabase
         .from("orders")
-        .update({
-          payment_status: "pending",
-          updated_at: new Date().toISOString(),
-          ...(customerName.trim() && { customer_name: customerName.trim() }),
-          ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
-        })
+        .select("payment_status")
+        .eq("id", targetOrderId)
+        .maybeSingle();
+
+      if (fetchErr) throw fetchErr;
+
+      const isAlreadyPaid = existingOrder?.payment_status === "paid" || currentStep === "success";
+
+      const updatePayload: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+        ...(customerName.trim() && { customer_name: customerName.trim() }),
+        ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+      };
+
+      if (!isAlreadyPaid) {
+        updatePayload.payment_status = "pending";
+      }
+
+      const { error: updateErr } = await supabase
+        .from("orders")
+        .update(updatePayload)
         .eq("id", targetOrderId);
+
+      if (updateErr) {
+        console.error("[PaymentDialog] handleMarkPaymentPending error:", updateErr);
+        throw updateErr;
+      }
 
       // Refresh active orders so it appears in the 💰 Unpaid filter immediately
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
     } catch (err) {
       console.warn("[PaymentDialog] handleMarkPaymentPending error:", err);
+      throw err;
     }
-  }, [orderId, customerName, customerMobile, queryClient]);
+  }, [orderId, customerName, customerMobile, currentStep, queryClient]);
 
   // ─── Bill-Preview WhatsApp: send + mark pending ───────────────────────────
   const handleSendBillWhatsApp = useCallback(async () => {

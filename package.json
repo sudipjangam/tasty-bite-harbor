@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.0.121",
+  "version": "1.0.126",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,7 +16,7 @@
     "build:apk:release": "npm run build && npm run cap:sync && cd android && .\\gradlew assembleRelease",
     "build:aab": "npm run build && npm run cap:sync && cd android && .\\gradlew bundleDebug",
     "build:aab:release": "npm run build && npm run cap:sync && cd android && .\\gradlew bundleRelease",
-    "publish:apk": "node scripts/publish-apk.js"
+    "publish:apk": "npm run build:apk:release && node scripts/publish-apk.js"
   },
   "dependencies": {
     "@aparajita/capacitor-biometric-auth": "^10.0.0",

@@ -11,15 +11,15 @@ const corsHeaders = {
 // ensures they are converted to the correct positional order for {{1}}, {{2}}, etc.
 const TEMPLATE_VAR_MAPS: Record<string, string[]> = {
   "invoice_with_contact": ["customer_name", "restaurant_name", "amount", "order_date", "contact_number"],
-  "invoice_with_review": ["customer_name", "restaurant_name", "amount", "order_date", "contact_number"],
+  "invoice_with_review": ["customer_name", "restaurant_name", "amount", "order_date", "contact_number", "instagram_url"],
   "invoice_with_review_only": ["customer_name", "restaurant_name", "amount", "order_date", "contact_number"],
-  "invoice_with_instagram": ["customer_name", "restaurant_name", "amount", "order_date"],
+  "invoice_with_instagram": ["customer_name", "restaurant_name", "amount", "order_date", "instagram_url"],
   "loyalty_points_earned_notification": ["customer_name", "restaurant_name", "order_date", "amount", "discount_code", "contact_number"],
   "subscription_confirmation": ["customer_name", "restaurant_name"],
   "subscription_special_offer": ["customer_name", "amount"],
-  "order_completed": ["customer_name", "restaurant_name", "amount"],
-  "order_preparing": ["customer_name", "restaurant_name"],
-  "order_ready": ["customer_name", "restaurant_name"],
+  "order_completed": ["customer_name", "restaurant_name", "order_number", "status_label", "contact_number", "amount"],
+  "order_preparing": ["customer_name", "restaurant_name", "order_number", "status_label", "contact_number", "amount"],
+  "order_ready": ["customer_name", "restaurant_name", "order_number", "status_label", "contact_number", "amount"],
   "qr_order_created": ["customer_name", "restaurant_name", "amount"],
   "points_expiry_warning": ["customer_name", "restaurant_name", "loyalty_points", "days_before", "promo_code"],
   "welcome_message": ["customer_name", "restaurant_name"],
@@ -230,6 +230,20 @@ Deno.serve(async (req: Request) => {
               parameter_name: key,
               text: String(variables[key] ?? "-")
             }));
+            // Append any additional variables in variables not already mapped
+            const extraKeys = Object.keys(variables).filter(k => {
+              if (varOrder.includes(k)) return false;
+              if (!/^[a-z0-9_]+$/.test(k)) return false;
+              const val = variables[k];
+              return val !== null && val !== undefined && typeof val !== "object";
+            });
+            for (const key of extraKeys) {
+              bodyParams.push({
+                type: "text",
+                parameter_name: key,
+                text: String(variables[key] ?? "-")
+              });
+            }
           } else {
             // No map found — fall back to insertion order with parameter_name
             bodyParams = Object.keys(variables).map(key => ({
@@ -289,20 +303,20 @@ Deno.serve(async (req: Request) => {
       }
 
       // Helper: build Meta payload for a given language code
-      const buildMetaPayload = (langCode: string) => ({
+      const buildMetaPayload = (langCode: string, componentsToUse = metaComponents) => ({
         messaging_product: "whatsapp",
         to: cleanPhoneMeta,
         type: "template",
         template: {
           name: usedTemplateName,
           language: { code: langCode },
-          components: metaComponents.length > 0 ? metaComponents : undefined,
+          components: componentsToUse.length > 0 ? componentsToUse : undefined,
         },
       });
 
       // Helper: send to Meta Cloud API
-      const sendToMeta = async (langCode: string) => {
-        const payload = buildMetaPayload(langCode);
+      const sendToMeta = async (langCode: string, componentsToUse = metaComponents) => {
+        const payload = buildMetaPayload(langCode, componentsToUse);
         console.log(`[meta] Sending with lang=${langCode}:`, JSON.stringify(payload));
         const res = await fetch(
           `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
@@ -341,6 +355,61 @@ Deno.serve(async (req: Request) => {
               .update({ language: altLang })
               .eq("name", usedTemplateName)
               .eq("restaurant_id", restaurantId);
+          }
+        }
+      }
+
+      // If 132000 (number of parameters does not match expected number of params),
+      // parse expected count from Meta's error details and auto-adjust bodyParams!
+      if (!metaRes.ok && metaData?.error?.code === 132000) {
+        const details = metaData?.error?.error_data?.details || metaData?.error?.message || "";
+        const match = details.match(/expected number of params \((\d+)\)/i);
+        if (match && match[1]) {
+          const expectedCount = parseInt(match[1], 10);
+          console.log(`[meta] Param count mismatch (code 132000): currently ${bodyParams.length}, Meta expects ${expectedCount}.`);
+          let adjustedParams = [...bodyParams];
+          if (adjustedParams.length > expectedCount) {
+            adjustedParams = adjustedParams.slice(0, expectedCount);
+          } else {
+            // Stop padding missing values with invented "-" placeholders
+            adjustedParams = [];
+          }
+
+          if (adjustedParams.length === expectedCount) {
+            const adjustedComponents = metaComponents.map((c: any) => {
+              if (c.type === "body") {
+                return { ...c, parameters: adjustedParams };
+              }
+              return c;
+            });
+
+            console.log(`[meta] Retrying with truncated ${adjustedParams.length} parameters...`);
+            let retry = await sendToMeta(templateLanguage, adjustedComponents);
+            if (retry.res.ok) {
+              metaRes = retry.res;
+              metaData = retry.data;
+              console.log(`[meta] Auto-adjust retry succeeded!`);
+            } else {
+              // Also try positional format (without parameter_name) if template was created positionally
+              console.log(`[meta] Named retry failed, trying pure positional params...`);
+              const posParams = adjustedParams.map((p: any) => ({
+                type: "text",
+                text: p.text || "-",
+              }));
+              const posComponents = adjustedComponents.map((c: any) => {
+                if (c.type === "body") {
+                  return { ...c, parameters: posParams };
+                }
+                return c;
+              });
+              const posRetry = await sendToMeta(templateLanguage, posComponents);
+              if (posRetry.res.ok) {
+                metaRes = posRetry.res;
+                metaData = posRetry.data;
+                console.log(`[meta] Positional retry succeeded!`);
+              }
+              // On failure, preserve original Meta error in metaData
+            }
           }
         }
       }

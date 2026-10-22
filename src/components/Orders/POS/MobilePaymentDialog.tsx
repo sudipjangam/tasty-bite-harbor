@@ -257,6 +257,8 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   serverName,
   onEditOrder,
   onOrderUpdated,
+  initialCustomerName = "",
+  initialCustomerMobile = "",
 }) => {
   // ── Step state ────────────────────────────────────────────────────────────
   const [step, setStep] = useState<MobilePayStep>("confirm");
@@ -278,8 +280,8 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   const [tempTotalInput, setTempTotalInput] = useState<string>("");
 
   // ── Customer state ────────────────────────────────────────────────────────
-  const [customerName, setCustomerName] = useState("");
-  const [customerMobile, setCustomerMobile] = useState("");
+  const [customerName, setCustomerName] = useState(initialCustomerName);
+  const [customerMobile, setCustomerMobile] = useState(initialCustomerMobile);
   const [customerRecord, setCustomerRecord] = useState<CustomerRecord | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
 
@@ -683,8 +685,8 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       setIsEditingTotal(false);
       setTempTotalInput("");
       setStep("confirm");
-      setCustomerName("");
-      setCustomerMobile("");
+      setCustomerName(initialCustomerName || "");
+      setCustomerMobile(initialCustomerMobile || "");
       setCustomerRecord(null);
       setPromoCode("");
       setAppliedPromo(null);
@@ -707,7 +709,14 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       setCustomItemQty(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, orderId, tableNumber]);
+  }, [isOpen, orderId, tableNumber, initialCustomerName, initialCustomerMobile]);
+
+  // Sync customer details whenever parent screen updates them
+  useEffect(() => {
+    if (initialCustomerName) {
+      setCustomerName(initialCustomerName);
+    }
+  }, [initialCustomerName]);
 
   // Cleanup timer on component unmount
   useEffect(() => {
@@ -762,6 +771,13 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   const handlePhoneBlur = useCallback(() => lookupCustomer(customerMobile), [lookupCustomer, customerMobile]);
 
   useEffect(() => {
+    if (initialCustomerMobile) {
+      setCustomerMobile(initialCustomerMobile);
+      lookupCustomer(initialCustomerMobile);
+    }
+  }, [initialCustomerMobile, lookupCustomer]);
+
+  useEffect(() => {
     const phone = customerMobile.trim();
     if (phone.length >= 10) {
       lookupCustomer(customerMobile);
@@ -808,6 +824,59 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       toast({ title: "Validation error", variant: "destructive" });
     }
   }, [promoCode, subtotal, restaurantInfo, toast]);
+
+  // ── Mark order as payment pending (when printing or sending bill before payment) ──
+  const handleMarkPaymentPending = useCallback(async () => {
+    if (!orderId) return;
+    try {
+      const { data: ko, error: koErr } = await supabase
+        .from("kitchen_orders")
+        .select("order_id")
+        .eq("id", orderId)
+        .maybeSingle();
+
+      if (koErr) throw koErr;
+
+      const targetOrderId = ko?.order_id ?? orderId;
+      if (!targetOrderId) return;
+
+      // Only set payment_status to pending if not already paid
+      const { data: existingOrder, error: fetchErr } = await supabase
+        .from("orders")
+        .select("payment_status")
+        .eq("id", targetOrderId)
+        .maybeSingle();
+
+      if (fetchErr) throw fetchErr;
+
+      const isAlreadyPaid = existingOrder?.payment_status === "paid" || step === "success";
+
+      const updatePayload: Record<string, any> = {
+        ...(customerName.trim() && { customer_name: customerName.trim() }),
+        ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+      };
+
+      if (!isAlreadyPaid) {
+        updatePayload.payment_status = "pending";
+      }
+
+      const { error: updateErr } = await supabase
+        .from("orders")
+        .update(updatePayload)
+        .eq("id", targetOrderId);
+
+      if (updateErr) {
+        console.error("[MobilePaymentDialog] handleMarkPaymentPending error:", updateErr);
+        throw updateErr;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    } catch (err) {
+      console.warn("[MobilePaymentDialog] handleMarkPaymentPending error:", err);
+      throw err;
+    }
+  }, [orderId, customerName, customerMobile, step, queryClient]);
 
   // ── Print bill ────────────────────────────────────────────────────────────
   const isPrintingRef = useRef(false);
@@ -863,14 +932,21 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         currencySymbol,
         upiId,
       });
-      toast({ title: "Bill printed ✓" });
+
+      if (step !== "success") {
+        await handleMarkPaymentPending();
+        toast({ title: "Bill printed ✓" });
+        onClose();
+      } else {
+        toast({ title: "Receipt printed ✓" });
+      }
     } catch (err: any) {
       toast({ title: "Print failed", description: err?.message, variant: "destructive" });
     } finally {
       isPrintingRef.current = false;
       setIsPrinting(false);
     }
-  }, [restaurantInfo, paymentSettings, tableNumber, customerName, customerMobile, serverName, localItems, getItemUnitPrice, subtotal, totalDiscount, finalTotal, currencySymbol, toast]);
+  }, [restaurantInfo, paymentSettings, tableNumber, customerName, customerMobile, serverName, localItems, getItemUnitPrice, subtotal, totalDiscount, finalTotal, currencySymbol, step, handleMarkPaymentPending, onClose, toast]);
 
   // ── After printer connects inline ─────────────────────────────────────────
   const handlePrinterConnected = useCallback(async () => {
@@ -935,17 +1011,32 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         body: { phoneNumber: phoneWithCountryCode, restaurantId: restaurantInfo?.id, templateName, variables, buttons },
       });
 
+      // Log full response for diagnostics
+      console.log("[WhatsApp] Response:", JSON.stringify(waResp));
+      if (waErr) console.error("[WhatsApp] Edge function error:", waErr);
+
       if (waErr || !waResp?.success) {
-        throw new Error(waErr?.message || waResp?.error || "WhatsApp API failure. Please check API keys.");
+        const errMsg = waErr?.message
+          || waResp?.error
+          || (waResp?.details?.error?.message ? `Meta: ${waResp.details.error.message}` : null)
+          || "WhatsApp API failure. Check console for details.";
+        throw new Error(errMsg);
       }
-      toast({ title: "Bill sent via WhatsApp ✓" });
+      await handleMarkPaymentPending();
+      toast({ title: "Bill sent via WhatsApp ✓", description: `Sent to ${customerMobile}` });
     } catch (err: any) {
-      console.error("WhatsApp sending error:", err);
-      toast({ title: "WhatsApp failed", description: err?.message || "Unknown error occurred", variant: "destructive" });
+      console.error("[WhatsApp] Sending error:", err);
+      toast({
+        title: "WhatsApp Failed",
+        description: err?.message || "Unknown error. Check browser console for details.",
+        variant: "destructive",
+        // Show longer so staff can read the actual reason
+        duration: 8000,
+      });
     } finally {
       setIsSendingWA(false);
     }
-  }, [customerMobile, customerName, restaurantInfo, localItems, getItemUnitPrice, subtotal, finalTotal, totalDiscount, tableNumber, currencySymbol, getBillUrl, toast]);
+  }, [customerMobile, customerName, restaurantInfo, localItems, getItemUnitPrice, subtotal, finalTotal, totalDiscount, tableNumber, currencySymbol, getBillUrl, handleMarkPaymentPending, toast]);
 
   // ── Native share sheet ────────────────────────────────────────────────────
   const handleNativeShare = useCallback(async () => {
