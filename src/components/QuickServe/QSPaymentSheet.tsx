@@ -843,10 +843,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               // Deduct inventory for new items (background)
               (async () => {
                 try {
-                  const { data: { session } } = await supabase.auth.getSession();
                   await supabase.functions.invoke("deduct-inventory-on-prep", {
                     body: { order_id: kitchenOrder.id },
-                    headers: { Authorization: `Bearer ${session?.access_token}` },
                   });
                 } catch (err) {
                   console.error("Inventory deduction failed:", err);
@@ -1062,31 +1060,20 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         bgTasks.push(
           (async () => {
             try {
-              const {
-                data: { session },
-              } = await supabase.auth.getSession();
               const { data: deductResult, error: deductError } =
                 await supabase.functions.invoke("deduct-inventory-on-prep", {
                   body: { order_id: kitchenOrder.id },
-                  headers: { Authorization: `Bearer ${session?.access_token}` },
                 });
               if (deductError) {
-                console.error(
-                  "Inventory deduction error:",
-                  deductError.message,
-                );
-              } else if (!deductResult?.success && deductResult?.errors) {
-                console.warn(
-                  "Inventory deduction warnings:",
-                  deductResult.errors,
-                );
+                console.error("Inventory deduction error:", deductError.message);
+              } else if (!deductResult?.success && !deductResult?.skipped && deductResult?.errors) {
+                console.warn("Inventory deduction warnings:", deductResult.errors);
                 toast({
                   variant: "destructive",
                   title: "Inventory Warning",
                   description: deductResult.errors.join("\n"),
                   duration: 6000,
                 });
-              } else {
               }
             } catch (invErr) {
               console.error("Inventory deduction failed (background):", invErr);

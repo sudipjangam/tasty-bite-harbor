@@ -62,18 +62,35 @@ serve(async (req) => {
   }
 
   try {
+    // ── FIX #1: Use SERVICE_ROLE_KEY so RLS is bypassed.
+    // Never forward the client Bearer token — it can be null/undefined
+    // in PIN-login, offline mode, or anon sessions, causing all DB ops to fail.
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
     const { order_id } = await req.json()
     console.log('Processing inventory deduction for order:', order_id);
+
+    // ── FIX #2: Idempotency guard — bail out if we already deducted for this kitchen_order.
+    // Prevents double-deductions when the edge function is called twice for the same order
+    // (e.g. KDS retry, double-click, or both QSPaymentSheet paths firing).
+    const { data: existingTxn } = await supabaseClient
+      .from('inventory_transactions')
+      .select('id')
+      .eq('reference_type', 'kitchen_order')
+      .eq('reference_id', order_id)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingTxn) {
+      console.log(`Inventory already deducted for order ${order_id} — skipping (idempotency guard).`);
+      return new Response(
+        JSON.stringify({ success: true, message: 'Already deducted (idempotent)', skipped: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Get the kitchen order
     const { data: kitchenOrder, error: orderError } = await supabaseClient
@@ -269,16 +286,24 @@ serve(async (req) => {
 
     console.log('Aggregated ingredients:', Object.fromEntries(ingredientMap));
 
-    // If no ingredients to deduct, return success
+    // ── FIX #4: Don't silently claim success when no items had recipes.
+    // This helps operators identify menu items that are missing recipe links.
     if (ingredientMap.size === 0) {
+      const noRecipeMsg = 'No recipes found for any item in this order. Link recipes to menu items in Inventory → Recipes.';
+      console.warn('No recipe-linked ingredients found for any item in order:', order_id);
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'No recipe ingredients to deduct' 
+        JSON.stringify({
+          success: false,
+          warning: true,
+          message: noRecipeMsg,
+          // errors array keeps compatibility with QSRPosMain / QSPaymentSheet consumers
+          errors: [noRecipeMsg],
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+
 
     // Deduct from inventory using FIFO lot consumption
     const deductionErrors: string[] = [];

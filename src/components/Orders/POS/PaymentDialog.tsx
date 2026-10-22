@@ -1172,7 +1172,57 @@ const PaymentDialog = ({
           }
         }
 
+        // ── FIX #3: Trigger inventory deduction for POS orders that bypass the KDS.
+        // (The edge function has an idempotency guard, so calling it twice is always safe.)
+        if (orderId && method !== "pay_later" && !isOffline) {
+          (async () => {
+            try {
+              // Resolve kitchen_orders.id — edge fn needs this, not orders.id.
+              // Perform a fresh lookup here so we don't depend on `ko` which is
+              // scoped inside the earlier if (orderId) block.
+              let kitchenOrderId: string | null = null;
+
+              // Try orderId as a kitchen_orders.id first
+              const { data: koById } = await supabase
+                .from("kitchen_orders")
+                .select("id")
+                .eq("id", orderId)
+                .maybeSingle();
+
+              if (koById) {
+                kitchenOrderId = koById.id;
+              } else {
+                // orderId is an orders.id — find the linked kitchen_order
+                const { data: koByOrderId } = await supabase
+                  .from("kitchen_orders")
+                  .select("id")
+                  .eq("order_id", orderId)
+                  .maybeSingle();
+                kitchenOrderId = koByOrderId?.id ?? null;
+              }
+
+              if (kitchenOrderId) {
+                // Fix #2: capture result and log any error field
+                const { data: deductResult, error: deductError } =
+                  await supabase.functions.invoke("deduct-inventory-on-prep", {
+                    body: { order_id: kitchenOrderId },
+                    // No Authorization header — edge fn uses SERVICE_ROLE_KEY internally
+                  });
+                if (deductError) {
+                  console.warn("[PaymentDialog] Inventory deduction error:", deductError.message);
+                } else if (deductResult && !deductResult.success && !deductResult.skipped) {
+                  console.warn("[PaymentDialog] Inventory deduction warning:", deductResult.message || deductResult.errors);
+                }
+              }
+            } catch (invErr) {
+              console.warn("[PaymentDialog] Inventory deduction (non-blocking):", invErr);
+            }
+          })();
+        }
+
+
         // 4. Invalidate all POS queries
+
         queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
         queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
         queryClient.invalidateQueries({ queryKey: ["active-orders"] });

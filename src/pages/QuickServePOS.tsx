@@ -582,10 +582,8 @@ const QuickServePOS: React.FC = () => {
             })();
             (async () => {
               try {
-                const { data: { session } } = await supabase.auth.getSession();
                 await supabase.functions.invoke("deduct-inventory-on-prep", {
                   body: { order_id: kitchenOrder.id },
-                  headers: { Authorization: `Bearer ${session?.access_token}` },
                 });
               } catch (err) {
                 console.error("Inventory deduction failed:", err);
@@ -715,12 +713,8 @@ const QuickServePOS: React.FC = () => {
 
         (async () => {
           try {
-            const {
-              data: { session },
-            } = await supabase.auth.getSession();
             await supabase.functions.invoke("deduct-inventory-on-prep", {
               body: { order_id: kitchenOrder.id },
-              headers: { Authorization: `Bearer ${session?.access_token}` },
             });
           } catch (err) {
             console.error("Inventory deduction failed:", err);

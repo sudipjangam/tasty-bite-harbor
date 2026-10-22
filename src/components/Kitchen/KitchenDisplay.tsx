@@ -543,18 +543,11 @@ const KitchenDisplay = () => {
       if (newStatus === "preparing") {
         updateData.started_at = new Date().toISOString();
 
-        // Inventory deduction is non-blocking - show warnings but don't prevent order progression
+        // Inventory deduction is non-blocking — edge fn uses SERVICE_ROLE_KEY, no auth header needed
         try {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-
           const { data: deductResult, error: deductError } =
             await supabase.functions.invoke("deduct-inventory-on-prep", {
               body: { order_id: orderId },
-              headers: {
-                Authorization: `Bearer ${session?.access_token}`,
-              },
             });
 
           if (deductError) {
@@ -565,17 +558,16 @@ const KitchenDisplay = () => {
               description: "Could not deduct inventory. Check stock levels.",
               duration: 5000,
             });
-          } else if (deductResult && !deductResult.success) {
+          } else if (deductResult && !deductResult.success && !deductResult.skipped) {
             const errorMessage = deductResult.errors
               ? deductResult.errors.join("\n")
-              : deductResult.error || "Some ingredients could not be deducted";
+              : deductResult.message || "Some ingredients could not be deducted";
             toast({
               variant: "destructive",
-              title: "Inventory Warning",
+              title: deductResult.warning ? "Inventory Notice" : "Inventory Warning",
               description: errorMessage,
               duration: 8000,
             });
-          } else {
           }
         } catch (inventoryError) {
           console.error("Inventory deduction failed:", inventoryError);

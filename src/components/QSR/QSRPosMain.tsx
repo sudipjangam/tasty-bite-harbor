@@ -1454,25 +1454,15 @@ export const QSRPosMain: React.FC = () => {
           // Deduct inventory based on recipe ingredients (non-blocking)
           if (kitchenOrder?.id) {
             try {
-              const {
-                data: { session },
-              } = await supabase.auth.getSession();
-
               const { data: deductResult, error: deductError } =
                 await supabase.functions.invoke("deduct-inventory-on-prep", {
                   body: { order_id: kitchenOrder.id },
-                  headers: {
-                    Authorization: `Bearer ${session?.access_token}`,
-                  },
                 });
 
               if (deductError) {
                 console.error("Inventory deduction error:", deductError.message);
-              } else if (!deductResult?.success && deductResult?.errors) {
-                console.warn(
-                  "Inventory deduction warnings:",
-                  deductResult.errors,
-                );
+              } else if (!deductResult?.success && !deductResult?.skipped && deductResult?.errors) {
+                console.warn("Inventory deduction warnings:", deductResult.errors);
                 toast({
                   variant: "destructive",
                   title: "Inventory Warning",
@@ -1484,6 +1474,7 @@ export const QSRPosMain: React.FC = () => {
               console.error("Inventory deduction failed (non-blocking):", invErr);
             }
           }
+
         }
 
         // Clear cart, order, and customer details
