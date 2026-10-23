@@ -845,10 +845,8 @@ class ThermalPrinterService {
     receipt += SEP;
 
     // Items Header
-    receipt += this.ALIGN_CENTER;
-    receipt += this.BOLD_ON;
-    receipt += "Particulars\n";
     receipt += this.ALIGN_LEFT;
+    receipt += this.BOLD_ON;
     receipt += formatItemRow("Item", "Qty", "Rate", "Amt");
     receipt += this.BOLD_OFF;
     receipt += SEP;
@@ -880,7 +878,7 @@ class ThermalPrinterService {
     if (data.upiId) {
       const upiUrl = `upi://pay?pa=${data.upiId}&pn=${encodeURIComponent(data.restaurantName)}&cu=INR`;
       receipt += this.ALIGN_CENTER;
-      receipt += "\nScan QR to pay\n";
+      receipt += "Scan QR to pay\n";
       // ESC/POS QR Code: GS ( k — store data, then print
       const upiBytes = this.encodeText(upiUrl);
       const dataLen = upiBytes.length + 3;
@@ -888,8 +886,8 @@ class ThermalPrinterService {
       const lenH = (dataLen >> 8) & 0xff;
       // Store QR data
       const storeCmd = new Uint8Array([0x1d, 0x28, 0x6b, lenL, lenH, 0x31, 0x50, 0x30, ...upiBytes]);
-      // Set module size (5) — bigger than 3, still paper-efficient
-      const sizeCmd = new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x05]);
+      // Set module size (4) — reduced from 5, saves ~5mm height, still scannable
+      const sizeCmd = new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x04]);
       // Set error correction level M (better scan reliability)
       const ecCmd = new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31]);
       // Print QR
@@ -903,13 +901,12 @@ class ThermalPrinterService {
       await this.writeBytes(storeCmd);
       await this.writeBytes(printCmd);
 
-      receipt += "\n";
       receipt += SEP;
     }
 
     // Footer
     receipt += this.ALIGN_CENTER;
-    receipt += "Thank You! Please visit again\n\n";
+    receipt += "Thank You! Please visit again\n";
 
     receipt += this.CUT_PAPER;
 

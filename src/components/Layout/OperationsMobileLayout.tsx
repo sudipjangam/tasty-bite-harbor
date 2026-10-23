@@ -29,6 +29,7 @@ import { App } from "@capacitor/app";
 import { BiometricPromptDialog } from "@/components/Auth/BiometricPromptDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import { MobileNavigation } from "@/components/ui/mobile-navigation";
 
 // ─── Lazy-loaded operations pages ────────────────────────────────────────────
 const QSRPos          = lazy(() => import("@/pages/QSRPos"));
@@ -61,155 +62,8 @@ const SmartPOSRedirect: React.FC = () => {
 // ─── POS tab active paths ─────────────────────────────────────────────────────
 const POS_PATHS = new Set(["/pos-entry", "/qsr-pos", "/quickserve-pos", "/pos"]);
 
-// ─── Bottom Nav config ───────────────────────────────────────────────────────
-const NAV_ITEMS = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/" },
-  { label: "POS",       icon: ShoppingCart,   path: "/pos-entry" },
-  { label: "Orders",    icon: ClipboardList,  path: "/orders" },
-  { label: "Kitchen",   icon: ChefHat,        path: "/kitchen" },
-  { label: "More",      icon: Grid3x3,        path: "__more__" },
-] as const;
-
-// ─── More drawer items ───────────────────────────────────────────────────────
-type MoreItem = {
-  label: string;
-  icon: any;
-  path?: string;
-  action?: "logout";
-};
-
-const MORE_ITEMS: MoreItem[] = [
-  { label: "Menu",          icon: UtensilsCrossed, path: "/menu" },
-  { label: "Inventory",     icon: Package,  path: "/inventory" },
-  { label: "Printer Setup", icon: Printer,  path: "/printer-settings" },
-  { label: "Settings",      icon: Settings, path: "/settings" },
-  { label: "Logout",        icon: LogOut,   action: "logout" },
-];
-
-
-// ─── More Drawer ─────────────────────────────────────────────────────────────
-const MoreDrawer = ({
-  open,
-  onClose,
-  onNavigate,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onNavigate: (path: string) => void;
-}) => {
-  const { signOut } = useAuth();
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      {/* Sheet */}
-      <div className="relative bg-background rounded-t-2xl pb-safe z-10">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <span className="font-semibold text-foreground text-base">More</span>
-          <button onClick={onClose} className="text-muted-foreground">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="divide-y divide-border">
-          {MORE_ITEMS.map((item) => (
-            <button
-              key={item.label}
-              onClick={async () => {
-                if (item.action === "logout") {
-                  await signOut();
-                } else if (item.path) {
-                  onNavigate(item.path);
-                }
-                onClose();
-              }}
-              className="flex items-center w-full px-5 py-4 gap-4 hover:bg-muted/50 active:bg-muted transition-colors"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                <item.icon className={cn("h-5 w-5 text-primary", item.action === "logout" && "text-red-500")} />
-              </div>
-              <span className={cn("flex-1 text-left text-sm font-medium text-foreground", item.action === "logout" && "text-red-500")}>
-                {item.label}
-              </span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
-          ))}
-        </div>
-        {/* Safe area spacer */}
-        <div className="h-6" />
-      </div>
-    </div>
-  );
-};
-
-// ─── Bottom Tab Bar ──────────────────────────────────────────────────────────
-const BottomTabBar = ({ onMoreOpen }: { onMoreOpen: () => void }) => {
-  const location = useLocation();
-  const navigate  = useNavigate();
-
-  return (
-    <div className="shrink-0 border-t border-border bg-background safe-area-pb">
-      <div className="flex items-stretch h-14">
-        {NAV_ITEMS.map((item) => {
-          const isMore   = item.path === "__more__";
-          // POS tab is active on any POS route
-          const isActive = !isMore && (
-            item.path === "/pos-entry"
-              ? POS_PATHS.has(location.pathname)
-              : location.pathname === item.path
-          );
-
-          return (
-            <button
-              key={item.label}
-              onClick={() => {
-                if (isMore) {
-                  onMoreOpen();
-                } else {
-                  navigate(item.path);
-                }
-              }}
-              className={cn(
-                "flex flex-1 flex-col items-center justify-center gap-0.5 transition-colors active:bg-muted/50 relative",
-                isActive ? "text-primary" : "text-muted-foreground"
-              )}
-            >
-              <item.icon
-                className={cn(
-                  "h-5 w-5 transition-transform",
-                  isActive && "scale-110"
-                )}
-              />
-              <span className="text-[10px] font-medium">{item.label}</span>
-              {isActive && (
-                <span className="absolute bottom-0 w-6 h-0.5 bg-primary rounded-full" />
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-// ─── Route title lookup ───────────────────────────────────────────────────────
-const ROUTE_TITLES: Record<string, string> = {
-  "/":               "Dashboard",
-  "/pos-entry":      "POS",
-  "/qsr-pos":        "QSR POS",
-  "/quickserve-pos": "Quick Serve POS",
-  "/pos":            "Table POS",
-  "/orders":         "Orders",
-  "/kitchen":        "Kitchen",
-  "/menu":           "Menu",
-  "/inventory":      "Inventory",
-  "/settings":       "Settings",
-  "/printer-settings": "Printer Setup",
-};
-
 // ─── Main Operations Mobile Layout ──────────────────────────────────────────
 export const OperationsMobileLayout = () => {
-  const [moreOpen, setMoreOpen] = useState(false);
   const [locked, setLocked] = useState(() => getBiometricEnabled());
   const location = useLocation();
   const navigate  = useNavigate();
@@ -344,15 +198,8 @@ export const OperationsMobileLayout = () => {
         </Routes>
       </PullToRefresh>
 
-      {/* Bottom Nav */}
-      <BottomTabBar onMoreOpen={() => setMoreOpen(true)} />
-
-      {/* More Drawer */}
-      <MoreDrawer
-        open={moreOpen}
-        onClose={() => setMoreOpen(false)}
-        onNavigate={(path) => navigate(path)}
-      />
+      {/* Unified Mobile Bottom Navigation — matches Web mobile styling with active squircle gradients & z-50 */}
+      <MobileNavigation />
 
       {/* One-time Biometric Setup Prompt */}
       <BiometricPromptDialog />

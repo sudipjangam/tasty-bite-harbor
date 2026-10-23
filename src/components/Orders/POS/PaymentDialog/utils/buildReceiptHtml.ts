@@ -132,9 +132,9 @@ export function buildReceiptHtml({
   let upiHtml = "";
   if (qrCodeUrl) {
     upiHtml = `
-      <tr><td colspan="4" style="padding-top:6px;text-align:center;">
-        <img src="${qrCodeUrl}" width="90" height="90" style="display:block;margin:0 auto;" />
-        <div style="font-size:9px;margin-top:2px;">Scan QR to pay</div>
+      <tr><td colspan="4" style="padding-top:3px;text-align:center;">
+        <img src="${qrCodeUrl}" width="70" height="70" style="display:block;margin:0 auto;" />
+        <div style="font-size:9px;margin-top:1px;">Scan QR to pay</div>
       </td></tr>`;
   }
 
@@ -155,7 +155,7 @@ export function buildReceiptHtml({
     html, body { margin: 0 !important; padding: 0 !important; }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { font-family: Arial, sans-serif; width: 54mm; margin: 0 !important; padding: 0 !important; color: #000; line-height: 1.18; }
+  html, body { font-family: Arial, sans-serif; width: 54mm; margin: 0 !important; padding: 0 !important; color: #000; line-height: 1.1; }
   .center { text-align: center; }
   .bold { font-weight: bold; }
   .dash { border-top: 1px dashed #000; margin: 2px 0; }
@@ -210,7 +210,6 @@ export function buildReceiptHtml({
     <tr><td colspan="4"><div class="dash"></div></td></tr>
     <tr><td colspan="4" style="text-align:center;font-size:11px;font-weight:bold;padding-top:2px;">Thank You! Please visit again</td></tr>
   </table>
-  <div style="height: 2mm;"></div>
 </body>
 </html>`;
 }

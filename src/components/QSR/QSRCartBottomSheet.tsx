@@ -181,7 +181,7 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
           "fixed inset-x-0 bottom-0 z-50 md:hidden",
           "bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl",
           "transition-transform duration-300 ease-out",
-          "h-[90vh] flex flex-col",
+          "max-h-[88vh] h-[88vh] flex flex-col",
           isOpen ? "translate-y-0" : "translate-y-full",
         )}
       >
@@ -198,12 +198,25 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
               Order ({items.length} items)
             </span>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {items.length > 0 && (
+              <button
+                onClick={onClearOrder}
+                disabled={isLoading}
+                className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 px-2 py-1 rounded-md transition-colors flex items-center gap-1 font-medium disabled:opacity-50"
+                title="Clear entire order"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
         </div>
 
         {/* Mode Header */}
@@ -553,46 +566,38 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
           </div>
         </div>
 
-        {/* Fixed Footer - Totals & Actions (padded to clear mobile bottom nav bar) */}
-        <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 space-y-3 max-h-[55vh] overflow-y-auto" style={{ paddingBottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
+        {/* Fixed Footer - Totals & Actions (docked to bottom with safe-area padding) */}
+        <div
+          className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 pt-3 space-y-2.5 max-h-[55vh] overflow-y-auto"
+          style={{ paddingBottom: 'calc(5.25rem + env(safe-area-inset-bottom, 0px))' }}
+        >
           {/* Calculations */}
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between text-gray-500 dark:text-gray-400">
-              <span>Subtotal:</span>
-              {mode === "nc" ? (
-                <span className="line-through opacity-60">
-                  <CurrencyDisplay amount={subtotal} showTooltip={false} />
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+              {mode === "nc" ? "Non-Chargeable Total:" : "Total:"}
+            </span>
+            {mode === "nc" ? (
+              <div className="flex items-center gap-2">
+                <span className="line-through opacity-50 text-base">
+                  <CurrencyDisplay amount={total} showTooltip={false} />
                 </span>
-              ) : (
-                <CurrencyDisplay amount={subtotal} showTooltip={false} />
-              )}
-            </div>
-            {/* No tax in QSR POS */}
-            <div className="flex justify-between text-xl font-bold text-gray-800 dark:text-gray-200 pt-2 border-t border-gray-200 dark:border-gray-700">
-              <span>{mode === "nc" ? "Non-Chargeable Total:" : "Total:"}</span>
-              {mode === "nc" ? (
-                <div className="flex items-center gap-2">
-                  <span className="line-through opacity-50 text-base">
-                    <CurrencyDisplay amount={total} showTooltip={false} />
-                  </span>
-                  <span className="text-purple-600 dark:text-purple-400">
-                    <CurrencyDisplay amount={0} showTooltip={false} />
-                  </span>
-                </div>
-              ) : (
-                <CurrencyDisplay amount={total} showTooltip={false} />
-              )}
-            </div>
+                <span className="text-purple-600 dark:text-purple-400 font-bold text-xl">
+                  <CurrencyDisplay amount={0} showTooltip={false} />
+                </span>
+              </div>
+            ) : (
+              <CurrencyDisplay amount={total} showTooltip={false} className="text-2xl font-black text-gray-900 dark:text-gray-100" />
+            )}
           </div>
 
           {/* NC Reason Selector - Only shown in NC mode — before action buttons */}
           {mode === "nc" && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                 Non-Chargeable Reason <span className="text-red-500">*</span>
               </label>
               <Select value={ncReason} onValueChange={onNcReasonChange}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full h-9 text-sm">
                   <SelectValue placeholder="Select reason for non-chargeable order" />
                 </SelectTrigger>
                 <SelectContent>
@@ -614,7 +619,7 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
                 onClose();
               }}
               disabled={items.length === 0 || isLoading}
-              className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-orange-500/30 touch-manipulation"
+              className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-2.5 rounded-xl shadow-md shadow-orange-500/25 touch-manipulation text-sm"
             >
               Send to Kitchen
             </Button>
@@ -625,7 +630,7 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
               }}
               disabled={items.length === 0 || isLoading}
               variant="outline"
-              className="border-2 border-amber-400 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-semibold py-3 rounded-xl touch-manipulation"
+              className="border-2 border-amber-400 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 font-semibold py-2.5 rounded-xl touch-manipulation text-sm"
             >
               Hold Order
             </Button>
@@ -643,15 +648,15 @@ export const QSRCartBottomSheet: React.FC<QSRCartBottomSheetProps> = ({
               ((mode === "takeaway" || mode === "delivery" || mode === "nc") &&
                 !customerName?.trim())
             }
-            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/30 text-lg touch-manipulation"
+            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-500/25 text-base touch-manipulation flex items-center justify-center gap-2"
           >
-            💳 Proceed to Payment
+            <span>💳 Proceed to Payment</span>
           </Button>
 
           <button
             onClick={onClearOrder}
             disabled={items.length === 0 || isLoading}
-            className="w-full text-center text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 py-1 transition-colors disabled:opacity-50"
+            className="w-full text-center text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 py-0.5 transition-colors disabled:opacity-50"
           >
             Clear Order
           </button>
