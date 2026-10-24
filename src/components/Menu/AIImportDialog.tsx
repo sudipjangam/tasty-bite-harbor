@@ -983,8 +983,9 @@ Veg Manchurian (Dry) - 150/220"
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+              </div>
 
                 {/* Desktop View: Spreadsheet Table */}
                 <div className="hidden md:block border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-gray-800/40">
@@ -1145,7 +1146,8 @@ Veg Manchurian (Dry) - 150/220"
                             </Button>
                           </td>
                         </tr>
-                      ))}
+                      );
+                    })}
                     </tbody>
                   </table>
                 </div>
