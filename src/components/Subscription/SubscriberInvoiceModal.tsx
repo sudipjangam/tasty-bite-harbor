@@ -97,6 +97,8 @@ export const SubscriberInvoiceModal: React.FC<SubscriberInvoiceModalProps> = ({
   const [emailSubject, setEmailSubject] = useState('');
   const [emailMessage, setEmailMessage] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [attachPdf, setAttachPdf] = useState(true);
+  const [includeSignature, setIncludeSignature] = useState(true);
 
   const numDiscount = parseFloat(discountValue) || 0;
 
@@ -141,6 +143,47 @@ export const SubscriberInvoiceModal: React.FC<SubscriberInvoiceModalProps> = ({
     paymentStatus,
     activePayment.invoice_number,
   ]);
+
+  const generateInvoicePdfBase64 = async (): Promise<{ filename: string; content: string } | null> => {
+    const element = invoicePrintRef.current;
+    if (!element) return null;
+
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+    });
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.98);
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const ratio = canvas.height / canvas.width;
+    const imgWidth = pdfWidth;
+    const imgHeight = pdfWidth * ratio;
+
+    let position = 0;
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, '', 'FAST');
+
+    let heightLeft = imgHeight - pdfHeight;
+    while (heightLeft > 0) {
+      position -= pdfHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, '', 'FAST');
+      heightLeft -= pdfHeight;
+    }
+
+    const filename = `${activePayment.invoice_number || 'Subscriber-Invoice'}.pdf`;
+    const uri = pdf.output('datauristring');
+    const b64 = uri.split(',')[1];
+    return { filename, content: b64 };
+  };
 
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
@@ -277,6 +320,22 @@ ${DEFAULT_COMPANY_CONFIG.name}`;
 
     setIsSendingEmail(true);
     try {
+      let attachments: Array<{ filename: string; content: string }> | undefined = undefined;
+
+      if (attachPdf) {
+        try {
+          const pdfData = await generateInvoicePdfBase64();
+          if (pdfData) {
+            attachments = [{
+              filename: pdfData.filename,
+              content: pdfData.content,
+            }];
+          }
+        } catch (pdfErr) {
+          console.warn('PDF generation for email attachment failed, proceeding with email only:', pdfErr);
+        }
+      }
+
       // Generate rich HTML email content matching modern SaaS standards
       const emailPayload = generateSubscriberInvoiceEmailHTML({
         restaurant,
@@ -285,6 +344,8 @@ ${DEFAULT_COMPANY_CONFIG.name}`;
         company: companyConfig,
         includeGst,
         customMessage: emailMessage,
+        hasPdfAttachment: Boolean(attachments && attachments.length > 0),
+        includeSignature,
       });
 
       const { data, error } = await supabase.functions.invoke('send-email', {
@@ -294,6 +355,7 @@ ${DEFAULT_COMPANY_CONFIG.name}`;
           html: emailPayload.html,
           fromName: 'Swadeshi Solutions',
           restaurantId: restaurant.id,
+          attachments,
         },
       });
 
@@ -302,7 +364,11 @@ ${DEFAULT_COMPANY_CONFIG.name}`;
         throw new Error(data.error || 'Failed to dispatch email');
       }
 
-      toast.success(`Invoice sent successfully to ${targetEmail}! ✉️`);
+      toast.success(
+        attachments && attachments.length > 0
+          ? `Invoice with PDF attached sent successfully to ${targetEmail}! ✉️`
+          : `Invoice email sent successfully to ${targetEmail}! ✉️`
+      );
       setIsEmailModalOpen(false);
     } catch (err: any) {
       console.error('Email invoice dispatch error:', err);
@@ -674,6 +740,48 @@ ${DEFAULT_COMPANY_CONFIG.name}`;
                 className="text-xs leading-relaxed resize-none"
               />
             </div>
+
+            {/* Attach PDF Invoice Toggle */}
+            <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    Attach Official PDF Invoice
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {activePayment.invoice_number || 'Subscriber-Invoice'}.pdf
+                  </div>
+                </div>
+              </div>
+              <Switch
+                checked={attachPdf}
+                onCheckedChange={setAttachPdf}
+              />
+            </div>
+
+            {/* Include Official Signature Toggle */}
+            <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    Include Executive Signature
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Sudip Jangam (Chief Technology Officer, Swadeshi Solutions)
+                  </div>
+                </div>
+              </div>
+              <Switch
+                checked={includeSignature}
+                onCheckedChange={setIncludeSignature}
+              />
+            </div>
           </div>
 
           <DialogFooter className="p-4 px-5 border-t bg-slate-50 dark:bg-slate-950 flex items-center justify-end gap-2">
@@ -697,12 +805,12 @@ ${DEFAULT_COMPANY_CONFIG.name}`;
               {isSendingEmail ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Sending Email...
+                  {attachPdf ? 'Generating PDF & Sending...' : 'Sending Email...'}
                 </>
               ) : (
                 <>
                   <Send className="w-3.5 h-3.5" />
-                  Send Invoice Email
+                  {attachPdf ? 'Send Invoice with PDF' : 'Send Invoice Email'}
                 </>
               )}
             </Button>

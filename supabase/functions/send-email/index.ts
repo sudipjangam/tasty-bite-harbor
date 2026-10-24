@@ -18,6 +18,22 @@ const EMAIL_RATE_LIMIT = {
   keyPrefix: 'send-email',
 };
 
+export interface EmailAttachment {
+  filename: string;
+  content: string; // base64 string
+  contentType?: string;
+}
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
 interface SendEmailRequest {
   to: string;
   subject?: string;
@@ -26,6 +42,7 @@ interface SendEmailRequest {
   templateData?: Record<string, any>;
   restaurantId?: string;
   fromName?: string;
+  attachments?: EmailAttachment[];
 }
 
 // Send email via Resend API (PRIMARY - Hosted on Resend)
@@ -33,7 +50,8 @@ async function sendEmailViaResend(
   to: string,
   subject: string,
   htmlContent: string,
-  fromName: string
+  fromName: string,
+  attachments?: EmailAttachment[]
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
@@ -63,6 +81,12 @@ async function sendEmailViaResend(
           to: [to],
           subject: subject,
           html: htmlContent,
+          ...(attachments && attachments.length > 0 ? {
+            attachments: attachments.map(att => ({
+              filename: att.filename,
+              content: att.content,
+            }))
+          } : {})
         }),
       });
 
@@ -88,7 +112,8 @@ async function sendEmailViaTitan(
   to: string,
   subject: string,
   htmlContent: string,
-  fromName: string
+  fromName: string,
+  attachments?: EmailAttachment[]
 ): Promise<{ success: boolean; error?: string }> {
   const smtpPass = Deno.env.get("TITAN_SMTP_PASS");
   const smtpUser = "inquiry@swadeshisolutions.co.in";
@@ -119,11 +144,19 @@ async function sendEmailViaTitan(
         },
       });
 
+      const denomailerAttachments = attachments && attachments.length > 0
+        ? attachments.map(att => ({
+            filename: att.filename,
+            content: base64ToUint8Array(att.content),
+          }))
+        : undefined;
+
       await client.send({
         from: `${fromName} <${smtpUser}>`,
         to,
         subject,
         html: htmlContent.replace(/\r?\n/g, "\r\n"),
+        attachments: denomailerAttachments,
       });
 
       sendSucceeded = true;
@@ -157,7 +190,8 @@ async function sendEmailViaGmailSMTP(
   to: string,
   subject: string,
   htmlContent: string,
-  fromName: string
+  fromName: string,
+  attachments?: EmailAttachment[]
 ): Promise<{ success: boolean; error?: string }> {
   const smtpUser = Deno.env.get("SMTP_USER") || Deno.env.get("GMAIL_USER");
   const smtpPass = Deno.env.get("SMTP_PASS") || Deno.env.get("GMAIL_APP_PASSWORD");
@@ -183,11 +217,19 @@ async function sendEmailViaGmailSMTP(
       },
     });
 
+    const denomailerAttachments = attachments && attachments.length > 0
+      ? attachments.map(att => ({
+          filename: att.filename,
+          content: base64ToUint8Array(att.content),
+        }))
+      : undefined;
+
     await client.send({
       from: `${fromName} <${smtpUser}>`,
       to: to,
       subject: subject,
       html: htmlContent.replace(/\r?\n/g, '\r\n'),
+      attachments: denomailerAttachments,
     });
 
     sendSucceeded = true;
@@ -213,7 +255,8 @@ async function sendEmailUnified(
   to: string,
   subject: string,
   htmlContent: string,
-  fromName: string
+  fromName: string,
+  attachments?: EmailAttachment[]
 ): Promise<{ success: boolean; id?: string; error?: string; provider?: string }> {
   let attemptedProvider = false;
   let lastAttemptError = "";
@@ -223,7 +266,7 @@ async function sendEmailUnified(
   if (resendApiKey) {
     attemptedProvider = true;
     console.log("Dispatching via Resend API...");
-    const resendResult = await sendEmailViaResend(to, subject, htmlContent, fromName);
+    const resendResult = await sendEmailViaResend(to, subject, htmlContent, fromName, attachments);
     if (resendResult.success) {
       return { ...resendResult, provider: "resend" };
     }
@@ -236,7 +279,7 @@ async function sendEmailUnified(
   if (titanPass) {
     attemptedProvider = true;
     console.log("Attempting fallback via Titan SMTP...");
-    const titanResult = await sendEmailViaTitan(to, subject, htmlContent, fromName);
+    const titanResult = await sendEmailViaTitan(to, subject, htmlContent, fromName, attachments);
     if (titanResult.success) {
       return { ...titanResult, provider: "titan_smtp" };
     }
@@ -250,7 +293,7 @@ async function sendEmailUnified(
   if (smtpUser && smtpPass) {
     attemptedProvider = true;
     console.log("Attempting fallback via Gmail SMTP...");
-    const smtpResult = await sendEmailViaGmailSMTP(to, subject, htmlContent, fromName);
+    const smtpResult = await sendEmailViaGmailSMTP(to, subject, htmlContent, fromName, attachments);
     if (smtpResult.success) {
       return { ...smtpResult, provider: "gmail_smtp" };
     }
@@ -384,7 +427,7 @@ serve(async (req: Request) => {
 
   try {
     const requestBody = await req.json() as SendEmailRequest;
-    const { to, subject, html, template, templateData, restaurantId, fromName } = requestBody;
+    const { to, subject, html, template, templateData, restaurantId, fromName, attachments } = requestBody;
 
     if (!to) {
       return new Response(
@@ -441,7 +484,7 @@ serve(async (req: Request) => {
       );
     }
 
-    const result = await sendEmailUnified(to, finalSubject, finalHtml, restaurantName);
+    const result = await sendEmailUnified(to, finalSubject, finalHtml, restaurantName, attachments);
 
     if (!result.success) {
       return new Response(

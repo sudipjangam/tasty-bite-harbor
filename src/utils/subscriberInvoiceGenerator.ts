@@ -82,7 +82,7 @@ export const DEFAULT_COMPANY_CONFIG: CompanyInvoiceConfig = {
   website: 'https://swadeshisolutions.co.in',
   gstin: '', // Skipped per requirements: No GST number currently
   pan: '',   // Skipped per requirements: No PAN number currently
-  logoUrl: '/swadeshi-logo2.png',
+  logoUrl: 'https://clmsoetktmvhazctlans.supabase.co/storage/v1/object/public/images/90bfb05e-129b-45ea-b5e3-519cbd00cfab.png',
   bank: {
     bankName: 'HDFC Bank',
     accountName: 'Swadeshi Solutions',
@@ -925,6 +925,8 @@ export function generateSubscriberInvoiceHTML(params: GenerateInvoiceParams): st
 export interface GenerateInvoiceEmailParams extends GenerateInvoiceParams {
   customMessage?: string;
   senderName?: string;
+  hasPdfAttachment?: boolean;
+  includeSignature?: boolean;
 }
 
 export function generateSubscriberInvoiceEmailHTML(params: GenerateInvoiceEmailParams): {
@@ -1126,6 +1128,22 @@ export function generateSubscriberInvoiceEmailHTML(params: GenerateInvoiceEmailP
             </td>
           </tr>
 
+          ${params.hasPdfAttachment ? `
+          <!-- PDF Attachment Notice -->
+          <tr>
+            <td style="padding: 0 32px 16px 32px;">
+              <table width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 10px 14px;">
+                <tr>
+                  <td width="26" style="vertical-align: middle; font-size: 16px;">📎</td>
+                  <td style="vertical-align: middle; font-size: 12px; color: #475569;">
+                    <strong style="color: #0f172a;">PDF Invoice Attached:</strong> Official printable document (<strong>${safeInvoiceNo}.pdf</strong>) is attached to this email.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ` : ''}
+
           <!-- Itemized Breakdown -->
           <tr>
             <td style="padding: 0 32px 24px 32px;">
@@ -1212,6 +1230,34 @@ export function generateSubscriberInvoiceEmailHTML(params: GenerateInvoiceEmailP
               </div>
             </td>
           </tr>
+
+          <!-- Official Executive Signature Block (Swadeshi Sudip Official) -->
+          ${params.includeSignature !== false ? `
+          <tr>
+            <td style="padding: 24px 32px; background-color: #ffffff; border-top: 1px solid #f1f5f9;">
+              <table cellpadding="0" cellspacing="0" border="0" style="background: transparent; border-collapse: collapse; width: 100%;" width="100%">
+                <tbody valign="middle">
+                  <tr valign="inherit">
+                    <td style="padding-right: 25px; vertical-align: middle;" valign="middle">
+                      <a href="https://www.swadeshisolutions.co.in" target="_blank">&nbsp;&nbsp;<img src="https://clmsoetktmvhazctlans.supabase.co/storage/v1/object/public/images/90bfb05e-129b-45ea-b5e3-519cbd00cfab.png" alt="Swadeshi Solutions" width="150" style="width: 150px; max-width: 150px; display: block; border: 0px;"></a>
+                    </td>
+                    <td style="border-left: 2px solid #0056b3; padding-left: 25px; vertical-align: middle;" valign="middle">
+                      <strong style="font-size: 16px; color: #111111; letter-spacing: 0.5px;">Sudip Jangam</strong>
+                      <br><span style="color: #666666; font-size: 13px;">Chief Technology Officer</span>
+                      <br><span style="color: #0056b3; font-size: 13px; font-weight: bold; display: inline-block; margin-top: 2px;">Swadeshi Solutions</span>
+                      <br><span style="color: rgb(0, 86, 179); font-size: 13px; font-weight: bold; display: inline-block; margin-top: 2px; font-family: sans-serif, arial;">&nbsp; 830-890-3224</span>
+                      <div style="margin-top: 12px; font-size: 13px; color: #555555;">
+                        <span style="display: inline-block; vertical-align: middle; margin-right: 6px;"><img src="https://cdn-icons-png.flaticon.com/16/542/542689.png" width="13" height="13" style="display: block; border: 0px;" alt="Email icon"></span> <a href="mailto:sudipjangam@swadeshisolutions.co.in" style="color: #0056b3; text-decoration: none;">sudipjangam@swadeshisolutions.co.in</a>
+                        <br><span style="display: inline-block; vertical-align: middle; margin-right: 6px; margin-top: 4px;"><img src="https://cdn-icons-png.flaticon.com/16/1006/1006771.png" width="13" height="13" style="display: block; border: 0px;" alt="Web icon"></span> <a href="https://www.swadeshisolutions.co.in" target="_blank" style="color: #0056b3; text-decoration: none;">www.swadeshisolutions.co.in</a>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style="margin-top: 14px; border-top: 1px solid #eeeeee; padding-top: 6px; font-size: 11px; color: #888888; font-style: italic; max-width: 420px;">Next-gen Restaurant Management Systems</div>
+            </td>
+          </tr>
+          ` : ''}
 
           <!-- Footer -->
           <tr>
