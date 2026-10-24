@@ -288,14 +288,42 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
         }
       }
 
+      const cleanName = data.name.trim();
+      if (!cleanName) {
+        throw new Error('Item name cannot be empty');
+      }
+
+      // Check for duplicate item name in the restaurant (escape pattern characters for ilike)
+      const escapedName = cleanName.replace(/[%_\\]/g, "\\$&");
+      const { data: existingSameName, error: checkError } = await supabase
+        .from("menu_items")
+        .select("id, name")
+        .eq("restaurant_id", targetRestaurantId)
+        .ilike("name", escapedName);
+
+      if (checkError) {
+        console.error("Error checking duplicate menu item:", checkError);
+      }
+
+      const duplicate = existingSameName?.find((item) => item.id !== editingItem?.id);
+      if (duplicate) {
+        toast({
+          title: "Duplicate Menu Item",
+          description: `A menu item named "${cleanName}" already exists in your menu. Duplicate items are not allowed.`,
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Map dietary_type: "veg" -> true, "non_veg" -> false, "other" -> null
       const isVeg = data.dietary_type === "veg" ? true : data.dietary_type === "non_veg" ? false : null;
 
       const menuItemData = {
-        name: data.name,
-        description: data.description,
+        name: cleanName,
+        description: data.description?.trim() || "",
         price: parseFloat(data.price),
-        category: data.category || "Other",
+        category: data.category?.trim() || "Other",
         image_url: imageUrl,
         is_available: true,
         is_veg: isVeg,
@@ -383,7 +411,8 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
   };
 
   const handleAddNewCategory = () => {
-    if (!newCategoryName.trim()) {
+    const cleanCat = newCategoryName.trim();
+    if (!cleanCat) {
       toast({
         title: "Error",
         description: "Please enter a category name",
@@ -392,18 +421,23 @@ const AddMenuItemForm = ({ onClose, onSuccess, editingItem }: AddMenuItemFormPro
       return;
     }
 
-    if (categories.some(c => c.toLowerCase() === newCategoryName.toLowerCase())) {
+    const matchedExisting = categories.find(
+      (c) => c.trim().toLowerCase() === cleanCat.toLowerCase()
+    );
+    if (matchedExisting) {
       toast({
-        title: "Error",
-        description: "This category already exists",
-        variant: "destructive",
+        title: "Category Already Exists",
+        description: `Selected existing category "${matchedExisting}".`,
       });
+      form.setValue('category', matchedExisting);
+      setShowNewCategoryDialog(false);
+      setNewCategoryName("");
       return;
     }
 
-    addCategory(newCategoryName, {
-      onSuccess: () => {
-        form.setValue('category', newCategoryName);
+    addCategory(cleanCat, {
+      onSuccess: (data: any) => {
+        form.setValue('category', data?.name || cleanCat);
         setShowNewCategoryDialog(false);
         setNewCategoryName("");
       },

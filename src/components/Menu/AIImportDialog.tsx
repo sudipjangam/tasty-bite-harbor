@@ -65,6 +65,28 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
+  const [existingMenuNames, setExistingMenuNames] = useState<Set<string>>(new Set());
+
+  // Fetch existing menu items to detect duplicates immediately
+  const refreshExistingMenuNames = useCallback(async () => {
+    if (!restaurantId) return;
+    try {
+      const { data } = await supabase
+        .from("menu_items")
+        .select("name")
+        .eq("restaurant_id", restaurantId);
+      if (data) {
+        setExistingMenuNames(new Set(data.map((item) => item.name.toLowerCase().trim())));
+      }
+    } catch (err) {
+      console.error("Error fetching existing menu items:", err);
+    }
+  }, [restaurantId]);
+
+  useEffect(() => {
+    refreshExistingMenuNames();
+  }, [refreshExistingMenuNames]);
+
   // Convert File to base64 helper
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -185,16 +207,53 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
       if (error) throw error;
 
       if (data && Array.isArray(data.items)) {
-        setParsedItems(data.items);
+        await refreshExistingMenuNames();
+
+        // Client-side deduplication of parsed items
+        const seenNames = new Set<string>();
+        const uniqueItems: ParsedItem[] = [];
+
+        for (const item of data.items) {
+          if (!item || !item.name) continue;
+          const cleanName = String(item.name).trim();
+          const normKey = cleanName.toLowerCase();
+          if (!normKey || seenNames.has(normKey)) continue;
+          seenNames.add(normKey);
+
+          // If category matches an existing DB category case-insensitively, align casing
+          let matchedCat = item.category ? String(item.category).trim() : "Main Course";
+          const foundExisting = categories.find(
+            (c) => c.trim().toLowerCase() === matchedCat.toLowerCase()
+          );
+          if (foundExisting) {
+            matchedCat = foundExisting;
+          }
+
+          uniqueItems.push({
+            ...item,
+            name: cleanName,
+            category: matchedCat,
+          });
+        }
+
+        setParsedItems(uniqueItems);
         
-        // Initialize category mappings
-        const uniqueParsedCategories = [...new Set(data.items.map((item: any) => item.category).filter(Boolean))] as string[];
+        // Initialize category mappings without case-insensitive duplicates
+        const uniqueCategoryMap = new Map<string, string>();
+        uniqueItems.forEach((item) => {
+          if (!item.category) return;
+          const trimmed = item.category.trim();
+          const lower = trimmed.toLowerCase();
+          if (!uniqueCategoryMap.has(lower)) {
+            uniqueCategoryMap.set(lower, trimmed);
+          }
+        });
+
         const initialMappings: Record<string, { create: boolean; mapTo: string }> = {};
-        
-        uniqueParsedCategories.forEach((cat: string) => {
-          const catExists = categories.some((c) => c.toLowerCase() === cat.toLowerCase());
+        uniqueCategoryMap.forEach((catName) => {
+          const catExists = categories.some((c) => c.trim().toLowerCase() === catName.toLowerCase());
           if (!catExists) {
-            initialMappings[cat] = {
+            initialMappings[catName] = {
               create: true, // Default to true (keep and create in DB)
               mapTo: categories[0] || "Main Course", // Default fallback if they toggle it off
             };
@@ -204,7 +263,7 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
 
         toast({
           title: "Successfully parsed",
-          description: `Extracted ${data.items.length} items from your menu.`,
+          description: `Extracted ${uniqueItems.length} unique items from your menu.`,
         });
       } else {
         throw new Error("Invalid response format from parsing service.");
@@ -236,6 +295,17 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
     setParsedItems((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Quick action: Remove all items that already exist in the menu
+  const handleRemoveExistingDuplicates = () => {
+    setParsedItems((prev) =>
+      prev.filter((item) => !existingMenuNames.has(item.name.toLowerCase().trim()))
+    );
+    toast({
+      title: "Duplicates removed",
+      description: "Removed all items that already exist in your menu.",
+    });
+  };
+
   const handleAddVariant = (itemIdx: number, name: string, price: number) => {
     setParsedItems((prev) => {
       const updated = [...prev];
@@ -256,20 +326,30 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
     });
   };
 
-  // Combine existing DB categories and any new parsed categories that user has chosen to create
+  // Combine existing DB categories and any new parsed categories with case-insensitive deduplication
   const dropdownCategories = useMemo(() => {
     const newCatsToCreate = Object.entries(categoryMappings)
       .filter(([_, mapping]) => mapping.create)
       .map(([newCat]) => newCat);
       
-    return Array.from(new Set([
-      ...categories,
-      ...newCatsToCreate,
-      ...parsedItems.map(item => item.category).filter(Boolean)
-    ])).sort((a, b) => a.localeCompare(b));
+    const catMap = new Map<string, string>();
+    for (const c of [...categories, ...newCatsToCreate, ...parsedItems.map((item) => item.category).filter(Boolean)]) {
+      if (!c) continue;
+      const trimmed = c.trim();
+      const lower = trimmed.toLowerCase();
+      if (!catMap.has(lower)) {
+        catMap.set(lower, trimmed);
+      }
+    }
+    return Array.from(catMap.values()).sort((a, b) => a.localeCompare(b));
   }, [categories, categoryMappings, parsedItems]);
 
-  // Save parsed items to DB
+  // Existing duplicates count in current parsed items
+  const duplicateInDbCount = useMemo(() => {
+    return parsedItems.filter((item) => existingMenuNames.has(item.name.toLowerCase().trim())).length;
+  }, [parsedItems, existingMenuNames]);
+
+  // Save parsed items to DB with strict deduplication
   const handleSaveItems = async () => {
     if (!restaurantId) return;
 
@@ -287,39 +367,16 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
       setIsSaving(true);
       
       // Step 1: Map items to their final categories
-      const finalItems = parsedItems.map(item => {
+      const finalItems = parsedItems.map((item) => {
         const mapping = categoryMappings[item.category];
         if (mapping && !mapping.create) {
-          // If mapping exists and user chose NOT to create it, rewrite to the mapped default
           return { ...item, category: mapping.mapTo };
         }
         return item;
       });
 
-      // Find unique categories from finalItems that need to be created in DB
-      const categoriesToCreate = [...new Set(finalItems.map((item) => item.category).filter(Boolean))].filter(cat => {
-        // Only create if it does NOT exist in existing categories
-        const catExists = categories.some((c) => c.toLowerCase() === cat.toLowerCase());
-        return !catExists;
-      });
-
-      for (const cat of categoriesToCreate) {
-        const { error: insertError } = await supabase
-          .from("categories")
-          .upsert({ name: cat, restaurant_id: restaurantId }, { onConflict: "name" });
-
-        if (insertError) {
-          console.error("Error creating category:", insertError);
-          // Continue anyway, but log it
-        }
-      }
-
-      if (categoriesToCreate.length > 0) {
-        queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
-      }
-
-      // Fetch existing menu items to check for duplicates
-      const { data: existingItems, error: existingError } = await supabase
+      // Step 2: Fetch fresh existing menu items from DB to prevent race condition duplicates
+      const { data: freshExistingItems, error: existingError } = await supabase
         .from("menu_items")
         .select("name")
         .eq("restaurant_id", restaurantId);
@@ -328,16 +385,37 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
         throw existingError;
       }
       
-      const existingNames = new Set(existingItems?.map(item => item.name.toLowerCase().trim()) || []);
+      const freshExistingNames = new Set(
+        freshExistingItems?.map((item) => item.name.toLowerCase().trim()) || []
+      );
       
-      // Filter out duplicates
-      const uniqueItemsToInsert = finalItems.filter(item => !existingNames.has(item.name.toLowerCase().trim()));
-      const skippedCount = finalItems.length - uniqueItemsToInsert.length;
+      // Strict deduplication: against DB AND within the current batch itself
+      const seenInBatch = new Set<string>();
+      const uniqueItemsToInsert: ParsedItem[] = [];
+      const skippedDuplicates: string[] = [];
+
+      for (const item of finalItems) {
+        const cleanName = item.name.trim();
+        const normKey = cleanName.toLowerCase();
+        if (!normKey) continue;
+
+        if (freshExistingNames.has(normKey) || seenInBatch.has(normKey)) {
+          skippedDuplicates.push(cleanName);
+          continue;
+        }
+
+        seenInBatch.add(normKey);
+        uniqueItemsToInsert.push({
+          ...item,
+          name: cleanName,
+          category: item.category.trim(),
+        });
+      }
       
       if (uniqueItemsToInsert.length === 0) {
         toast({
           title: "Notice",
-          description: `All ${finalItems.length} items already exist. No new items were added.`,
+          description: `All ${finalItems.length} items already exist in your menu. No duplicate items were added.`,
         });
         setIsSaving(false);
         onSuccess();
@@ -345,7 +423,47 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
         return;
       }
 
-      // Step 2: Insert menu items
+      // Step 3: Find unique categories from uniqueItemsToInsert that need to be created in DB
+      const catMapToCreate = new Map<string, string>();
+      for (const item of uniqueItemsToInsert) {
+        const cat = item.category?.trim();
+        if (!cat) continue;
+        const lower = cat.toLowerCase();
+        const existsInCategories = categories.some((c) => c.trim().toLowerCase() === lower);
+        if (!existsInCategories && !catMapToCreate.has(lower)) {
+          catMapToCreate.set(lower, cat);
+        }
+      }
+
+      const categoriesToCreate = Array.from(catMapToCreate.values());
+
+      // Safe check-and-insert for categories (avoids constraint mismatch)
+      for (const cat of categoriesToCreate) {
+        const escapedCat = cat.replace(/[%_\\]/g, "\\$&");
+        const { data: existingCatList } = await supabase
+          .from("categories")
+          .select("id")
+          .eq("restaurant_id", restaurantId)
+          .ilike("name", escapedCat)
+          .limit(1);
+
+        if (!existingCatList || existingCatList.length === 0) {
+          const { error: catInsertError } = await supabase
+            .from("categories")
+            .insert([{ name: cat, restaurant_id: restaurantId }]);
+
+          if (catInsertError) {
+            console.error("Error creating category:", cat, catInsertError);
+          }
+        }
+      }
+
+      if (categoriesToCreate.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
+        queryClient.invalidateQueries({ queryKey: ["menu-item-categories", restaurantId] });
+      }
+
+      // Step 4: Insert menu items
       for (const item of uniqueItemsToInsert) {
         const menuItemData = {
           name: item.name,
@@ -371,7 +489,7 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
           throw itemError;
         }
 
-        // Step 3: Insert variants if any
+        // Insert variants if any
         if (insertedItem && item.variants && item.variants.length > 0) {
           const variantsData = item.variants.map((v, idx) => ({
             menu_item_id: insertedItem.id,
@@ -392,9 +510,13 @@ const AIImportDialog = ({ onClose, onSuccess }: AIImportDialogProps) => {
         }
       }
 
+      queryClient.invalidateQueries({ queryKey: ["menuItems", restaurantId] });
+
       toast({
         title: "Success",
-        description: `Successfully imported ${uniqueItemsToInsert.length} menu items! ${skippedCount > 0 ? `(${skippedCount} duplicates skipped)` : ""}`,
+        description: `Successfully imported ${uniqueItemsToInsert.length} menu items!${
+          skippedDuplicates.length > 0 ? ` (${skippedDuplicates.length} duplicates skipped)` : ""
+        }`,
       });
       
       onSuccess();
@@ -592,12 +714,29 @@ Veg Manchurian (Dry) - 150/220"
           ) : (
             /* Review and Edit Preview Step */
             <div className="h-full flex flex-col space-y-4">
-              <div className="flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100/30 p-2.5 rounded-xl text-xs gap-3">
-                <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5 min-w-0">
+              <div className="flex flex-wrap items-center justify-between bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100/30 p-2.5 rounded-xl text-xs gap-3">
+                <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5 min-w-0 flex-wrap">
                   <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span className="truncate">Extracted {parsedItems.length} items.</span>
+                  <span>
+                    Extracted {parsedItems.length} items ({Math.max(0, parsedItems.length - duplicateInDbCount)} new).
+                  </span>
+                  {duplicateInDbCount > 0 && (
+                    <span className="text-amber-700 dark:text-amber-300 font-bold bg-amber-100/80 dark:bg-amber-900/40 px-2 py-0.5 rounded-md">
+                      ⚠️ {duplicateInDbCount} already in menu
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {duplicateInDbCount > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRemoveExistingDuplicates}
+                      className="text-xs h-7 px-2.5 rounded-lg border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 font-semibold"
+                    >
+                      Remove {duplicateInDbCount} Duplicates
+                    </Button>
+                  )}
                   {Object.keys(categoryMappings).length > 0 && (
                     <Button
                       variant="outline"
@@ -683,29 +822,42 @@ Veg Manchurian (Dry) - 150/220"
 
               <div className="flex-1 overflow-auto min-h-0 pr-1">
                 <div className="block md:hidden space-y-3">
-                  {parsedItems.map((item, index) => (
-                    <div
-                      key={index}
-                      className="bg-white dark:bg-gray-800 border border-gray-250 dark:border-gray-700 rounded-xl p-3 shadow-sm space-y-2.5 relative"
-                    >
-                      {/* Row 1: Name and Delete button */}
-                      <div className="flex items-center gap-2">
-                        <Input
-                          placeholder="Item Name"
-                          value={item.name}
-                          onChange={(e) => handleUpdateItem(index, "name", e.target.value)}
-                          className="h-9 bg-gray-50/50 dark:bg-gray-900/40 text-sm font-semibold border-gray-200 focus:border-emerald-500 flex-1"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          type="button"
-                          onClick={() => handleRemoveItem(index)}
-                          className="h-9 w-9 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg flex-shrink-0"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                  {parsedItems.map((item, index) => {
+                    const isExisting = existingMenuNames.has(item.name.toLowerCase().trim());
+                    return (
+                      <div
+                        key={index}
+                        className={`bg-white dark:bg-gray-800 border rounded-xl p-3 shadow-sm space-y-2.5 relative ${
+                          isExisting
+                            ? "border-amber-300 dark:border-amber-700/80 bg-amber-50/20 dark:bg-amber-950/10"
+                            : "border-gray-250 dark:border-gray-700"
+                        }`}
+                      >
+                        {/* Row 1: Name, Duplicate Badge and Delete button */}
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 space-y-1">
+                            <Input
+                              placeholder="Item Name"
+                              value={item.name}
+                              onChange={(e) => handleUpdateItem(index, "name", e.target.value)}
+                              className="h-9 bg-gray-50/50 dark:bg-gray-900/40 text-sm font-semibold border-gray-200 focus:border-emerald-500 w-full"
+                            />
+                            {isExisting && (
+                              <span className="inline-flex items-center text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/60 px-1.5 py-0.5 rounded">
+                                ⚠️ Already in Menu (Will be skipped)
+                              </span>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            onClick={() => handleRemoveItem(index)}
+                            className="h-9 w-9 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg flex-shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
 
                       {/* Row 2: Category and Price */}
                       <div className="grid grid-cols-2 gap-2">
@@ -848,22 +1000,36 @@ Veg Manchurian (Dry) - 150/220"
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-150 dark:divide-gray-700/60">
-                      {parsedItems.map((item, index) => (
-                        <tr key={index} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/20 align-top">
-                          {/* Name & Description */}
-                          <td className="p-3 space-y-1">
-                            <Input
-                              value={item.name}
-                              onChange={(e) => handleUpdateItem(index, "name", e.target.value)}
-                              className="h-8 bg-transparent text-sm font-medium border-gray-200 focus:border-emerald-500"
-                            />
-                            <Textarea
-                              placeholder="Add description..."
-                              value={item.description}
-                              onChange={(e) => handleUpdateItem(index, "description", e.target.value)}
-                              className="min-h-[40px] text-xs bg-transparent border-gray-200 focus:border-emerald-500 resize-none"
-                            />
-                          </td>
+                      {parsedItems.map((item, index) => {
+                        const isExisting = existingMenuNames.has(item.name.toLowerCase().trim());
+                        return (
+                          <tr
+                            key={index}
+                            className={`align-top ${
+                              isExisting
+                                ? "bg-amber-50/40 dark:bg-amber-950/20 hover:bg-amber-50/60"
+                                : "hover:bg-gray-50/40 dark:hover:bg-gray-800/20"
+                            }`}
+                          >
+                            {/* Name & Description */}
+                            <td className="p-3 space-y-1">
+                              <Input
+                                value={item.name}
+                                onChange={(e) => handleUpdateItem(index, "name", e.target.value)}
+                                className="h-8 bg-transparent text-sm font-medium border-gray-200 focus:border-emerald-500"
+                              />
+                              {isExisting && (
+                                <div className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/60 px-1.5 py-0.5 rounded w-fit">
+                                  ⚠️ Already in Menu (Will be skipped)
+                                </div>
+                              )}
+                              <Textarea
+                                placeholder="Add description..."
+                                value={item.description}
+                                onChange={(e) => handleUpdateItem(index, "description", e.target.value)}
+                                className="min-h-[40px] text-xs bg-transparent border-gray-200 focus:border-emerald-500 resize-none"
+                              />
+                            </td>
 
                           {/* Category */}
                           <td className="p-3">
@@ -988,7 +1154,16 @@ Veg Manchurian (Dry) - 150/220"
               {/* Preview Footer */}
               <DialogFooter className="flex-shrink-0 pt-4 border-t border-gray-100 dark:border-gray-800/60 flex sm:justify-between items-center">
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Ready to import <strong className="text-emerald-600">{parsedItems.length}</strong> items.
+                  Ready to import{" "}
+                  <strong className="text-emerald-600">
+                    {Math.max(0, parsedItems.length - duplicateInDbCount)}
+                  </strong>{" "}
+                  new items.
+                  {duplicateInDbCount > 0 && (
+                    <span className="text-amber-600 dark:text-amber-400 ml-1">
+                      ({duplicateInDbCount} duplicates will be skipped)
+                    </span>
+                  )}
                 </span>
                 <div className="flex gap-2">
                   <Button

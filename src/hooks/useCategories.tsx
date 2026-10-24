@@ -65,37 +65,78 @@ export const useCategories = () => {
     enabled: !!restaurantId,
   });
 
-  // Combine default, custom, and menu item categories (removing duplicates)
-  const allCategoriesSet = new Set([
+  // Combine default, custom, and menu item categories (removing case-insensitive duplicates)
+  const categoryMap = new Map<string, string>();
+  const rawList = [
     ...DEFAULT_CATEGORIES,
-    ...customCategories.map(c => c.name),
-    ...menuItemCategories
-  ]);
-  const allCategories = Array.from(allCategoriesSet).sort((a, b) => a.localeCompare(b));
+    ...customCategories.map((c) => c.name),
+    ...menuItemCategories,
+  ];
+
+  for (const rawCat of rawList) {
+    if (!rawCat) continue;
+    const trimmed = rawCat.trim();
+    if (!trimmed) continue;
+    const lowerKey = trimmed.toLowerCase();
+    if (!categoryMap.has(lowerKey)) {
+      categoryMap.set(lowerKey, trimmed);
+    }
+  }
+
+  const allCategories = Array.from(categoryMap.values()).sort((a, b) => a.localeCompare(b));
 
   const isLoading = isLoadingCustom || isLoadingMenuItems;
 
-  // Add new category
+  // Add new category with strict duplicate check
   const addCategoryMutation = useMutation({
     mutationFn: async (categoryName: string) => {
       if (!restaurantId) {
         throw new Error('No restaurant ID available');
       }
       
+      const trimmed = categoryName.trim();
+      if (!trimmed) {
+        throw new Error('Category name cannot be empty');
+      }
+
+      // Check if category already exists in customCategories or in database for this restaurant
+      const existingInState = customCategories.find(
+        (c) => c.name.trim().toLowerCase() === trimmed.toLowerCase()
+      );
+      if (existingInState) {
+        return existingInState;
+      }
+
+      // Check direct in DB (escaping pattern characters for ilike)
+      const escapedCategory = trimmed.replace(/[%_\\]/g, "\\$&");
+      const { data: existingInDb, error: lookupError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .ilike('name', escapedCategory)
+        .limit(1);
+
+      if (lookupError) throw lookupError;
+
+      if (existingInDb && existingInDb.length > 0) {
+        return existingInDb[0] as Category;
+      }
+
       const { data, error } = await supabase
         .from('categories')
-        .insert([{ name: categoryName, restaurant_id: restaurantId }])
+        .insert([{ name: trimmed, restaurant_id: restaurantId }])
         .select()
         .single();
 
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['categories', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['menu-item-categories', restaurantId] });
       toast({
         title: "Success",
-        description: "Category added successfully",
+        description: `Category "${data.name}" added successfully`,
       });
     },
     onError: (error) => {

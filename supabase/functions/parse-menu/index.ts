@@ -50,6 +50,11 @@ serve(async (req) => {
     const systemPrompt = `You are a professional restaurant menu extraction assistant.
 Your task is to parse the user's input (which could be unstructured text list or one or more images of a restaurant menu) and extract all menu items.
 
+CRITICAL DEDUPLICATION & NORMALIZATION RULES:
+1. NO DUPLICATE ITEMS: Every menu item name in your output MUST be unique. If an item appears multiple times (in text, across multiple images, or in special/recommended sections), MERGE them into ONE single item. Never output two items with the same or near-identical name.
+2. NO DUPLICATE CATEGORIES: Consolidate category names. Use standard, Title-Cased names (e.g. "Beverages", "Desserts", "Starters", "Main Course"). Do NOT create duplicate or overlapping categories like "Dessert" and "Desserts", or "Hot Beverage" and "Hot Beverages".
+3. CLEAN NAMES: Trim item names and remove redundant numbering, symbols, or price text from the item name.
+
 For each menu item, extract:
 1. "name" (string): Clean name of the item. e.g. "Paneer Tikka".
 2. "description" (string): Appetizing description of the item. If the menu doesn't provide one, generate a brief, enticing 1-sentence description based on the name.
@@ -163,6 +168,74 @@ You MUST respond with a single valid JSON object of the following format, with N
 
     // Try parsing to validate it is correct JSON
     const parsedData = JSON.parse(textContent);
+
+    // Server-side strict deduplication and normalization
+    if (parsedData && Array.isArray(parsedData.items)) {
+      const seenNames = new Map<string, any>();
+      const canonicalCategories = new Map<string, string>(); // lowercase -> canonical title case
+
+      for (const rawItem of parsedData.items) {
+        if (!rawItem || !rawItem.name) continue;
+        const cleanName = String(rawItem.name).trim();
+        const normKey = cleanName.toLowerCase();
+        if (!normKey) continue;
+
+        // Clean & normalize category
+        let cleanCat = rawItem.category ? String(rawItem.category).trim() : "Main Course";
+        const catKey = cleanCat.toLowerCase();
+        if (canonicalCategories.has(catKey)) {
+          cleanCat = canonicalCategories.get(catKey)!;
+        } else {
+          // Normalize to Title Case if all caps or all lowercase
+          if (cleanCat === cleanCat.toUpperCase() || cleanCat === cleanCat.toLowerCase()) {
+            cleanCat = cleanCat.charAt(0).toUpperCase() + cleanCat.slice(1).toLowerCase();
+          }
+          canonicalCategories.set(catKey, cleanCat);
+        }
+
+        // Clean variants
+        const rawVariants = Array.isArray(rawItem.variants) ? rawItem.variants : [];
+        const seenVarNames = new Set<string>();
+        const cleanVariants: any[] = [];
+        for (const v of rawVariants) {
+          if (!v || !v.name) continue;
+          const vName = String(v.name).trim();
+          const vKey = vName.toLowerCase();
+          if (!seenVarNames.has(vKey)) {
+            seenVarNames.add(vKey);
+            cleanVariants.push({
+              name: vName,
+              price: Number(v.price) || 0
+            });
+          }
+        }
+
+        const normalizedItem = {
+          ...rawItem,
+          name: cleanName,
+          category: cleanCat,
+          price: Number(rawItem.price) || (cleanVariants.length > 0 ? cleanVariants[0].price : 0),
+          is_veg: Boolean(rawItem.is_veg),
+          is_special: Boolean(rawItem.is_special),
+          variants: cleanVariants
+        };
+
+        if (!seenNames.has(normKey)) {
+          seenNames.set(normKey, normalizedItem);
+        } else {
+          // Merge: if existing item has no variants but duplicate has variants, adopt variants
+          const existing = seenNames.get(normKey);
+          if ((!existing.variants || existing.variants.length === 0) && cleanVariants.length > 0) {
+            existing.variants = cleanVariants;
+          }
+          if (!existing.description && normalizedItem.description) {
+            existing.description = normalizedItem.description;
+          }
+        }
+      }
+
+      parsedData.items = Array.from(seenNames.values());
+    }
 
     return new Response(
       JSON.stringify(parsedData),

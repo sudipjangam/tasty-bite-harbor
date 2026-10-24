@@ -1,4 +1,4 @@
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, useMemo, memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -378,15 +378,22 @@ const MenuGrid = () => {
     } else if (activeCategory === "special") {
       return matchesSearch && item.is_special === true;
     } else {
-      return matchesSearch && item.category === activeCategory;
+      return (
+        matchesSearch &&
+        item.category?.trim().toLowerCase() === activeCategory.trim().toLowerCase()
+      );
     }
   });
 
-  // Group items by category
+  // Group items by category (normalizing case and whitespace)
   const groupedItems = useCallback(() => {
     return menuItems.reduce(
       (acc, item) => {
-        const category = item.category || "Other";
+        const rawCat = item.category?.trim() || "Other";
+        const existingKey = Object.keys(acc).find(
+          (k) => k.toLowerCase() === rawCat.toLowerCase()
+        );
+        const category = existingKey || rawCat;
         if (!acc[category]) {
           acc[category] = [];
         }
@@ -401,6 +408,65 @@ const MenuGrid = () => {
   const vegCount = menuItems.filter((i) => i.is_veg === true).length;
   const nonVegCount = menuItems.filter((i) => i.is_veg === false).length;
   const specialCount = menuItems.filter((i) => i.is_special === true).length;
+
+  // Detect duplicate menu items in DB
+  const duplicateItemGroups = useMemo(() => {
+    const groups = new Map<string, MenuItem[]>();
+    for (const item of menuItems) {
+      const key = item.name.toLowerCase().trim();
+      const list = groups.get(key) || [];
+      list.push(item);
+      groups.set(key, list);
+    }
+    return Array.from(groups.values()).filter((list) => list.length > 1);
+  }, [menuItems]);
+
+  const totalDuplicateCopies = useMemo(() => {
+    return duplicateItemGroups.reduce((acc, g) => acc + (g.length - 1), 0);
+  }, [duplicateItemGroups]);
+
+  const handleCleanupDuplicates = useCallback(async () => {
+    const toDeleteIds: string[] = [];
+    for (const group of duplicateItemGroups) {
+      // Keep oldest created item, delete extra duplicates
+      const sorted = [...group].sort((a, b) => {
+        const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return tA - tB;
+      });
+      for (let i = 1; i < sorted.length; i++) {
+        toDeleteIds.push(sorted[i].id);
+      }
+    }
+
+    if (toDeleteIds.length === 0) return;
+
+    if (
+      window.confirm(
+        `Found ${toDeleteIds.length} duplicate copy/copies across ${duplicateItemGroups.length} dishes. Delete duplicate copies and keep originals?`
+      )
+    ) {
+      try {
+        const { error } = await supabase
+          .from("menu_items")
+          .delete()
+          .in("id", toDeleteIds);
+
+        if (error) throw error;
+        toast({
+          title: "Duplicates Cleaned",
+          description: `Successfully removed ${toDeleteIds.length} duplicate menu items.`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["menuItems", restaurantId] });
+      } catch (err: any) {
+        toast({
+          title: "Error",
+          description: err.message || "Failed to remove duplicates",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [duplicateItemGroups, queryClient, restaurantId, toast]);
 
   if (isLoading) {
     return (
@@ -432,10 +498,36 @@ const MenuGrid = () => {
             setShowAddForm(true);
           }}
           onOpenAIImport={() => setShowAIImport(true)}
+          duplicateCount={totalDuplicateCopies}
+          onCleanupDuplicates={handleCleanupDuplicates}
         />
       ) : (
         /* Desktop View */
         <div className="space-y-4">
+          {/* Duplicate Menu Items Warning Banner */}
+          {totalDuplicateCopies > 0 && (
+            <div className="flex items-center justify-between p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-2xl text-xs text-amber-900 dark:text-amber-200 shadow-sm gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">⚠️</span>
+                <span>
+                  <strong>{totalDuplicateCopies} duplicate item(s) found</strong> in your menu across {duplicateItemGroups.length} dish names (
+                  {duplicateItemGroups
+                    .map((g) => g[0].name)
+                    .slice(0, 3)
+                    .join(", ")}
+                  {duplicateItemGroups.length > 3 ? "..." : ""}).
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCleanupDuplicates}
+                className="h-8 text-xs border-amber-400 bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold px-3 rounded-xl flex-shrink-0 shadow-xs"
+              >
+                Clean Up Duplicates
+              </Button>
+            </div>
+          )}
           {/* Desktop Search & Action Bar */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-gradient-to-r from-white/90 to-emerald-50/30 dark:from-gray-800/90 dark:to-emerald-900/20 p-4 rounded-2xl border border-emerald-100/50 dark:border-emerald-800/30 shadow-lg">
             <div className="flex items-center gap-3">

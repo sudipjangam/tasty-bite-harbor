@@ -56,6 +56,8 @@ interface MobileMenuViewProps {
   onToggleAvailability: (id: string, currentStatus: boolean) => void;
   onOpenAddModal: () => void;
   onOpenAIImport: () => void;
+  duplicateCount?: number;
+  onCleanupDuplicates?: () => void;
 }
 
 // Authentic Indian Restaurant Veg / Non-Veg Indicator
@@ -362,6 +364,8 @@ export const MobileMenuView = ({
   onToggleAvailability,
   onOpenAddModal,
   onOpenAIImport,
+  duplicateCount = 0,
+  onCleanupDuplicates,
 }: MobileMenuViewProps) => {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
@@ -371,6 +375,26 @@ export const MobileMenuView = ({
 
   return (
     <div className="space-y-3 pb-28">
+      {/* Duplicate items warning & cleanup banner */}
+      {duplicateCount > 0 && onCleanupDuplicates && (
+        <div className="flex items-center justify-between p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-2xl text-xs text-amber-900 dark:text-amber-200 gap-2 shadow-xs">
+          <div className="flex items-center gap-1.5 truncate">
+            <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <span className="truncate">
+              <strong>{duplicateCount} duplicate item(s) found</strong>
+            </span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onCleanupDuplicates}
+            className="h-7 text-[11px] border-amber-400 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-2.5 rounded-xl flex-shrink-0 shadow-xs"
+          >
+            Clean Up
+          </Button>
+        </div>
+      )}
+
       {/* Search Bar & AI Action Header */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
