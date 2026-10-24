@@ -441,7 +441,7 @@ class ThermalPrinterService {
         totalItems += printQty;
 
         return `
-          <div style="margin: 4px 0;">
+          <div style="margin: 2px 0;">
             <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:${is58 ? "12px" : "13px"}; font-weight:bold;">
               <span style="width: 24px; flex-shrink:0;">${printQty}x</span>
               <span style="flex:1; word-break:break-word;">${item.name}</span>
@@ -478,12 +478,12 @@ class ThermalPrinterService {
     margin: 0 auto !important;
     padding: 0 !important;
     color: #000;
-    line-height: 1.2;
+    line-height: 1.1;
   }
   .center { text-align: center; }
   .bold { font-weight: bold; }
-  .dash { border-top: 1px dashed #000; margin: 3px 0; }
-  .row { display: flex; justify-content: space-between; font-size: ${is58 ? "11px" : "12px"}; margin-bottom: 2px; }
+  .dash { border-top: 1px dashed #000; margin: 1px 0; }
+  .row { display: flex; justify-content: space-between; font-size: ${is58 ? "11px" : "12px"}; margin-bottom: 1px; }
   .title { font-size: ${is58 ? "15px" : "17px"}; font-weight: bold; margin: 0 !important; padding: 0 !important; line-height: 1.1; }
 </style>
 </head>
@@ -503,7 +503,7 @@ class ThermalPrinterService {
     <span>${timeStr}</span>
   </div>
   <div class="dash"></div>
-  <div style="margin: 2px 0;">
+  <div style="margin: 1px 0;">
     ${itemsHtml}
   </div>
   <div class="dash"></div>
@@ -511,8 +511,7 @@ class ThermalPrinterService {
     <span>Total Items:</span>
     <span>${totalItems}</span>
   </div>
-  ${data.isAddition ? '<div class="center bold" style="margin-top:2px; font-size:12px;">** ADDITION ONLY **</div>' : ""}
-  <div style="height: 2mm;"></div>
+  ${data.isAddition ? '<div class="center bold" style="margin-top:1px; font-size:12px;">** ADDITION ONLY **</div>' : ""}
 </body>
 </html>`;
 
@@ -577,7 +576,7 @@ class ThermalPrinterService {
     html, body { width: ${bodyWidthMm}mm; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact; }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { font-family: 'Courier New', Courier, monospace, Arial, sans-serif; width: ${bodyWidthMm}mm; margin: 0 auto !important; padding: 0 !important; color: #000; line-height: 1.18; }
+  html, body { font-family: 'Courier New', Courier, monospace, Arial, sans-serif; width: ${bodyWidthMm}mm; margin: 0 auto !important; padding: 0 !important; color: #000; line-height: 1.1; }
   .center { text-align: center; }
   .bold { font-weight: bold; }
   .dash { border-top: 1px dashed #000; margin: 2px 0; }
@@ -632,7 +631,7 @@ class ThermalPrinterService {
     <tr><td colspan="4"><div class="dash"></div></td></tr>
     <tr><td colspan="4" style="text-align:center;font-size:11px;font-weight:bold;padding-top:2px;">Thank You! Please visit again</td></tr>
   </table>
-  <div style="height: 2mm;"></div>
+
 </body>
 </html>`;
 
@@ -750,7 +749,7 @@ class ThermalPrinterService {
       receipt += this.BOLD_OFF;
     }
 
-    receipt += "\n\n"; // Feed paper
+    receipt += "\n"; // Feed paper
     receipt += this.CUT_PAPER;
 
     const bytes = this.encodeText(receipt);
