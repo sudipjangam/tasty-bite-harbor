@@ -28,7 +28,131 @@ interface SendEmailRequest {
   fromName?: string;
 }
 
-// Send email via Gmail SMTP
+// Send email via Resend API (PRIMARY - Hosted on Resend)
+async function sendEmailViaResend(
+  to: string,
+  subject: string,
+  htmlContent: string,
+  fromName: string
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+
+  if (!resendApiKey) {
+    return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  // Senders to try in order of priority:
+  const senders = [
+    `${fromName} <inquiry@swadeshisolutions.co.in>`,
+    `${fromName} <noreply@swadeshisolutions.co.in>`,
+    `${fromName} <onboarding@resend.dev>`,
+  ];
+
+  let lastError = "";
+  for (const sender of senders) {
+    try {
+      console.log(`Attempting Resend send to ${to} from ${sender}...`);
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: sender,
+          to: [to],
+          subject: subject,
+          html: htmlContent,
+        }),
+      });
+
+      const result = await response.json();
+      if (response.ok && result?.id) {
+        console.log(`✅ Email sent via Resend with ID: ${result.id} (Sender: ${sender})`);
+        return { success: true, id: result.id };
+      }
+
+      lastError = result?.message || JSON.stringify(result);
+      console.warn(`Resend sender [${sender}] returned:`, lastError);
+    } catch (err: any) {
+      lastError = err instanceof Error ? err.message : String(err);
+      console.warn(`Resend exception for sender [${sender}]:`, lastError);
+    }
+  }
+
+  return { success: false, error: lastError || "Failed to send email via Resend" };
+}
+
+// Send email via Titan SMTP (Fallback matching send-daily-report configuration)
+async function sendEmailViaTitan(
+  to: string,
+  subject: string,
+  htmlContent: string,
+  fromName: string
+): Promise<{ success: boolean; error?: string }> {
+  const smtpPass = Deno.env.get("TITAN_SMTP_PASS");
+  const smtpUser = "inquiry@swadeshisolutions.co.in";
+  const smtpHost = "smtp.titan.email";
+
+  if (!smtpPass) {
+    return { success: false, error: "TITAN_SMTP_PASS not configured" };
+  }
+
+  console.log(`📧 Attempting Titan SMTP fallback to ${to}...`);
+
+  const portConfigs = [
+    { port: 587, tls: false },
+    { port: 465, tls: true },
+  ];
+
+  let lastError: any;
+  for (const cfg of portConfigs) {
+    let client: any;
+    let sendSucceeded = false;
+    try {
+      client = new SMTPClient({
+        connection: {
+          hostname: smtpHost,
+          port: cfg.port,
+          tls: cfg.tls,
+          auth: { username: smtpUser, password: smtpPass },
+        },
+      });
+
+      await client.send({
+        from: `${fromName} <${smtpUser}>`,
+        to,
+        subject,
+        html: htmlContent.replace(/\r?\n/g, "\r\n"),
+      });
+
+      sendSucceeded = true;
+      console.log(`✅ Email sent to ${to} via Titan SMTP port ${cfg.port}`);
+    } catch (err) {
+      lastError = err;
+      console.warn(`Titan SMTP port ${cfg.port} failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      if (client) {
+        try {
+          await client.close();
+        } catch (closeErr) {
+          console.warn(`Titan SMTP client close warning:`, closeErr);
+        }
+      }
+    }
+
+    if (sendSucceeded) {
+      return { success: true };
+    }
+  }
+
+  return {
+    success: false,
+    error: lastError instanceof Error ? lastError.message : String(lastError),
+  };
+}
+
+// Send email via Gmail SMTP (Secondary Fallback)
 async function sendEmailViaGmailSMTP(
   to: string,
   subject: string,
@@ -44,8 +168,10 @@ async function sendEmailViaGmailSMTP(
     return { success: false, error: "SMTP credentials not configured" };
   }
 
+  let client: any;
+  let sendSucceeded = false;
   try {
-    const client = new SMTPClient({
+    client = new SMTPClient({
       connection: {
         hostname: smtpHost,
         port: smtpPort,
@@ -64,90 +190,84 @@ async function sendEmailViaGmailSMTP(
       html: htmlContent.replace(/\r?\n/g, '\r\n'),
     });
 
-    await client.close();
+    sendSucceeded = true;
     console.log("Email sent via Gmail SMTP");
-    return { success: true };
   } catch (error) {
     console.error("Gmail SMTP error:", error);
     return { success: false, error: error instanceof Error ? error.message : String(error) };
-  }
-}
-
-// Send email via Resend API
-async function sendEmailViaResend(
-  to: string,
-  subject: string,
-  htmlContent: string,
-  fromName: string
-): Promise<{ success: boolean; id?: string; error?: string }> {
-  const resendApiKey = Deno.env.get("RESEND_API_KEY");
-
-  if (!resendApiKey) {
-    return { success: false, error: "RESEND_API_KEY not configured" };
-  }
-
-  try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: `${fromName} <onboarding@resend.dev>`,
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      console.error("Resend API error:", result);
-      return { success: false, error: result.message || "Failed to send email" };
+  } finally {
+    if (client) {
+      try {
+        await client.close();
+      } catch (closeErr) {
+        console.warn("Gmail SMTP client close warning:", closeErr);
+      }
     }
-
-    console.log("Email sent via Resend:", result);
-    return { success: true, id: result.id };
-  } catch (error) {
-    console.error("Resend error:", error);
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
+
+  return { success: sendSucceeded };
 }
 
-// Unified send email function - tries SMTP first, then Resend
+// Unified send email function - tries Resend (PRIMARY) -> Titan SMTP -> Gmail SMTP
 async function sendEmailUnified(
   to: string,
   subject: string,
   htmlContent: string,
   fromName: string
 ): Promise<{ success: boolean; id?: string; error?: string; provider?: string }> {
-  const smtpUser = Deno.env.get("SMTP_USER") || Deno.env.get("GMAIL_USER");
-  const smtpPass = Deno.env.get("SMTP_PASS") || Deno.env.get("GMAIL_APP_PASSWORD");
-  
-  if (smtpUser && smtpPass) {
-    console.log("Attempting to send via Gmail SMTP...");
-    const smtpResult = await sendEmailViaGmailSMTP(to, subject, htmlContent, fromName);
-    if (smtpResult.success) {
-      return { ...smtpResult, provider: "gmail_smtp" };
-    }
-    console.warn("Gmail SMTP failed:", smtpResult.error);
-  }
-  
+  let attemptedProvider = false;
+  let lastAttemptError = "";
+
+  // 1. Resend API (Primary email hosting)
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   if (resendApiKey) {
-    console.log("Attempting to send via Resend...");
+    attemptedProvider = true;
+    console.log("Dispatching via Resend API...");
     const resendResult = await sendEmailViaResend(to, subject, htmlContent, fromName);
     if (resendResult.success) {
       return { ...resendResult, provider: "resend" };
     }
-    return resendResult;
+    lastAttemptError = resendResult.error || "Resend send failed";
+    console.warn("Resend attempt unsuccessful:", resendResult.error);
+  }
+
+  // 2. Titan SMTP (Matching send-daily-report backup)
+  const titanPass = Deno.env.get("TITAN_SMTP_PASS");
+  if (titanPass) {
+    attemptedProvider = true;
+    console.log("Attempting fallback via Titan SMTP...");
+    const titanResult = await sendEmailViaTitan(to, subject, htmlContent, fromName);
+    if (titanResult.success) {
+      return { ...titanResult, provider: "titan_smtp" };
+    }
+    lastAttemptError = titanResult.error || "Titan SMTP send failed";
+    console.warn("Titan SMTP attempt failed:", titanResult.error);
+  }
+
+  // 3. Gmail SMTP fallback
+  const smtpUser = Deno.env.get("SMTP_USER") || Deno.env.get("GMAIL_USER");
+  const smtpPass = Deno.env.get("SMTP_PASS") || Deno.env.get("GMAIL_APP_PASSWORD");
+  if (smtpUser && smtpPass) {
+    attemptedProvider = true;
+    console.log("Attempting fallback via Gmail SMTP...");
+    const smtpResult = await sendEmailViaGmailSMTP(to, subject, htmlContent, fromName);
+    if (smtpResult.success) {
+      return { ...smtpResult, provider: "gmail_smtp" };
+    }
+    lastAttemptError = smtpResult.error || "Gmail SMTP send failed";
+    console.warn("Gmail SMTP failed:", smtpResult.error);
+  }
+
+  if (attemptedProvider) {
+    return {
+      success: false,
+      error: lastAttemptError || "All configured email providers failed to send email."
+    };
   }
   
   return { 
     success: false, 
-    error: "No email provider configured. Set SMTP_USER/SMTP_PASS or RESEND_API_KEY." 
+    error: "No email provider configured. Please ensure RESEND_API_KEY is configured in Supabase." 
   };
 }
 
@@ -281,7 +401,7 @@ serve(async (req: Request) => {
       );
     }
 
-    let restaurantName = fromName || 'Our Restaurant';
+    let restaurantName = fromName || 'Swadeshi Solutions';
     
     if (restaurantId) {
       try {
@@ -347,7 +467,7 @@ serve(async (req: Request) => {
     
     return new Response(
       JSON.stringify({ 
-        success: false,
+        success: false, 
         error: "Internal server error",
         details: error instanceof Error ? error.message : String(error)
       }),

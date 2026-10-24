@@ -2187,12 +2187,13 @@ const RestaurantManagement = () => {
                         <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-end">
                           <SubscriberInvoiceModal
                             restaurant={{
+                              id: selectedRestaurant?.id,
                               name: selectedRestaurant?.name || 'Restaurant',
                               address: selectedRestaurant?.address || '',
                               city: selectedRestaurant?.location_type || '',
                               state: 'Maharashtra',
-                              phone: selectedRestaurant?.phone || '',
-                              email: selectedRestaurant?.email || '',
+                              phone: selectedRestaurant?.owner_phone || selectedRestaurant?.phone || '',
+                              email: selectedRestaurant?.owner_email || selectedRestaurant?.email || '',
                               gstin: selectedRestaurant?.gstin || '',
                               owner_name: selectedRestaurant?.owner_name || '',
                             }}
@@ -3009,6 +3010,7 @@ const RestaurantManagement = () => {
               if (!open) setInvoiceTargetRestaurant(null);
             }}
             restaurant={{
+              id: invoiceTargetRestaurant.id,
               name: invoiceTargetRestaurant.name,
               address: invoiceTargetRestaurant.address || "",
               city: invoiceTargetRestaurant.location_type || "",

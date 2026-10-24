@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 // ─── Swadeshi Solutions Logo (base64-encoded for email compatibility) ────────
 // We'll fetch it from the deployed site for reliable rendering
-const LOGO_URL = 'https://swadeshi-restaurant-managment.netlify.app/icons/swadeshi-icon-512.png';
+const LOGO_URL = 'https://swadeshisolutions.co.in/swadeshi-logo2.png';
 const SITE_URL = 'https://swadeshisolutions.co.in';
 const COMPANY_NAME = 'Swadeshi Solutions';
 const COMPANY_EMAIL = 'support@swadeshisolutions.com';
