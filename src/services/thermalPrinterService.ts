@@ -88,8 +88,23 @@ class ThermalPrinterService {
   private ESC = "\x1b";
   private GS = "\x1d";
   
-  // Initialization
-  private INIT = `${this.ESC}@`;
+  // Raw ESC/POS initialization bytes (heating parameters preserved as raw bytes)
+  // ESC @ = Reset (0x1b, 0x40)
+  // ESC 7 = Heating parameter (0x1b, 0x37, 0x07, 0xc8, 0x02: dots: 7, heat time: 200/2ms, interval: 2)
+  // DC2 # = Max print density 31 (0x12, 0x23, 0x1f)
+  private INIT_BYTES = new Uint8Array([
+    0x1b, 0x40,
+    0x1b, 0x37, 0x07, 0xc8, 0x02,
+    0x12, 0x23, 0x1f,
+  ]);
+  private INIT = "";
+
+  private prependInitBytes(textBytes: Uint8Array): Uint8Array {
+    const data = new Uint8Array(this.INIT_BYTES.length + textBytes.length);
+    data.set(this.INIT_BYTES, 0);
+    data.set(textBytes, this.INIT_BYTES.length);
+    return data;
+  }
   
   // Text format
   private ALIGN_LEFT = `${this.ESC}a0`;
@@ -752,7 +767,7 @@ class ThermalPrinterService {
     receipt += "\n"; // Feed paper
     receipt += this.CUT_PAPER;
 
-    const bytes = this.encodeText(receipt);
+    const bytes = this.prependInitBytes(this.encodeText(receipt));
     await this.writeBytes(bytes);
     return;
   }
@@ -892,8 +907,8 @@ class ThermalPrinterService {
       // Print QR
       const printCmd = new Uint8Array([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]);
 
-      // Write text so far, then binary QR commands, then continue
-      await this.writeBytes(this.encodeText(receipt));
+      // Write text so far prepended with raw initialization bytes, then binary QR commands, then continue
+      await this.writeBytes(this.prependInitBytes(this.encodeText(receipt)));
       receipt = ""; // reset receipt buffer — already sent above
       await this.writeBytes(sizeCmd);
       await this.writeBytes(ecCmd);
@@ -909,7 +924,11 @@ class ThermalPrinterService {
 
     receipt += this.CUT_PAPER;
 
-    await this.writeBytes(this.encodeText(receipt));
+    if (data.upiId) {
+      await this.writeBytes(this.encodeText(receipt));
+    } else {
+      await this.writeBytes(this.prependInitBytes(this.encodeText(receipt)));
+    }
     return;
   }
 

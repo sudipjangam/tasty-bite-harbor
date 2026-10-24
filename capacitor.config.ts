@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.swadeshisolutions.app',
-  appName: 'Swadeshi Solutions',
+  appName: 'SwadeshiPOS',
   webDir: 'dist',
   plugins: {
     SplashScreen: {
