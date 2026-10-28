@@ -16,22 +16,21 @@ public class MainApplication extends Application {
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             Log.e(TAG, "Caught uncaught exception on thread [" + thread.getName() + "]: " + throwable.getMessage(), throwable);
 
-            if (throwable instanceof NullPointerException) {
-                String stack = Log.getStackTraceString(throwable);
-                // Intercept known non-fatal null pointer exceptions from plugins, bluetooth, webview, or notification lifecycle
-                if (stack.contains("megster") ||
-                    stack.contains("bluetooth") ||
-                    stack.contains("BluetoothSerial") ||
-                    stack.contains("pushnotifications") ||
-                    stack.contains("NotificationChannel") ||
-                    stack.contains("NotificationManager") ||
-                    stack.contains("android.webkit") ||
-                    stack.contains("org.chromium") ||
-                    stack.contains("Miui") ||
-                    stack.contains("android.view.ViewGroup")) {
-                    Log.w(TAG, "Safely suppressed non-critical NullPointerException to prevent app crash loop");
-                    return;
-                }
+            String stack = Log.getStackTraceString(throwable);
+            // Intercept known non-fatal exceptions from background plugins, bluetooth, webview, or notification lifecycle
+            if (stack.contains("megster") ||
+                stack.contains("bluetooth") ||
+                stack.contains("BluetoothSerial") ||
+                stack.contains("pushnotifications") ||
+                stack.contains("localnotifications") ||
+                stack.contains("NotificationChannel") ||
+                stack.contains("NotificationManager") ||
+                stack.contains("android.webkit") ||
+                stack.contains("org.chromium") ||
+                stack.contains("Miui") ||
+                stack.contains("android.view.ViewGroup")) {
+                Log.w(TAG, "Safely suppressed plugin/system exception to prevent app crash loop: " + throwable.getClass().getName());
+                return;
             }
 
             // For other fatal errors, delegate to default handler

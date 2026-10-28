@@ -74,7 +74,7 @@ const NotificationListener: React.FC = () => {
                     {
                       title: title,
                       body: message,
-                      id: new Date().getTime(),
+                      id: Math.floor(Date.now() % 2147483647),
                       schedule: { at: new Date(Date.now() + 100) }, // Trigger immediately
                       sound: null, // Sound is already played by audioRef
                       attachments: undefined,

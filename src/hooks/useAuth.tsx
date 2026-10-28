@@ -215,6 +215,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error("Error fetching user profile:", error);
       // BUG-17 fix: surface error so UI can show retry button
       setAuthError("Failed to load profile. Please check your connection.");
+      setLoading(false);
     }
   };
 

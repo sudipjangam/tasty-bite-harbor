@@ -78,7 +78,7 @@ const OwnerNotificationListener: React.FC = () => {
                     {
                       title: n.title,
                       body: n.message,
-                      id: new Date().getTime(),
+                      id: Math.floor(Date.now() % 2147483647),
                       schedule: { at: new Date(Date.now() + 100) },
                       sound: null,
                       attachments: undefined,

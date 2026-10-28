@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle } from "lucide-react";
@@ -14,9 +14,17 @@ const AuthCallback = () => {
   const [status, setStatus] = useState<"processing" | "success" | "error">(
     "processing"
   );
+  const statusRef = useRef<"processing" | "success" | "error">("processing");
   const [error, setError] = useState<string | null>(null);
 
+  const updateStatus = (newStatus: "processing" | "success" | "error") => {
+    statusRef.current = newStatus;
+    setStatus(newStatus);
+  };
+
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     const handleCallback = async () => {
       try {
         // Get the session from URL hash (Supabase stores tokens there after OAuth)
@@ -25,12 +33,12 @@ const AuthCallback = () => {
         if (error) {
           console.error("Auth callback error:", error);
           setError(error.message);
-          setStatus("error");
+          updateStatus("error");
           return;
         }
 
         if (data?.session) {
-          setStatus("success");
+          updateStatus("success");
           // Small delay to show success state
           setTimeout(() => {
             navigate("/dashboard", { replace: true });
@@ -41,7 +49,8 @@ const AuthCallback = () => {
             data: { subscription },
           } = supabase.auth.onAuthStateChange((event, session) => {
             if (event === "SIGNED_IN" && session) {
-              setStatus("success");
+              if (timeoutId) clearTimeout(timeoutId);
+              updateStatus("success");
               setTimeout(() => {
                 navigate("/dashboard", { replace: true });
               }, 1000);
@@ -49,23 +58,27 @@ const AuthCallback = () => {
             }
           });
 
-          // Timeout after 10 seconds
-          setTimeout(() => {
-            if (status === "processing") {
+          // Timeout after 12 seconds
+          timeoutId = setTimeout(() => {
+            if (statusRef.current === "processing") {
               setError("Authentication timed out. Please try again.");
-              setStatus("error");
+              updateStatus("error");
               subscription.unsubscribe();
             }
-          }, 10000);
+          }, 12000);
         }
       } catch (err: any) {
         console.error("Auth callback exception:", err);
         setError(err.message || "An unexpected error occurred");
-        setStatus("error");
+        updateStatus("error");
       }
     };
 
     handleCallback();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [navigate]);
 
   return (

@@ -22,6 +22,15 @@
 # ── Bluetooth Serial Plugin (Cordova) ─────────────────────────────────────────
 -keep class com.megster.cordova.** { *; }
 
+# ── Biometric Auth Plugin ─────────────────────────────────────────────────────
+-keep class com.aparajita.capacitor.biometricauth.** { *; }
+-keep class com.aparajita.** { *; }
+-keep class androidx.biometric.** { *; }
+
+# ── Local & Push Notifications (Capacitor 7/8 Kotlin) ────────────────────────
+-keep class com.capacitorjs.plugins.localnotifications.** { *; }
+-keep class com.capacitorjs.plugins.pushnotifications.** { *; }
+
 # ── Debugging stack traces (uncomment for crash reporting) ────────────────────
 # -keepattributes SourceFile,LineNumberTable
 # -renamesourcefileattribute SourceFile

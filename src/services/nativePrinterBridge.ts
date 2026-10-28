@@ -112,8 +112,7 @@ async function verifyConnectionState() {
       if (!isActuallyConnected) {
         _connected = false;
         _notify();
-        // Try to recover it automatically
-        nativePrinterBridge.tryAutoReconnect();
+
       }
     } catch {
       // ignore
@@ -123,7 +122,7 @@ async function verifyConnectionState() {
 
 if (Capacitor.isNativePlatform()) {
   // Check shortly after load
-  setTimeout(verifyConnectionState, 2000);
+  setTimeout(verifyConnectionState, 5000);
   
   // Check every time app comes to foreground
   App.addListener("appStateChange", ({ isActive }) => {

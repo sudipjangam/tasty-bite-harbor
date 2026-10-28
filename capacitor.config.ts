@@ -4,6 +4,9 @@ const config: CapacitorConfig = {
   appId: 'com.swadeshisolutions.app',
   appName: 'SwadeshiPOS',
   webDir: 'dist',
+  server: {
+    androidScheme: 'https',
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
@@ -28,4 +31,3 @@ const config: CapacitorConfig = {
 };
 
 export default config;
-
