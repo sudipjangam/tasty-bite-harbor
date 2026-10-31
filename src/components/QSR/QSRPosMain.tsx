@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Capacitor } from "@capacitor/core";
+import { App } from "@capacitor/app";
 import { thermalPrinterService } from "@/services/thermalPrinterService";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useQSRMenuItems, QSRMenuItem } from "@/hooks/useQSRMenuItems";
@@ -238,7 +239,7 @@ export const QSRPosMain: React.FC = () => {
     ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email
     : "Staff";
 
-  // Auto-reconnect printer on page load
+  // Auto-reconnect printer on page load and foreground resume
   useEffect(() => {
     // Listen for connection state changes
     const unsubscribe = thermalPrinterService.onConnectionChange((connected) => {
@@ -246,24 +247,39 @@ export const QSRPosMain: React.FC = () => {
       setPrinterName(connected ? thermalPrinterService.getDeviceName() : null);
     });
 
-    // Try auto-reconnect if not already connected
-    if (!thermalPrinterService.isConnected()) {
-      setIsReconnecting(true);
-      thermalPrinterService.tryAutoReconnect()
-        .then((reconnected) => {
-          if (reconnected) {
-            toast({
-              title: "Printer Reconnected",
-              description: `Auto-connected to ${thermalPrinterService.getDeviceName() || "printer"}`,
-            });
-          }
-        })
-        .catch(() => {})
-        .finally(() => setIsReconnecting(false));
+    // Try auto-reconnect to saved printer
+    setIsReconnecting(true);
+    thermalPrinterService.tryAutoReconnect()
+      .then((reconnected) => {
+        if (reconnected) {
+          toast({
+            title: "Printer Connected",
+            description: `Auto-connected to ${thermalPrinterService.getDeviceName() || "printer"}`,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsReconnecting(false));
+
+    // Listen to app foreground resume to update status
+    let appStateHandle: any = null;
+    if (Capacitor.isNativePlatform()) {
+      App.addListener("appStateChange", ({ isActive }) => {
+        if (isActive) {
+          refreshPrinterStatus();
+        }
+      }).then(handle => {
+        appStateHandle = handle;
+      }).catch(() => {});
     }
 
-    return unsubscribe;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      unsubscribe();
+      if (appStateHandle && typeof appStateHandle.remove === "function") {
+        appStateHandle.remove();
+      }
+    };
+  }, [refreshPrinterStatus]);
 
   // Query for today's revenue
   const queryClient = useQueryClient();

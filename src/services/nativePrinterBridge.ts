@@ -52,6 +52,7 @@ const KEYS = {
   LAN_PORT: "native_printer_lan_port",
   CONNECTED: "native_printer_connected",
   PAPER_SIZE: "printer_paper_size",
+  MANUAL_DISCONNECT: "printer_manual_disconnect",
 };
 
 // ─── Internal state ───────────────────────────────────────────────────────────
@@ -62,7 +63,9 @@ let _connectionType: PrinterConnectionType =
   (localStorage.getItem(KEYS.CONNECTION_TYPE) as PrinterConnectionType | null) ?? "none";
 let _deviceName: string | null = localStorage.getItem(KEYS.BT_NAME);
 let _address: string | null = localStorage.getItem(KEYS.BT_ADDRESS);
-let _connected = localStorage.getItem(KEYS.CONNECTED) === "1";
+// On native app launch, socket is closed until verified or auto-reconnected
+let _connected = false;
+let _reconnectPromise: Promise<boolean> | null = null;
 
 const _listeners: Array<(status: NativePrinterStatus) => void> = [];
 
@@ -92,42 +95,69 @@ function _notify() {
   _listeners.forEach((l) => l(status));
 }
 
-// ─── Active Connection Verification ──────────────────────────────────────────
-async function verifyConnectionState() {
-  if (!_connected || !Capacitor.isNativePlatform()) return;
-  
-  if (_connectionType === "bluetooth") {
-    try {
-      const isActuallyConnected = await new Promise<boolean>((resolve) => {
-        try {
-          _getBT().isConnected(
-            () => resolve(true),
-            () => resolve(false)
-          );
-        } catch {
-          resolve(false);
-        }
-      });
-      
-      if (!isActuallyConnected) {
-        _connected = false;
-        _notify();
+// ─── Active Connection Verification & Auto-Reconnect ─────────────────────────
+async function verifyOrAutoReconnect(force = false) {
+  const isNat = Capacitor.isNativePlatform() || typeof (window as any)?.bluetoothSerial !== "undefined";
+  if (!isNat) return;
 
+  const userManuallyDisconnected = localStorage.getItem(KEYS.MANUAL_DISCONNECT) === "1";
+  if (!force && userManuallyDisconnected) {
+    if (_connected) {
+      _connected = false;
+      _notify();
+    }
+    return;
+  }
+
+  const savedAddress = localStorage.getItem(KEYS.BT_ADDRESS);
+  const type = localStorage.getItem(KEYS.CONNECTION_TYPE);
+
+  // If saved printer is Bluetooth, check physical socket or auto-reconnect
+  if (type === "bluetooth" || savedAddress) {
+    try {
+      const bt = (window as any).bluetoothSerial;
+      if (bt && typeof bt.isConnected === "function") {
+        const isPhysical = await new Promise<boolean>((resolve) => {
+          try {
+            bt.isConnected(
+              () => resolve(true),
+              () => resolve(false)
+            );
+          } catch {
+            resolve(false);
+          }
+        });
+
+        if (isPhysical) {
+          if (!_connected) {
+            _connected = true;
+            _connectionType = "bluetooth";
+            _address = savedAddress;
+            _deviceName = localStorage.getItem(KEYS.BT_NAME) ?? savedAddress;
+            _notify();
+          }
+          return;
+        }
       }
     } catch {
       // ignore
     }
+
+    // Physical socket is not active -> auto-reconnect to saved printer
+    await nativePrinterBridge.tryAutoReconnect(force);
   }
 }
 
-if (Capacitor.isNativePlatform()) {
-  // Check shortly after load
-  setTimeout(verifyConnectionState, 5000);
-  
-  // Check every time app comes to foreground
+if (Capacitor.isNativePlatform() || typeof (window as any)?.bluetoothSerial !== "undefined") {
+  // Auto-connect shortly after initial app launch once plugins are initialized
+  setTimeout(() => {
+    verifyOrAutoReconnect();
+  }, 800);
+
+  // Auto-connect every time app comes back to foreground from recent apps or lock screen
   App.addListener("appStateChange", ({ isActive }) => {
     if (isActive) {
-      verifyConnectionState();
+      verifyOrAutoReconnect();
     }
   });
 }
@@ -135,7 +165,7 @@ if (Capacitor.isNativePlatform()) {
 // ─── Helper: get window.bluetoothSerial ──────────────────────────────────────
 
 function _getBT(): any {
-  if (!Capacitor.isNativePlatform()) {
+  if (!Capacitor.isNativePlatform() && typeof (window as any)?.bluetoothSerial === "undefined") {
     throw new Error("Bluetooth printing only available on Android app");
   }
   const bt = (window as any).bluetoothSerial;
@@ -355,6 +385,7 @@ export const nativePrinterBridge = {
       localStorage.setItem(KEYS.CONNECTION_TYPE, "bluetooth");
       localStorage.setItem(KEYS.BT_ADDRESS, address);
       if (name) localStorage.setItem(KEYS.BT_NAME, name);
+      localStorage.removeItem(KEYS.MANUAL_DISCONNECT);
       localStorage.setItem(KEYS.CONNECTED, "1");
       _notify();
       return true;
@@ -503,47 +534,87 @@ export const nativePrinterBridge = {
     _connectionType = "none";
     _address = null;
     _deviceName = null;
+    localStorage.setItem(KEYS.MANUAL_DISCONNECT, "1");
     localStorage.removeItem(KEYS.CONNECTED);
     _notify();
   },
 
   // ── Auto-reconnect ────────────────────────────────────────────────────────
 
-  async tryAutoReconnect(): Promise<boolean> {
-    const type = localStorage.getItem(KEYS.CONNECTION_TYPE) as PrinterConnectionType | null;
-
-    // ── LAN auto-reconnect: just ping to verify reachability ─────────────────
-    if (type === "lan") {
-      const ip   = localStorage.getItem(KEYS.LAN_IP);
-      const port = Number(localStorage.getItem(KEYS.LAN_PORT) ?? 9100);
-      if (!ip || !Capacitor.isNativePlatform()) return false;
-      try {
-        await TcpPrinter.testConnection({ ip, port });
-        _connectionType = "lan";
-        _address = ip;
-        _deviceName = `WiFi Printer (${ip})`;
-        _connected = true;
-        localStorage.setItem(KEYS.CONNECTED, "1");
-        _notify();
-        return true;
-      } catch {
-        _connected = false;
-        localStorage.removeItem(KEYS.CONNECTED);
-        _notify();
-        return false;
-      }
-    }
-
-    // ── Bluetooth auto-reconnect ──────────────────────────────────────────────
-    if (type !== "bluetooth") return false;
-    const address = localStorage.getItem(KEYS.BT_ADDRESS);
-    const name = localStorage.getItem(KEYS.BT_NAME) ?? undefined;
-    if (!address) return false;
-    try {
-      return await nativePrinterBridge.connectBluetooth(address, name);
-    } catch {
+  async tryAutoReconnect(force = false): Promise<boolean> {
+    if (!force && localStorage.getItem(KEYS.MANUAL_DISCONNECT) === "1") {
       return false;
     }
+    if (_reconnectPromise) {
+      return _reconnectPromise;
+    }
+
+    _reconnectPromise = (async () => {
+      try {
+        const type = localStorage.getItem(KEYS.CONNECTION_TYPE) as PrinterConnectionType | null;
+
+        // ── LAN auto-reconnect: just ping to verify reachability ─────────────
+        if (type === "lan") {
+          const ip = localStorage.getItem(KEYS.LAN_IP);
+          const port = Number(localStorage.getItem(KEYS.LAN_PORT) ?? 9100);
+          if (!ip || !Capacitor.isNativePlatform()) return false;
+          try {
+            await TcpPrinter.testConnection({ ip, port });
+            _connectionType = "lan";
+            _address = ip;
+            _deviceName = `WiFi Printer (${ip})`;
+            _connected = true;
+            localStorage.setItem(KEYS.CONNECTED, "1");
+            _notify();
+            return true;
+          } catch {
+            _connected = false;
+            localStorage.removeItem(KEYS.CONNECTED);
+            _notify();
+            return false;
+          }
+        }
+
+        // ── Bluetooth auto-reconnect ──────────────────────────────────────────
+        const address = localStorage.getItem(KEYS.BT_ADDRESS);
+        const name = localStorage.getItem(KEYS.BT_NAME) ?? undefined;
+        if (!address) return false;
+
+        // Verify if physical socket is already active before reconnecting
+        const bt = (window as any).bluetoothSerial;
+        if (bt && typeof bt.isConnected === "function") {
+          const physicallyConnected = await new Promise<boolean>((resolve) => {
+            try {
+              bt.isConnected(
+                () => resolve(true),
+                () => resolve(false)
+              );
+            } catch {
+              resolve(false);
+            }
+          });
+
+          if (physicallyConnected) {
+            _connected = true;
+            _connectionType = "bluetooth";
+            _address = address;
+            _deviceName = name ?? address;
+            localStorage.setItem(KEYS.CONNECTED, "1");
+            _notify();
+            return true;
+          }
+        }
+
+        return await nativePrinterBridge.connectBluetooth(address, name);
+      } catch (err) {
+        console.warn("[NativePrinter] Auto-reconnect failed:", err);
+        return false;
+      } finally {
+        _reconnectPromise = null;
+      }
+    })();
+
+    return _reconnectPromise;
   },
 };
 

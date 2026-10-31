@@ -33,6 +33,10 @@ type BluetoothNavigator = Navigator & {
 };
 import { nativePrinterBridge, getPaperWidth, getPaperSize } from "./nativePrinterBridge";
 
+const isNativeEnv = (): boolean => {
+  return Capacitor.isNativePlatform() || typeof (window as any)?.bluetoothSerial !== "undefined";
+};
+
 export interface KOTItem {
   name: string;
   quantity: number;
@@ -155,7 +159,7 @@ class ThermalPrinterService {
   }
 
   isConnected(): boolean {
-    if (Capacitor.isNativePlatform()) {
+    if (isNativeEnv()) {
       return nativePrinterBridge.isConnected();
     }
     return this.device !== null && (this.server?.connected === true || this.device.gatt?.connected === true);
@@ -163,7 +167,7 @@ class ThermalPrinterService {
 
   /** Get connected device name */
   getDeviceName(): string | null {
-    if (Capacitor.isNativePlatform()) {
+    if (isNativeEnv()) {
       return nativePrinterBridge.getStatus().deviceName ?? null;
     }
     return this.device?.name || null;
@@ -171,7 +175,7 @@ class ThermalPrinterService {
 
   async connect(preferredAddress?: string, preferredName?: string): Promise<boolean> {
     // ── Native Android path: route via native Bluetooth Serial plugin ─────────
-    if (Capacitor.isNativePlatform()) {
+    if (isNativeEnv()) {
       try {
         if (preferredAddress) {
           const ok = await nativePrinterBridge.connectBluetooth(preferredAddress, preferredName);
@@ -258,9 +262,9 @@ class ThermalPrinterService {
    * Uses (navigator as BluetoothNavigator).bluetooth.getDevices() — no user gesture needed.
    * Returns true if reconnected, false if no saved device or reconnect failed.
    */
-  async tryAutoReconnect(): Promise<boolean> {
-    if (Capacitor.isNativePlatform()) {
-      return nativePrinterBridge.tryAutoReconnect();
+  async tryAutoReconnect(force = false): Promise<boolean> {
+    if (isNativeEnv()) {
+      return nativePrinterBridge.tryAutoReconnect(force);
     }
 
     try {
@@ -410,7 +414,7 @@ class ThermalPrinterService {
 
 
   async disconnect() {
-    if (Capacitor.isNativePlatform()) {
+    if (isNativeEnv()) {
       await nativePrinterBridge.disconnect();
       this.notifyListeners(false);
       return;
@@ -439,7 +443,7 @@ class ThermalPrinterService {
 
   private async writeBytes(data: Uint8Array) {
     // ── Native Android path: route via Bluetooth Serial plugin ───────────────
-    if (Capacitor.isNativePlatform()) {
+    if (isNativeEnv()) {
       await nativePrinterBridge.sendESCPOS(data);
       return;
     }
@@ -727,8 +731,9 @@ class ThermalPrinterService {
   }
 
   async printKOT(data: KOTData, options?: { forceBrowser?: boolean }) {
-    const nativeConnected = Capacitor.isNativePlatform() && nativePrinterBridge.isConnected();
-    const webConnected = !Capacitor.isNativePlatform() && this.isConnected();
+    const isNat = isNativeEnv();
+    const nativeConnected = isNat && nativePrinterBridge.isConnected();
+    const webConnected = !isNat && this.isConnected();
 
     // Direct Bluetooth/Native thermal print if connected
     if (nativeConnected || webConnected) {
@@ -827,8 +832,9 @@ class ThermalPrinterService {
 }
 
   async printReceipt(data: ReceiptData, options?: { forceBrowser?: boolean }) {
-    const nativeConnected = Capacitor.isNativePlatform() && nativePrinterBridge.isConnected();
-    const webConnected = !Capacitor.isNativePlatform() && this.isConnected();
+    const isNat = isNativeEnv();
+    const nativeConnected = isNat && nativePrinterBridge.isConnected();
+    const webConnected = !isNat && this.isConnected();
 
     // Direct Bluetooth/Native thermal print if connected
     if (nativeConnected || webConnected) {

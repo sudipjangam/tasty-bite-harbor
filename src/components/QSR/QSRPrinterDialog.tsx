@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Printer, PrinterCheck, RefreshCw, Bluetooth, FileText, Receipt, Check, AlertCircle, Usb, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { thermalPrinterService } from "@/services/thermalPrinterService";
-import { getPaperSize, setPaperSize, nativePrinterBridge } from "@/services/nativePrinterBridge";
+import { getPaperSize, setPaperSize, nativePrinterBridge, BluetoothDevice } from "@/services/nativePrinterBridge";
 import { Capacitor } from "@capacitor/core";
 import { downloadKioskShortcut } from "@/utils/kioskShortcut";
 
@@ -27,12 +27,50 @@ export const QSRPrinterDialog: React.FC<QSRPrinterDialogProps> = ({
   const [deviceName, setDeviceName] = useState<string | null>(thermalPrinterService.getDeviceName());
   const [isConnecting, setIsConnecting] = useState(false);
   const [isTestPrinting, setIsTestPrinting] = useState(false);
+  const isNative = Capacitor.isNativePlatform() || typeof (window as any)?.bluetoothSerial !== "undefined";
+  const [pairedDevices, setPairedDevices] = useState<BluetoothDevice[]>([]);
+  const [selectedDeviceAddress, setSelectedDeviceAddress] = useState<string>("");
+  const [isLoadingDevices, setIsLoadingDevices] = useState(false);
+
+  const loadPairedDevices = async () => {
+    if (!Capacitor.isNativePlatform() && typeof (window as any)?.bluetoothSerial === "undefined") return;
+    setIsLoadingDevices(true);
+    try {
+      const devices = await nativePrinterBridge.discoverBluetooth();
+      setPairedDevices(devices);
+      const savedAddr = localStorage.getItem("native_printer_bt_address");
+      if (savedAddr && devices.some(d => d.address === savedAddr)) {
+        setSelectedDeviceAddress(savedAddr);
+      } else if (devices.length > 0) {
+        const preferred = devices.find(d => {
+          const n = d.name.toLowerCase();
+          return n.startsWith("kpc") || n.startsWith("cn8") || n.startsWith("pos") || n.startsWith("mpt") || n.includes("print");
+        }) || devices[0];
+        setSelectedDeviceAddress(preferred.address);
+      }
+    } catch (e) {
+      console.warn("Failed to discover Bluetooth devices:", e);
+    } finally {
+      setIsLoadingDevices(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
       setPaperSizeState(getPaperSize());
       setIsConnected(thermalPrinterService.isConnected());
       setDeviceName(thermalPrinterService.getDeviceName());
+      if (Capacitor.isNativePlatform() || typeof (window as any)?.bluetoothSerial !== "undefined") {
+        loadPairedDevices();
+        if (!thermalPrinterService.isConnected() && localStorage.getItem("native_printer_bt_address")) {
+          thermalPrinterService.tryAutoReconnect().then((ok) => {
+            if (ok) {
+              setIsConnected(true);
+              setDeviceName(thermalPrinterService.getDeviceName());
+            }
+          });
+        }
+      }
     }
   }, [isOpen]);
 
@@ -55,7 +93,8 @@ export const QSRPrinterDialog: React.FC<QSRPrinterDialogProps> = ({
         setDeviceName(null);
         toast({ title: "Printer Disconnected" });
       } else {
-        await thermalPrinterService.connect();
+        const chosenDev = pairedDevices.find(d => d.address === selectedDeviceAddress);
+        await thermalPrinterService.connect(chosenDev?.address, chosenDev?.name);
         setIsConnected(thermalPrinterService.isConnected());
         setDeviceName(thermalPrinterService.getDeviceName());
         toast({
@@ -189,6 +228,44 @@ export const QSRPrinterDialog: React.FC<QSRPrinterDialogProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Native Paired Device Picker */}
+          {isNative && !isConnected && (
+            <div className="space-y-1.5 p-3 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] font-semibold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                  <Bluetooth className="w-3.5 h-3.5 text-indigo-600" />
+                  Select Paired Bluetooth Printer
+                </Label>
+                <button
+                  type="button"
+                  onClick={loadPairedDevices}
+                  disabled={isLoadingDevices}
+                  className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isLoadingDevices ? "animate-spin" : ""}`} />
+                  Refresh
+                </button>
+              </div>
+              {pairedDevices.length > 0 ? (
+                <select
+                  value={selectedDeviceAddress}
+                  onChange={(e) => setSelectedDeviceAddress(e.target.value)}
+                  className="w-full text-xs rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 py-2 px-2.5 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
+                >
+                  {pairedDevices.map((d) => (
+                    <option key={d.address} value={d.address}>
+                      {d.name || "Unknown"} ({d.address})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                  No paired devices found. Pair your printer in Android Settings first.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Connection Status & Toggle */}
           <div className="p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
