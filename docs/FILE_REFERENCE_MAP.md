@@ -52,6 +52,7 @@ Routes.tsx                    ← Top-level router (public vs auth)
 | `/delete-account` | `pages/DeleteAccount.tsx` | Account deletion request page |
 | `/enroll/:slug` | `pages/PublicEnrollmentPage.tsx` | Public loyalty enrollment |
 | `/order/:encodedData` | `pages/CustomerOrder.tsx` | Customer-facing QR order page |
+| `/qr/:restaurantSlug/:tableIdentifier` | `pages/CustomerOrder.tsx` | Public Petpooja-style table QR dine-in page |
 | `/bill/:encodedData` | `pages/PublicBillPage.tsx` | Public bill view (shared link) |
 | `/truck/:slug` | `pages/PublicTruckPage.tsx` | Food truck public page |
 | `/invoice/*` | `pages/InvoicePage.tsx` | Public invoice viewer (lazy) |

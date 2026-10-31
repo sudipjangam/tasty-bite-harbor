@@ -110,6 +110,10 @@
 | MenuBrowser.tsx | Component |
 | MenuItemCard.tsx | Card UI component |
 | OrderTracker.tsx | Component |
+| WelcomeScreen.tsx | Component |
+| TableServiceActions.tsx | Component |
+| ItemCustomizationSheet.tsx | Sheet UI component |
+| RunningBillModal.tsx | Dialog / Modal UI |
 
 ### components/Customers\n
 | File | Type/Purpose |

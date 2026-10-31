@@ -141,11 +141,19 @@ serve(async (req) => {
     }
     
     const baseUrl = Deno.env.get('APP_URL') || origin;
-    const dataBytes = new TextEncoder().encode(qrCodeData);
-    const base64String = encode(dataBytes);
-    const qrUrl = `${baseUrl}/order/${base64String}`;
+    
+    // Generate clean human-readable Petpooja-style URL
+    const { data: restData } = await supabaseClient
+      .from('restaurants')
+      .select('slug')
+      .eq('id', restaurantId)
+      .maybeSingle();
 
-    console.log(`🔗 Generated QR URL: ${qrUrl}`);
+    const restaurantIdentifier = restData?.slug || restaurantId;
+    const cleanQrUrl = `${baseUrl}/qr/${encodeURIComponent(restaurantIdentifier)}/${encodeURIComponent(entityName)}`;
+    const qrUrl = cleanQrUrl;
+
+    console.log(`🔗 Generated Clean QR URL: ${qrUrl}`);
 
     // Note: QR code image will be generated on the frontend using the qrUrl
     // Server-side QR generation doesn't work in Deno edge runtime (no canvas)

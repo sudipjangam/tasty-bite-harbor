@@ -17,6 +17,7 @@ interface OrderItem {
   quantity: number;
   price: number;
   modifiers?: string[];
+  specialInstructions?: string;
 }
 
 interface SubmitOrderRequest {
@@ -26,6 +27,7 @@ interface SubmitOrderRequest {
   customerName: string;
   customerPhone: string;
   specialInstructions?: string;
+  sessionId?: string;
   items: OrderItem[];
   totalAmount: number;
 }
@@ -59,6 +61,7 @@ serve(async (req) => {
       customerName,
       customerPhone,
       specialInstructions,
+      sessionId,
       items,
       totalAmount,
     } = requestBody;
@@ -149,30 +152,199 @@ serve(async (req) => {
       }
     }
 
-    // Server-side total calculation using DB prices (ignore client-provided prices)
+    // Helper to calculate validated modifier surcharges (exact values & deduplicated)
+    const calculateModifierExtra = (basePrice: number, modifiers?: string[]) => {
+      if (!modifiers || !Array.isArray(modifiers) || modifiers.length === 0) return 0;
+
+      // Deduplicate to ensure each unique modifier contributes at most once
+      const uniqueModifiers = new Set(
+        modifiers
+          .filter((m): m is string => typeof m === 'string')
+          .map((m) => m.trim())
+      );
+
+      let extra = 0;
+      for (const mod of uniqueModifiers) {
+        switch (mod) {
+          case "Portion: Full / Large":
+            extra += Math.round(basePrice * 0.4);
+            break;
+          case "+ Extra Cheese":
+            extra += 40;
+            break;
+          case "+ Extra Garlic Dip":
+            extra += 25;
+            break;
+          case "+ Peri Peri Seasoning":
+            extra += 20;
+            break;
+          case "+ Extra Butter":
+            extra += 20;
+            break;
+          default:
+            // Non-billable modifiers (e.g. "Spice: Mild") or combined/unsupported strings contribute 0
+            break;
+        }
+      }
+      return extra;
+    };
+
+    // Server-side total calculation using DB prices + validated modifier extras (never trust client price)
     const calculatedTotal = items.reduce((sum, item) => {
       const menuItem = menuItems.find((mi) => mi.id === item.menuItemId)!;
-      return sum + (menuItem.price * item.quantity);
+      const modExtra = calculateModifierExtra(menuItem.price, item.modifiers);
+      return sum + ((menuItem.price + modExtra) * item.quantity);
     }, 0);
 
-    // Format items for display (matching POS format) — use DB price
+    // Format items for display (matching POS format)
     const formattedItems = items.map((item) => {
       const menuItem = menuItems.find((mi) => mi.id === item.menuItemId)!;
-      return `${item.quantity}x ${menuItem.name} @${menuItem.price}`;
+      const modExtra = calculateModifierExtra(menuItem.price, item.modifiers);
+      const unitPrice = menuItem.price + modExtra;
+      const modText = item.modifiers && item.modifiers.length > 0 ? ` (${item.modifiers.join(', ')})` : '';
+      return `${item.quantity}x ${menuItem.name}${modText} @${unitPrice}`;
     });
 
-    // Keep detailed items for kitchen order — use DB price
+    // Keep detailed items for kitchen order
     const orderItems = items.map((item) => {
       const menuItem = menuItems.find((mi) => mi.id === item.menuItemId)!;
+      const modExtra = calculateModifierExtra(menuItem.price, item.modifiers);
       return {
         id: item.menuItemId,
         name: menuItem.name,
         quantity: item.quantity,
-        price: menuItem.price,  // Server-authoritative price, NOT client-provided
+        price: menuItem.price + modExtra,
         modifiers: item.modifiers || [],
+        specialInstructions: item.specialInstructions || '',
       };
     });
 
+
+    // If sessionId provided, validate and ensure customer_order_session exists without overwriting
+    let validSessionId: string | null = null;
+    if (sessionId) {
+      // Validate UUID format
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId);
+      if (!isUuid) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid sessionId format: must be a valid UUID' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      // Check if session already exists
+      const { data: existingSession, error: sessionFetchErr } = await supabaseClient
+        .from('customer_order_sessions')
+        .select('id, restaurant_id, entity_type, entity_id, payment_status')
+        .eq('id', sessionId)
+        .maybeSingle();
+
+      if (sessionFetchErr) {
+        console.error('Error verifying customer session:', sessionFetchErr);
+        return new Response(
+          JSON.stringify({ error: 'Failed to verify session', details: sessionFetchErr.message }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+
+      if (existingSession) {
+        // Reject if session belongs to another entity or restaurant
+        if (
+          existingSession.restaurant_id !== restaurantId ||
+          existingSession.entity_type !== entityType ||
+          existingSession.entity_id !== entityId
+        ) {
+          return new Response(
+            JSON.stringify({ error: 'Session ID belongs to another table or entity' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+          );
+        }
+
+        // Reject if session is already settled
+        if (
+          existingSession.payment_status === 'completed' ||
+          existingSession.payment_status === 'settled' ||
+          existingSession.payment_status === 'paid'
+        ) {
+          return new Response(
+            JSON.stringify({ error: 'Session has already been settled' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 409 }
+          );
+        }
+
+        // Preserve existing session fields and payment status
+        validSessionId = existingSession.id;
+      } else {
+        // Insert-only behavior to avoid overwriting conflicting sessions
+        const { error: sessionInsertErr } = await supabaseClient
+          .from('customer_order_sessions')
+          .insert({
+            id: sessionId,
+            restaurant_id: restaurantId,
+            entity_type: entityType,
+            entity_id: entityId,
+            session_token: sessionId,
+            payment_status: 'pending',
+          });
+
+        if (sessionInsertErr) {
+          if (sessionInsertErr.code === '23505') {
+            // Concurrent insert: re-fetch session and apply ownership & payment checks
+            const { data: concurrentSession, error: refetchErr } = await supabaseClient
+              .from('customer_order_sessions')
+              .select('id, restaurant_id, entity_type, entity_id, payment_status')
+              .eq('id', sessionId)
+              .maybeSingle();
+
+            if (refetchErr || !concurrentSession) {
+              return new Response(
+                JSON.stringify({
+                  error: 'Failed to retrieve concurrent session',
+                  details: refetchErr?.message,
+                }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+              );
+            }
+
+            if (
+              concurrentSession.restaurant_id !== restaurantId ||
+              concurrentSession.entity_type !== entityType ||
+              concurrentSession.entity_id !== entityId
+            ) {
+              return new Response(
+                JSON.stringify({ error: 'Session ID belongs to another table or entity' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+              );
+            }
+
+            if (
+              concurrentSession.payment_status === 'completed' ||
+              concurrentSession.payment_status === 'settled' ||
+              concurrentSession.payment_status === 'paid'
+            ) {
+              return new Response(
+                JSON.stringify({ error: 'Session has already been settled' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 409 }
+              );
+            }
+
+            validSessionId = concurrentSession.id;
+          } else {
+            console.error('Failed to create customer order session:', sessionInsertErr);
+            // Stop submission so order is not created with an unestablished session ID
+            return new Response(
+              JSON.stringify({
+                error: 'Failed to establish order session',
+                details: sessionInsertErr.message,
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+            );
+          }
+        } else {
+          validSessionId = sessionId;
+        }
+      }
+    }
 
     // Create order in orders table
     const { data: order, error: orderError } = await supabaseClient
@@ -192,6 +364,7 @@ serve(async (req) => {
         table_id: entityType === 'table' ? entityId : null,
         room_id: entityType === 'room' ? entityId : null,
         entity_name: entityName, // Table number or room number for display
+        qr_session_id: validSessionId || null,
       })
       .select()
       .single();
@@ -220,12 +393,18 @@ serve(async (req) => {
         customer_name: customerName,
         customer_phone: customerPhone,
         server_name: 'QR Order', // Mark as QR order
-        items: orderItems.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          notes: item.modifiers || [], // Use modifiers as notes
-        })),
+        items: orderItems.map(item => {
+          const notes = [...(item.modifiers || [])];
+          if (item.specialInstructions) {
+            notes.push(`Note: ${item.specialInstructions}`);
+          }
+          return {
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            notes,
+          };
+        }),
         status: 'new',
         source: 'qr', // Column is 'source' not 'order_source'
         order_type: entityType === 'table' ? 'dine_in' : 'room_service',
@@ -306,6 +485,7 @@ serve(async (req) => {
         success: true,
         orderId: order.id,
         orderNumber: order.id.substring(0, 8).toUpperCase(),
+        sessionId: validSessionId || undefined,
         message: 'Order placed successfully!',
         payment: {
           required: true,

@@ -1,9 +1,17 @@
-import { useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ShoppingCart, CheckCircle2 } from "lucide-react";
+import {
+  Loader2,
+  ShoppingCart,
+  CheckCircle2,
+  ArrowRight,
+  BellRing,
+  Receipt,
+  UtensilsCrossed,
+} from "lucide-react";
 import { CartProvider, useCart } from "@/contexts/CartContext";
 import { MenuBrowser } from "@/components/CustomerOrder/MenuBrowser";
 import { CartDrawer } from "@/components/CustomerOrder/CartDrawer";
@@ -11,15 +19,25 @@ import { CheckoutForm } from "@/components/CustomerOrder/CheckoutForm";
 import { supabase } from "@/integrations/supabase/client";
 import { OrderTracker } from "@/components/CustomerOrder/OrderTracker";
 import { DynamicUPIQRCode } from "@/components/CustomerOrder/DynamicUPIQRCode";
+import { WelcomeScreen } from "@/components/CustomerOrder/WelcomeScreen";
+import { TableServiceActions } from "@/components/CustomerOrder/TableServiceActions";
+import {
+  RunningBillModal,
+  ActiveTableOrder,
+} from "@/components/CustomerOrder/RunningBillModal";
+import { ItemCustomizationSheet } from "@/components/CustomerOrder/ItemCustomizationSheet";
+import { CustomerMenuItem } from "@/components/CustomerOrder/MenuItemCard";
 
-type OrderStep = "menu" | "checkout" | "payment" | "success";
+type OrderStep = "welcome" | "menu" | "checkout" | "payment" | "success";
 
 interface OrderData {
   restaurantId: string;
   entityType: string;
   entityId: string;
   entityName: string;
-  token: string;
+  token?: string;
+  restaurantLogo?: string;
+  sessionId?: string;
 }
 
 interface MenuItem {
@@ -30,6 +48,8 @@ interface MenuItem {
   category: string;
   image?: string;
   is_available: boolean;
+  dietary?: "veg" | "non_veg" | "egg";
+  is_bestseller?: boolean;
 }
 
 interface CustomerInfo {
@@ -39,13 +59,41 @@ interface CustomerInfo {
 }
 
 const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
-  const [currentStep, setCurrentStep] = useState<OrderStep>("menu");
+  const [currentStep, setCurrentStep] = useState<OrderStep>("welcome");
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [restaurantName, setRestaurantName] = useState("");
+  const [restaurantLogo, setRestaurantLogo] = useState<string | undefined>(
+    orderData.restaurantLogo,
+  );
+  // Tracks the authoritative session ID (may be updated from server response)
+  const [effectiveSessionId, setEffectiveSessionId] = useState<string | undefined>(
+    orderData.sessionId ||
+      (typeof window !== "undefined"
+        ? sessionStorage.getItem(`table_session_${orderData.entityId}`) || undefined
+        : undefined),
+  );
   const [serviceChargePercent, setServiceChargePercent] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Modals & Sheets
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCallWaiterOpen, setIsCallWaiterOpen] = useState(false);
+  const [isRequestBillOpen, setIsRequestBillOpen] = useState(false);
+  const [isViewBillOpen, setIsViewBillOpen] = useState(false);
+  const [customizingItem, setCustomizingItem] = useState<CustomerMenuItem | null>(
+    null,
+  );
+
+  // Active Table Orders & Running Tab
+  const [activeTableOrders, setActiveTableOrders] = useState<ActiveTableOrder[]>([]);
+  const [runningTotal, setRunningTotal] = useState(0);
+  const [upiPaymentData, setUpiPaymentData] = useState<{
+    upiId: string;
+    payeeName: string;
+  } | null>(null);
+
+  // Completed Single Order State
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentData, setPaymentData] = useState<any>(null);
   const [placedOrderDetails, setPlacedOrderDetails] = useState<{
@@ -53,20 +101,16 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
     total: number;
   } | null>(null);
 
-  const { itemCount, clearCart, items, total } = useCart();
+  const { itemCount, clearCart, items, total, addItem } = useCart();
 
   // Clear cart when switching to a different table/room
   useEffect(() => {
-    // Store current entity in localStorage to detect changes
     const currentEntityKey = `${orderData.restaurantId}-${orderData.entityType}-${orderData.entityId}`;
     const storedEntityKey = localStorage.getItem("qr_order_entity");
 
     if (storedEntityKey && storedEntityKey !== currentEntityKey) {
-      // Different table/room - clear the cart
       clearCart();
     }
-
-    // Update stored entity
     localStorage.setItem("qr_order_entity", currentEntityKey);
   }, [
     orderData.restaurantId,
@@ -75,6 +119,149 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
     clearCart,
   ]);
 
+  // Fetch active orders for this table to maintain running tab (restricted by table session)
+  const fetchActiveTableOrders = useCallback(async () => {
+    if (!orderData.entityId) return;
+
+    try {
+      // Include all unpaid orders for this table session until settled (payment_status not paid, not cancelled)
+      let ordersQuery = supabase
+        .from("orders")
+        .select("id, status, total, items, created_at, payment_status, qr_session_id")
+        .eq("table_id", orderData.entityId);
+
+      // Prefer server-authoritative effectiveSessionId over orderData.sessionId
+      const sessionIdentifier =
+        effectiveSessionId ||
+        orderData.sessionId ||
+        (typeof window !== "undefined"
+          ? sessionStorage.getItem(`table_session_${orderData.entityId}`)
+          : null);
+
+      // Get order IDs explicitly associated with the current bill/session (scoped by session)
+      const currentBillOrderIds: string[] = [];
+      if (orderId) {
+        currentBillOrderIds.push(orderId);
+      }
+      if (typeof window !== "undefined") {
+        try {
+          // Use session-scoped key so prior-session IDs are excluded
+          const scopedKey = sessionIdentifier
+            ? `table_bill_orders_${orderData.entityId}_${sessionIdentifier}`
+            : `table_bill_orders_${orderData.entityId}`;
+          const stored = sessionStorage.getItem(scopedKey);
+          const scopedIds: string[] = [];
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+              scopedIds.push(...parsed);
+              currentBillOrderIds.push(...parsed);
+            }
+          }
+
+          // Migrate eligible IDs from legacy unscoped key into the session-scoped key
+          if (sessionIdentifier) {
+            const legacyKey = `table_bill_orders_${orderData.entityId}`;
+            const legacyStored = sessionStorage.getItem(legacyKey);
+            if (legacyStored) {
+              const legacyParsed = JSON.parse(legacyStored);
+              if (Array.isArray(legacyParsed) && legacyParsed.length > 0) {
+                // Verify each legacy ID against the current table's unpaid orders
+                // before migrating — only include IDs already tracked by the server
+                // for this table (the ordersQuery will confirm payment status).
+                // We check via a quick Supabase call restricted to this table so
+                // we don't migrate orders belonging to a different table's session.
+                const { data: legacyRows } = await supabase
+                  .from("orders")
+                  .select("id")
+                  .eq("table_id", orderData.entityId)
+                  .in("id", legacyParsed)
+                  .or("payment_status.eq.pending,payment_status.eq.unpaid,payment_status.is.null")
+                  .neq("status", "cancelled");
+
+                if (legacyRows && legacyRows.length > 0) {
+                  const eligibleIds = legacyRows.map((r: { id: string }) => r.id);
+                  const merged = Array.from(new Set([...scopedIds, ...eligibleIds]));
+                  // Write migrated IDs back to the scoped key
+                  sessionStorage.setItem(scopedKey, JSON.stringify(merged));
+                  // Add to current query set (dedup handled later)
+                  currentBillOrderIds.push(...eligibleIds);
+                }
+
+                // Remove legacy key to avoid re-migrating on next load
+                sessionStorage.removeItem(legacyKey);
+              }
+            }
+          }
+        } catch {
+          // ignore parsing error
+        }
+      }
+      const uniqueBillOrderIds = Array.from(new Set(currentBillOrderIds)).filter(Boolean);
+
+      if (sessionIdentifier) {
+        // Match current session orders, or recorded orders belonging to current bill regardless of qr_session_id
+        if (uniqueBillOrderIds.length > 0) {
+          ordersQuery = ordersQuery.or(
+            `qr_session_id.eq.${sessionIdentifier},id.in.(${uniqueBillOrderIds.join(",")})`
+          );
+        } else {
+          ordersQuery = ordersQuery.eq("qr_session_id", sessionIdentifier);
+        }
+      } else if (uniqueBillOrderIds.length > 0) {
+        ordersQuery = ordersQuery.in("id", uniqueBillOrderIds);
+      }
+
+      const { data, error: ordersError } = await ordersQuery
+        .neq("status", "cancelled")
+        .or("payment_status.eq.pending,payment_status.eq.unpaid,payment_status.is.null")
+        .order("created_at", { ascending: false });
+
+      if (ordersError) {
+        console.warn("Could not fetch table active orders (RLS or network):", ordersError.message);
+        return;
+      }
+
+      if (data) {
+        setActiveTableOrders(data as ActiveTableOrder[]);
+        const sum = data.reduce(
+          (acc, o) => acc + (Number(o.total) || 0),
+          0,
+        );
+        setRunningTotal(sum);
+      }
+    } catch (e) {
+      console.warn("Could not fetch table active orders:", e);
+    }
+  }, [orderData.entityId, orderData.sessionId, orderId, effectiveSessionId]);
+
+  // Subscribe to table orders via Supabase Realtime
+  useEffect(() => {
+    fetchActiveTableOrders();
+
+    if (!orderData.entityId) return;
+
+    const channel = supabase
+      .channel(`table-orders-${orderData.entityId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `table_id=eq.${orderData.entityId}`,
+        },
+        () => {
+          fetchActiveTableOrders();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orderData.entityId, fetchActiveTableOrders]);
+
   // Fetch menu and restaurant data
   useEffect(() => {
     const fetchMenuData = async () => {
@@ -82,7 +269,9 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
         // Fetch restaurant details
         const { data: restaurant, error: restaurantError } = await supabase
           .from("restaurants")
-          .select("id, name, qr_ordering_enabled, qr_service_charge_percent")
+          .select(
+            "id, name, logo_url, qr_ordering_enabled, qr_service_charge_percent",
+          )
           .eq("id", orderData.restaurantId)
           .single();
 
@@ -90,9 +279,23 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
           throw new Error("Restaurant not found");
         }
 
-        // Check if QR ordering is enabled (warning only, don't block)
-        if (!restaurant.qr_ordering_enabled) {
-          console.warn("QR ordering is disabled for this restaurant");
+        // Fetch payment settings for UPI details (gracefully handles anonymous RLS restriction)
+        try {
+          const { data: paymentSettings, error: payError } = await supabase
+            .from("payment_settings")
+            .select("upi_id, upi_name")
+            .eq("restaurant_id", orderData.restaurantId)
+            .eq("is_active", true)
+            .maybeSingle();
+
+          if (!payError && paymentSettings?.upi_id) {
+            setUpiPaymentData({
+              upiId: paymentSettings.upi_id,
+              payeeName: paymentSettings.upi_name || restaurant.name,
+            });
+          }
+        } catch {
+          // Anonymous read may be blocked by RLS; fallback to paymentData from submit-qr-order
         }
 
         // Fetch menu items
@@ -110,7 +313,7 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
           throw new Error("Failed to fetch menu items");
         }
 
-        // Transform menu items to match expected format
+        // Transform menu items
         const transformedItems: MenuItem[] = (menuData || []).map((item) => ({
           id: item.id,
           name: item.name,
@@ -123,6 +326,7 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
 
         setMenuItems(transformedItems);
         setRestaurantName(restaurant.name || "Restaurant");
+        if (restaurant.logo_url) setRestaurantLogo(restaurant.logo_url);
         setServiceChargePercent(restaurant.qr_service_charge_percent || 0);
         setLoading(false);
       } catch (err: any) {
@@ -141,8 +345,7 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
 
   const handleSubmitOrder = async (customerInfo: CustomerInfo) => {
     try {
-      // Submit order to backend
-      const { data, error } = await supabase.functions.invoke(
+      const { data, error: submitError } = await supabase.functions.invoke(
         "submit-qr-order",
         {
           body: {
@@ -152,33 +355,72 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
             customerName: customerInfo.name,
             customerPhone: customerInfo.phone,
             specialInstructions: customerInfo.specialInstructions,
+            sessionId:
+              effectiveSessionId ||
+              orderData.sessionId ||
+              (typeof window !== "undefined"
+                ? sessionStorage.getItem(`table_session_${orderData.entityId}`) || undefined
+                : undefined),
             items: items.map((item) => ({
               menuItemId: item.menuItemId,
               quantity: item.quantity,
               price: item.price,
-              modifiers: item.modifiers,
+              modifiers: item.modifiers || [],
+              specialInstructions: item.specialInstructions || undefined,
             })),
             totalAmount: total,
           },
         },
       );
 
-      if (error) throw error;
+      if (submitError) throw submitError;
 
       setOrderId(data.orderId);
-
-      // Store payment data
       setPaymentData(data.payment);
 
-      // Store placed order details for success screen before clearing cart
+      // Associate order with current bill in session (session-scoped key)
+      if (data.orderId && typeof window !== "undefined") {
+        try {
+          const resolvedSession =
+            data?.sessionId || effectiveSessionId || orderData.sessionId ||
+            sessionStorage.getItem(`table_session_${orderData.entityId}`);
+          const key = resolvedSession
+            ? `table_bill_orders_${orderData.entityId}_${resolvedSession}`
+            : `table_bill_orders_${orderData.entityId}`;
+          const existing = JSON.parse(sessionStorage.getItem(key) || "[]");
+          if (!existing.includes(data.orderId)) {
+            existing.push(data.orderId);
+            sessionStorage.setItem(key, JSON.stringify(existing));
+          }
+        } catch (e) {
+          console.warn("Could not record bill order ID:", e);
+        }
+      }
+
+      // If server returned authoritative sessionId, update both sessionStorage and component state
+      if (data?.sessionId && typeof window !== "undefined") {
+        sessionStorage.setItem(`table_session_${orderData.entityId}`, data.sessionId);
+        if (data.sessionId !== effectiveSessionId) {
+          setEffectiveSessionId(data.sessionId);
+        }
+      }
+
+      // Update UPI identity when data.payment.upi.id is supplied
+      if (data?.payment?.upi?.id) {
+        setUpiPaymentData({
+          upiId: data.payment.upi.id,
+          payeeName: data.payment.upi.name || restaurantName,
+        });
+      }
+
       setPlacedOrderDetails({
         items: [...items],
         total: total,
       });
 
-      // Clear cart and proceed to success/payment screen
       clearCart();
       setCurrentStep("success");
+      fetchActiveTableOrders();
     } catch (err: any) {
       throw new Error(err.message || "Failed to submit order");
     }
@@ -186,40 +428,12 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-blue-50/30 to-white p-4">
-        <div className="max-w-2xl mx-auto space-y-6">
-          {/* Header skeleton */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
-              <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
-            </div>
-            <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse" />
-          </div>
-
-          {/* Categories skeleton */}
-          <div className="flex gap-2 overflow-hidden">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div
-                key={i}
-                className="h-10 w-24 bg-gray-200 rounded-full animate-pulse flex-shrink-0"
-              />
-            ))}
-          </div>
-
-          {/* Menu items grid skeleton */}
-          <div className="grid grid-cols-2 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="overflow-hidden">
-                <div className="h-32 bg-gray-200 animate-pulse" />
-                <CardContent className="p-3 space-y-2">
-                  <div className="h-5 w-3/4 bg-gray-200 rounded animate-pulse" />
-                  <div className="h-4 w-1/2 bg-gray-200 rounded animate-pulse" />
-                  <div className="h-6 w-16 bg-gray-200 rounded-full animate-pulse" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+      <div className="min-h-screen bg-stone-900 flex items-center justify-center p-6 text-white">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-10 h-10 animate-spin text-amber-500 mx-auto" />
+          <p className="text-sm font-bold tracking-wide text-stone-300">
+            Loading Menu for Table {orderData.entityName}...
+          </p>
         </div>
       </div>
     );
@@ -227,279 +441,368 @@ const CustomerOrderContent = ({ orderData }: { orderData: OrderData }) => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-red-200">
-          <CardContent className="p-8 text-center">
-            <p className="text-red-600 font-semibold">{error}</p>
-          </CardContent>
+      <div className="min-h-screen bg-stone-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md border-red-500/30 bg-stone-800 text-white rounded-3xl p-6 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center mx-auto">
+            <UtensilsCrossed className="w-6 h-6" />
+          </div>
+          <h3 className="font-bold text-lg text-white">Menu Unavailable</h3>
+          <p className="text-xs text-stone-400">{error}</p>
         </Card>
       </div>
     );
   }
 
-
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-blue-50/30 to-white">
-      <div className="max-w-2xl mx-auto p-4 pb-24">
-        {currentStep === "menu" && (
-          <>
-            <MenuBrowser
-              menuItems={menuItems}
-              restaurantName={restaurantName}
-              tableName={orderData.entityName}
-            />
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100">
+      {/* 1. Petpooja-style Welcome Screen */}
+      {currentStep === "welcome" && (
+        <WelcomeScreen
+          restaurantName={restaurantName}
+          restaurantLogo={restaurantLogo}
+          tableName={orderData.entityName}
+          entityType={orderData.entityType as any}
+          activeOrdersCount={activeTableOrders.length}
+          runningTotal={runningTotal}
+          onStartOrder={() => setCurrentStep("menu")}
+          onViewBill={() => setIsViewBillOpen(true)}
+          onCallWaiter={() => setIsCallWaiterOpen(true)}
+        />
+      )}
 
-            {/* Floating Cart Button */}
-            {itemCount > 0 && (
-              <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent pointer-events-none z-40">
-                <div className="max-w-2xl mx-auto pointer-events-auto">
-                  <Button
-                    className="w-full bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 hover:from-purple-700 hover:via-pink-700 hover:to-orange-600 text-white font-bold py-6 shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-2xl relative overflow-hidden group"
-                    onClick={() => setIsCartOpen(true)}
-                  >
-                    {/* Animated background */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+      {/* 2. Menu Browser Step */}
+      {currentStep === "menu" && (
+        <div className="max-w-2xl mx-auto p-4 pb-28">
+          <MenuBrowser
+            menuItems={menuItems}
+            restaurantName={restaurantName}
+            tableName={orderData.entityName}
+            activeOrdersCount={activeTableOrders.length}
+            onCustomize={(item) => setCustomizingItem(item)}
+            onCallWaiter={() => setIsCallWaiterOpen(true)}
+            onViewBill={() => setIsViewBillOpen(true)}
+          />
 
-                    <div className="relative flex items-center justify-between w-full">
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <ShoppingCart className="w-6 h-6" />
-                          <Badge className="absolute -top-2 -right-2 bg-white text-purple-600 font-bold text-xs px-1.5 py-0.5 min-w-[20px] h-5 flex items-center justify-center border-2 border-purple-600">
-                            {itemCount}
-                          </Badge>
-                        </div>
-                        <span className="text-lg">View Cart</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold">
-                          ₹{total.toFixed(2)}
-                        </span>
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
-                      </div>
-                    </div>
-                  </Button>
+          {/* Sticky Petpooja Bottom Cart Bar */}
+          {itemCount > 0 && (
+            <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 dark:bg-stone-900/95 backdrop-blur-xl border-t border-stone-200 dark:border-stone-800 z-40 shadow-2xl">
+              <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="relative p-2.5 bg-amber-500/10 rounded-2xl text-amber-500">
+                    <ShoppingCart className="w-5 h-5" />
+                    <Badge className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white font-extrabold text-[10px] h-5 min-w-[20px] px-1 flex items-center justify-center rounded-full border-2 border-white dark:border-stone-900">
+                      {itemCount}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 block uppercase tracking-wider">
+                      {itemCount} {itemCount === 1 ? "Item" : "Items"} Added
+                    </span>
+                    <span className="text-base font-black text-stone-900 dark:text-white">
+                      ₹{total.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
+
+                <Button
+                  onClick={() => setIsCartOpen(true)}
+                  className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs py-5 px-6 rounded-2xl shadow-lg shadow-orange-900/30 flex items-center gap-2"
+                >
+                  <span>View Cart</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
               </div>
-            )}
+            </div>
+          )}
 
-            <CartDrawer
-              isOpen={isCartOpen}
-              onClose={() => setIsCartOpen(false)}
-              onCheckout={handleCheckout}
-            />
-          </>
-        )}
+          <CartDrawer
+            isOpen={isCartOpen}
+            onClose={() => setIsCartOpen(false)}
+            onCheckout={handleCheckout}
+          />
+        </div>
+      )}
 
-        {currentStep === "checkout" && (
+      {/* 3. Checkout Form Step */}
+      {currentStep === "checkout" && (
+        <div className="max-w-2xl mx-auto p-4 pb-20">
           <CheckoutForm
             orderData={orderData}
             onBack={() => setCurrentStep("menu")}
             onSubmit={handleSubmitOrder}
           />
-        )}
+        </div>
+      )}
 
-        {currentStep === ("success" as OrderStep) && orderId && (
-          <div className="space-y-4 pb-8">
-            {/* Live Order Status Tracker */}
-            <OrderTracker orderId={orderId} />
+      {/* 4. Success / Order Placed Step */}
+      {currentStep === "success" && orderId && (
+        <div className="max-w-2xl mx-auto p-4 pb-24 space-y-4">
+          <OrderTracker orderId={orderId} />
 
-            {/* Success Header */}
-            <Card className="border-2 border-green-500 bg-gradient-to-br from-green-50 to-emerald-50">
-              <CardContent className="pt-6 text-center">
-                <div className="inline-flex p-4 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full mb-4">
-                  <CheckCircle2 className="w-12 h-12 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  Order Placed!
-                </h2>
-                <p className="text-gray-600 mb-4">
-                  Your order has been successfully placed and sent to the
-                  kitchen.
-                </p>
+          <Card className="border-2 border-emerald-500 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 rounded-3xl">
+            <CardContent className="pt-6 text-center space-y-3">
+              <div className="inline-flex p-3 bg-emerald-500 rounded-full text-white shadow-lg shadow-emerald-500/30">
+                <CheckCircle2 className="w-10 h-10" />
+              </div>
+              <h2 className="text-xl font-black text-stone-900 dark:text-white">
+                Order Sent to Kitchen!
+              </h2>
+              <p className="text-xs text-stone-600 dark:text-stone-400">
+                Your food is being prepared and will be served at Table{" "}
+                <span className="font-extrabold text-stone-900 dark:text-white">
+                  {orderData.entityName}
+                </span>
+                .
+              </p>
 
-                {/* Order Summary */}
-                {placedOrderDetails && (
-                  <div className="bg-white rounded-lg p-4 mb-4 border border-green-200 text-left">
-                    <h3 className="font-bold text-gray-900 mb-3">
-                      Order Summary
-                    </h3>
-                    <div className="space-y-2 mb-3">
-                      {placedOrderDetails.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm">
-                          <span className="text-gray-700">
-                            {item.quantity}x {item.name}
-                          </span>
-                          <span className="font-medium text-gray-900">
-                            ₹{(item.price * item.quantity).toFixed(2)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="pt-3 border-t border-gray-200 flex justify-between items-center">
-                      <span className="font-bold text-gray-900">
-                        Total Amount
+              {/* Placed Items Summary */}
+              {placedOrderDetails && (
+                <div className="bg-white dark:bg-stone-900 rounded-2xl p-4 border border-emerald-200 dark:border-emerald-800/50 text-left space-y-2 mt-4 shadow-xs">
+                  <h3 className="font-black text-xs uppercase tracking-wider text-stone-500">
+                    Order Summary
+                  </h3>
+                  {placedOrderDetails.items.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex justify-between items-center text-xs"
+                    >
+                      <span className="text-stone-700 dark:text-stone-300 font-medium">
+                        {item.quantity}x {item.name}
                       </span>
-                      <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-600">
-                        ₹{placedOrderDetails.total.toFixed(2)}
+                      <span className="font-bold text-stone-900 dark:text-white">
+                        ₹{(item.price * item.quantity).toFixed(2)}
                       </span>
                     </div>
-                  </div>
-                )}
-
-                {/* Entity Location */}
-                <div className="bg-white rounded-lg p-4 border border-green-200">
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-sm text-gray-600">
-                      Your order will be served at
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-center gap-2 mt-1">
-                    <span className="text-gray-700">
-                      {orderData.entityType === "table" ? "Table" : "Room"}
-                    </span>
-                    <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
-                      {orderData.entityName}
+                  ))}
+                  <div className="pt-2 border-t flex justify-between items-center">
+                    <span className="font-black text-xs">Total Amount</span>
+                    <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                      ₹{placedOrderDetails.total.toFixed(2)}
                     </span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </CardContent>
+          </Card>
 
-            {/* Dynamic Real-time UPI Payment Section */}
-            {paymentData?.upi ? (
-              <DynamicUPIQRCode
-                amount={paymentData.upi.amount || placedOrderDetails?.total || 0}
-                upiId={paymentData.upi.id || "swadeshi.pos@upi"}
-                payeeName={paymentData.upi.name || restaurantName}
-                orderNumber={orderId.slice(-6).toUpperCase()}
-                tableName={orderData.entityName}
-              />
-            ) : placedOrderDetails ? (
-              <DynamicUPIQRCode
-                amount={placedOrderDetails.total}
-                upiId="swadeshi.pos@upi"
-                payeeName={restaurantName}
-                orderNumber={orderId.slice(-6).toUpperCase()}
-                tableName={orderData.entityName}
-              />
-            ) : null}
+          {/* Dynamic Real-time UPI Payment Section - only if configured */}
+          {paymentData?.upi?.id ? (
+            <DynamicUPIQRCode
+              amount={paymentData.upi.amount || placedOrderDetails?.total || 0}
+              upiId={paymentData.upi.id}
+              payeeName={paymentData.upi.name || restaurantName}
+              orderNumber={orderId.slice(-6).toUpperCase()}
+              tableName={orderData.entityName}
+            />
+          ) : upiPaymentData?.upiId && placedOrderDetails ? (
+            <DynamicUPIQRCode
+              amount={placedOrderDetails.total}
+              upiId={upiPaymentData.upiId}
+              payeeName={upiPaymentData.payeeName || restaurantName}
+              orderNumber={orderId.slice(-6).toUpperCase()}
+              tableName={orderData.entityName}
+            />
+          ) : (
+            <div className="bg-stone-100 dark:bg-stone-900 rounded-2xl p-4 text-center border border-stone-200 dark:border-stone-800 space-y-1">
+              <p className="font-bold text-xs text-stone-800 dark:text-stone-200">
+                Pay at Counter / Table
+              </p>
+              <p className="text-[11px] text-stone-500">
+                Please settle your bill with your server or at the payment counter.
+              </p>
+            </div>
+          )}
 
-            {/* Back to Menu Action */}
-            <Button
-              variant="outline"
-              onClick={() => setCurrentStep("menu")}
-              className="w-full rounded-2xl py-6 font-bold text-xs border-purple-200 text-purple-700 dark:border-purple-800"
-            >
-              + Add More Items to Table {orderData.entityName}
-            </Button>
+          {/* Append to Table Order CTA */}
+          <Button
+            onClick={() => setCurrentStep("menu")}
+            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold py-5 rounded-2xl text-xs shadow-lg shadow-orange-900/20"
+          >
+            + Add More Items to Table {orderData.entityName}
+          </Button>
 
-            {/* Order Status Info */}
-            <Card className="rounded-3xl border border-gray-200/60 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
-              <CardContent className="pt-6">
-                <h3 className="font-bold text-gray-900 mb-3">What's Next?</h3>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
-                    <span>Complete the payment using the UPI link above</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
-                    <span>Your order will be sent to the kitchen</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
-                    <span>
-                      Food will be served at your{" "}
-                      {orderData.entityType === "table" ? "table" : "room"}
-                    </span>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
+          {/* View Full Running Bill */}
+          <Button
+            variant="outline"
+            onClick={() => setIsViewBillOpen(true)}
+            className="w-full rounded-2xl py-5 text-xs font-bold border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300"
+          >
+            <Receipt className="w-3.5 h-3.5 mr-2 text-amber-500" />
+            View Table Running Tab (₹{runningTotal.toFixed(2)})
+          </Button>
+        </div>
+      )}
 
-            {/* New Order Button */}
-            <Button
-              variant="outline"
-              className="w-full py-6 text-lg"
-              onClick={() => {
-                setCurrentStep("menu");
-                setOrderId(null);
-                setPaymentData(null);
-                setPlacedOrderDetails(null);
-              }}
-            >
-              Back to Menu
-            </Button>
-          </div>
-        )}
-      </div>
+      {/* Item Customization Drawer */}
+      <ItemCustomizationSheet
+        item={customizingItem}
+        isOpen={!!customizingItem}
+        onClose={() => setCustomizingItem(null)}
+        onAddToCart={(customizedItem) => {
+          addItem(customizedItem);
+        }}
+      />
+
+      {/* Table Service Actions (Call Waiter & Request Bill) */}
+      <TableServiceActions
+        restaurantId={orderData.restaurantId}
+        tableName={orderData.entityName}
+        entityType={orderData.entityType as any}
+        entityId={orderData.entityId}
+        isCallWaiterOpen={isCallWaiterOpen}
+        onCallWaiterClose={() => setIsCallWaiterOpen(false)}
+        isRequestBillOpen={isRequestBillOpen}
+        onRequestBillClose={() => setIsRequestBillOpen(false)}
+      />
+
+      {/* Running Bill Modal */}
+      <RunningBillModal
+        isOpen={isViewBillOpen}
+        onClose={() => setIsViewBillOpen(false)}
+        tableName={orderData.entityName}
+        entityType={orderData.entityType as any}
+        restaurantName={restaurantName}
+        activeOrders={activeTableOrders}
+        runningTotal={runningTotal}
+        upiPaymentData={upiPaymentData}
+        onAddMoreItems={() => {
+          setIsViewBillOpen(false);
+          setCurrentStep("menu");
+        }}
+        onRequestBill={() => {
+          setIsViewBillOpen(false);
+          setIsRequestBillOpen(true);
+        }}
+      />
     </div>
   );
 };
 
 const CustomerOrder = () => {
-  const { encodedData } = useParams<{ encodedData: string }>();
+  const { encodedData, restaurantSlug, tableIdentifier } = useParams<{
+    encodedData?: string;
+    restaurantSlug?: string;
+    tableIdentifier?: string;
+  }>();
+
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const decodeOrderData = async () => {
+    const resolveContext = async () => {
+      setLoading(true);
+      setError(null);
+
       try {
-        if (!encodedData) {
-          throw new Error("No order data provided");
+        // Case A: Human-readable Petpooja URL format: /qr/:restaurantSlug/:tableIdentifier
+        if (restaurantSlug) {
+          // 1. Find restaurant by slug or id (safe parameterized query - Finding 3)
+          const isUuid =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+              restaurantSlug,
+            );
+
+          const restaurantQuery = supabase
+            .from("restaurants")
+            .select("id, name, logo_url, slug, qr_ordering_enabled");
+
+          const { data: restaurant, error: restErr } = await (isUuid
+            ? restaurantQuery.eq("id", restaurantSlug)
+            : restaurantQuery.eq("slug", restaurantSlug)
+          ).maybeSingle();
+
+          if (restErr || !restaurant) {
+            throw new Error(`Restaurant '${restaurantSlug}' not found.`);
+          }
+
+          // Use already-decoded tableIdentifier directly without double-decoding (Finding 2)
+          const rawTable = tableIdentifier ? tableIdentifier.trim() : "";
+
+          // 2. Find table by name or ID
+          const { data: tables, error: tablesErr } = await supabase
+            .from("restaurant_tables")
+            .select("id, name")
+            .eq("restaurant_id", restaurant.id);
+
+          if (tablesErr) {
+            throw new Error("Failed to load restaurant tables.");
+          }
+
+          // Case-insensitive match on name or ID; do not arbitrarily select first table (Finding 4)
+          const matchedTable =
+            tables?.find(
+              (t) =>
+                rawTable &&
+                (t.name.toLowerCase() === rawTable.toLowerCase() ||
+                  t.name.toLowerCase().replace(/\s+/g, "") ===
+                    rawTable.toLowerCase().replace(/\s+/g, "") ||
+                  t.id === rawTable),
+            ) ||
+            (!rawTable && tables?.length === 1 ? tables[0] : null);
+
+          if (!matchedTable) {
+            throw new Error(
+              `Table '${rawTable || "unspecified"}' not configured for ${restaurant.name}.`,
+            );
+          }
+
+          const sessionKey = `table_session_${matchedTable.id}`;
+          let sessionId = sessionStorage.getItem(sessionKey);
+          if (!sessionId) {
+            sessionId = crypto.randomUUID();
+            sessionStorage.setItem(sessionKey, sessionId);
+          }
+
+          setOrderData({
+            restaurantId: restaurant.id,
+            entityType: "table",
+            entityId: matchedTable.id,
+            entityName: matchedTable.name,
+            restaurantLogo: restaurant.logo_url || undefined,
+            sessionId,
+          });
+          setLoading(false);
+          return;
         }
 
-        // Decode base64 data
-        const decodedString = atob(encodedData);
-        const data = JSON.parse(decodedString);
+        // Case B: Base64 JSON token: /order/:encodedData
+        if (encodedData) {
+          const decodedString = atob(encodedData);
+          const data = JSON.parse(decodedString);
+          const sessionKey = `table_session_${data.entityId}`;
+          const sessionId =
+            data.sessionId ||
+            sessionStorage.getItem(sessionKey) ||
+            crypto.randomUUID();
+          sessionStorage.setItem(sessionKey, sessionId);
+          setOrderData({
+            ...data,
+            sessionId,
+          });
+          setLoading(false);
+          return;
+        }
 
-        setOrderData(data);
-        setLoading(false);
-      } catch (err) {
-        console.error("Error decoding order data:", err);
-        setError("Invalid QR code data");
+        throw new Error("No table or order information provided.");
+      } catch (err: any) {
+        console.error("Resolution error:", err);
+        setError(err.message || "Invalid QR code link.");
         setLoading(false);
       }
     };
 
-    decodeOrderData();
-  }, [encodedData]);
+    resolveContext();
+  }, [encodedData, restaurantSlug, tableIdentifier]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4">
-        <div className="max-w-2xl mx-auto space-y-6">
-          {/* Header skeleton */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
-              <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
-            </div>
-          </div>
-
-          {/* Loading cards */}
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-24 bg-gray-200 rounded-xl animate-pulse"
-              />
-            ))}
-          </div>
+      <div className="min-h-screen bg-stone-900 flex items-center justify-center p-6 text-white">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-10 h-10 animate-spin text-amber-500 mx-auto" />
+          <p className="text-sm font-bold tracking-wide text-stone-300">
+            Connecting to Table...
+          </p>
         </div>
       </div>
     );
@@ -507,13 +810,13 @@ const CustomerOrder = () => {
 
   if (error || !orderData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-red-200">
-          <CardContent className="p-8 text-center">
-            <p className="text-red-600 font-semibold">
-              {error || "Invalid QR code"}
-            </p>
-          </CardContent>
+      <div className="min-h-screen bg-stone-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md border-red-500/30 bg-stone-800 text-white rounded-3xl p-8 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center mx-auto">
+            <UtensilsCrossed className="w-6 h-6" />
+          </div>
+          <h3 className="font-bold text-lg text-white">Invalid QR Link</h3>
+          <p className="text-xs text-stone-400">{error || "Please re-scan table QR code."}</p>
         </Card>
       </div>
     );

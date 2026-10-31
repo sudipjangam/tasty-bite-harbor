@@ -129,6 +129,23 @@ export const CartDrawer = ({
                     <h4 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-1">
                       {item.name}
                     </h4>
+                    {item.modifiers && item.modifiers.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {item.modifiers.map((mod, mi) => (
+                          <span
+                            key={mi}
+                            className="text-[10px] bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded-md font-semibold"
+                          >
+                            {mod}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {item.specialInstructions && (
+                      <p className="text-[11px] text-stone-500 italic mb-1 line-clamp-1">
+                        Note: {item.specialInstructions}
+                      </p>
+                    )}
                     <p className="text-orange-600 font-bold text-base">
                       ₹{item.price} × {item.quantity}
                     </p>
