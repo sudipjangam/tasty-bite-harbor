@@ -169,7 +169,52 @@ class ThermalPrinterService {
     return this.device?.name || null;
   }
 
-  async connect(): Promise<boolean> {
+  async connect(preferredAddress?: string, preferredName?: string): Promise<boolean> {
+    // ── Native Android path: route via native Bluetooth Serial plugin ─────────
+    if (Capacitor.isNativePlatform()) {
+      try {
+        if (preferredAddress) {
+          const ok = await nativePrinterBridge.connectBluetooth(preferredAddress, preferredName);
+          if (!ok) {
+            throw new Error(`Failed to connect to ${preferredName || preferredAddress}. Ensure printer is turned ON and in range.`);
+          }
+          this.notifyListeners(true);
+          return true;
+        }
+
+        // Try auto reconnect to saved printer first
+        const reconnected = await nativePrinterBridge.tryAutoReconnect();
+        if (reconnected) {
+          this.notifyListeners(true);
+          return true;
+        }
+
+        // Discover already-paired devices
+        const paired = await nativePrinterBridge.discoverBluetooth();
+        if (!paired || paired.length === 0) {
+          throw new Error("No paired Bluetooth devices found. Pair printer in Android Bluetooth Settings first.");
+        }
+
+        // Look for thermal printer name heuristic or fallback to first
+        const printer = paired.find(d => {
+          const n = d.name.toLowerCase();
+          return n.startsWith("kpc") || n.startsWith("cn8") || n.startsWith("pos") || n.startsWith("mpt") || n.startsWith("rpp") || n.includes("print") || n.includes("thermal");
+        }) || paired[0];
+
+        const ok = await nativePrinterBridge.connectBluetooth(printer.address, printer.name);
+        if (!ok) {
+          throw new Error(`Failed to connect to ${printer.name || printer.address}. Ensure printer is turned ON and in range.`);
+        }
+        this.notifyListeners(true);
+        return true;
+      } catch (nativeErr: any) {
+        console.error("Native printer connection failed:", nativeErr);
+        this.notifyListeners(false);
+        throw nativeErr;
+      }
+    }
+
+    // ── Web Bluetooth (GATT) path for Chrome / Edge desktop / mobile browser ──
     try {
       if (!(navigator as BluetoothNavigator).bluetooth) {
         throw new Error("Web Bluetooth API is not supported in this browser. Please use Chrome, Brave, or Edge.");
@@ -365,6 +410,11 @@ class ThermalPrinterService {
 
 
   async disconnect() {
+    if (Capacitor.isNativePlatform()) {
+      await nativePrinterBridge.disconnect();
+      this.notifyListeners(false);
+      return;
+    }
     if (this.device && this.device.gatt?.connected) {
       this.device.gatt.disconnect();
     }
