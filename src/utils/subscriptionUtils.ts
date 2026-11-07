@@ -1,5 +1,40 @@
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Calculates a subscription end date given an interval and an optional start date.
+ * Supports yearly (12m), half_yearly (6m), quarterly (3m), and monthly (1m).
+ * Clamps month-end dates to the last day of the target month to prevent date overflow.
+ */
+export const calculateSubscriptionEndDate = (
+  interval: string,
+  startDate: Date = new Date()
+): string => {
+  const monthsToAdd =
+    interval === "yearly"
+      ? 12
+      : interval === "half_yearly"
+      ? 6
+      : interval === "quarterly"
+      ? 3
+      : 1;
+
+  const year = startDate.getFullYear();
+  const month = startDate.getMonth();
+  const day = startDate.getDate();
+
+  const targetMonthIndex = month + monthsToAdd;
+  const targetYear = year + Math.floor(targetMonthIndex / 12);
+  const targetMonth = targetMonthIndex % 12;
+
+  const daysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+  const clampedDay = Math.min(day, daysInTargetMonth);
+
+  const result = new Date(startDate.getTime());
+  result.setDate(1);
+  result.setFullYear(targetYear, targetMonth, clampedDay);
+  return result.toISOString();
+};
+
 export const checkSubscriptionStatus = async (restaurantId: string) => {
   try {
     // First, check if restaurant_id exists

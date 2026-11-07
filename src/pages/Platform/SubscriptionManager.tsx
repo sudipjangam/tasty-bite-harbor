@@ -42,6 +42,7 @@ import {
   Building2,
   IndianRupee,
   Shield,
+  Layers,
   ChevronDown,
   ChevronRight,
   Search,
@@ -80,6 +81,14 @@ import {
   FeatureCategory,
   ALL_FEATURE_KEYS,
 } from "@/constants/featureRegistry";
+import {
+  getPlanGroup,
+  getPlanTierAndInterval,
+  formatIntervalLabel,
+  TIER_CONFIG,
+  TIER_SORT_ORDER,
+  INTERVAL_SORT_ORDER,
+} from "@/utils/planHierarchy";
 
 // Icon map for category rendering
 const ICON_MAP: Record<string, any> = {
@@ -136,6 +145,11 @@ const SubscriptionManager = () => {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
     new Set(),
   );
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedBillingCycle, setSelectedBillingCycle] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"tier" | "grid">("tier");
+  const [planSearchQuery, setPlanSearchQuery] = useState("");
+  const [tierIntervalSelection, setTierIntervalSelection] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -153,7 +167,6 @@ const SubscriptionManager = () => {
       const { data, error } = await supabase
         .from("subscription_plans")
         .select("*")
-        .eq("is_active", true)
         .order("price");
       if (error) throw error;
       return (data || []).filter(
@@ -386,194 +399,775 @@ const SubscriptionManager = () => {
 
   const totalFeatures = ALL_FEATURE_KEYS.length;
 
+  const categories = [
+    { id: "all", label: "All Plans" },
+    { id: "restaurant", label: "Restaurant" },
+    { id: "food truck", label: "Food Truck" },
+    { id: "hotel", label: "Hotel" },
+    { id: "restaurant + hotel", label: "Restaurant + Hotel" },
+    { id: "all-in-one", label: "All-in-One" },
+  ];
+
+  const billingCycles = [
+    { id: "all", label: "All Terms" },
+    { id: "monthly", label: "Monthly" },
+    { id: "half_yearly", label: "Half-Yearly", badge: "Save ~16%" },
+    { id: "yearly", label: "Yearly", badge: "Save ~30%" },
+  ];
+
+  // Group plans into Tiers (collapsing duplicate interval cards into 1 card per tier)
+  const tierGroups = useMemo(() => {
+    let list = plans;
+    if (selectedCategory !== "all") {
+      const target = selectedCategory.toLowerCase().trim();
+      list = list.filter(
+        (p) => getPlanGroup(p.name).toLowerCase().trim() === target,
+      );
+    }
+    if (planSearchQuery.trim()) {
+      const q = planSearchQuery.toLowerCase().trim();
+      list = list.filter((p) => {
+        const nameMatch = p.name.toLowerCase().includes(q);
+        const descMatch = (p.description || "").toLowerCase().includes(q);
+        const featMatch = (p.features || []).some((f) =>
+          f.toLowerCase().includes(q),
+        );
+        return nameMatch || descMatch || featMatch;
+      });
+    }
+
+    interface TierGroupData {
+      key: string;
+      group: string;
+      tierName: string;
+      plans: SubscriptionPlan[];
+    }
+
+    const map = new Map<string, TierGroupData>();
+
+    list.forEach((p) => {
+      const group = getPlanGroup(p.name);
+      const { tier } = getPlanTierAndInterval(p.name, group, p.interval);
+      const key = `${group}__${tier}`;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          group,
+          tierName: tier,
+          plans: [],
+        });
+      }
+      map.get(key)!.plans.push(p);
+    });
+
+    map.forEach((t) => {
+      t.plans.sort((a, b) => {
+        const { intervalKey: intA } = getPlanTierAndInterval(
+          a.name,
+          t.group,
+          a.interval,
+        );
+        const { intervalKey: intB } = getPlanTierAndInterval(
+          b.name,
+          t.group,
+          b.interval,
+        );
+        return (
+          (INTERVAL_SORT_ORDER[intA] ?? 99) -
+          (INTERVAL_SORT_ORDER[intB] ?? 99)
+        );
+      });
+    });
+
+    let result = Array.from(map.values());
+    if (selectedBillingCycle !== "all") {
+      result = result.filter((t) =>
+        t.plans.some((p) => {
+          const { intervalKey } = getPlanTierAndInterval(
+            p.name,
+            t.group,
+            p.interval,
+          );
+          return (
+            intervalKey === selectedBillingCycle ||
+            p.interval === selectedBillingCycle
+          );
+        }),
+      );
+    }
+
+    result.sort((a, b) => {
+      if (a.group !== b.group) return a.group.localeCompare(b.group);
+      return (
+        (TIER_SORT_ORDER[a.tierName.toLowerCase()] ?? 99) -
+        (TIER_SORT_ORDER[b.tierName.toLowerCase()] ?? 99)
+      );
+    });
+
+    return result;
+  }, [plans, selectedCategory, selectedBillingCycle, planSearchQuery]);
+
+  // Flattened plan list for standard grid view
+  const displayedPlans = useMemo(() => {
+    let result = plans;
+    if (selectedCategory !== "all") {
+      const target = selectedCategory.toLowerCase().trim();
+      result = result.filter(
+        (p) => getPlanGroup(p.name).toLowerCase().trim() === target,
+      );
+    }
+    if (selectedBillingCycle !== "all") {
+      result = result.filter((p) => {
+        const group = getPlanGroup(p.name);
+        const { intervalKey } = getPlanTierAndInterval(
+          p.name,
+          group,
+          p.interval,
+        );
+        return (
+          intervalKey === selectedBillingCycle ||
+          p.interval === selectedBillingCycle
+        );
+      });
+    }
+    if (planSearchQuery.trim()) {
+      const q = planSearchQuery.toLowerCase().trim();
+      result = result.filter((p) => {
+        const nameMatch = p.name.toLowerCase().includes(q);
+        const descMatch = (p.description || "").toLowerCase().includes(q);
+        const featMatch = (p.features || []).some((f) =>
+          f.toLowerCase().includes(q),
+        );
+        return nameMatch || descMatch || featMatch;
+      });
+    }
+    return result;
+  }, [plans, selectedCategory, selectedBillingCycle, planSearchQuery]);
+
+  const resolveActivePlanForTier = (tier: {
+    key: string;
+    group: string;
+    tierName: string;
+    plans: SubscriptionPlan[];
+  }): SubscriptionPlan => {
+    if (selectedBillingCycle !== "all") {
+      const match = tier.plans.find((p) => {
+        const { intervalKey } = getPlanTierAndInterval(
+          p.name,
+          tier.group,
+          p.interval,
+        );
+        return (
+          intervalKey === selectedBillingCycle ||
+          p.interval === selectedBillingCycle
+        );
+      });
+      if (match) return match;
+    }
+
+    const local = tierIntervalSelection[tier.key];
+    if (local) {
+      const match = tier.plans.find((p) => {
+        const { intervalKey } = getPlanTierAndInterval(
+          p.name,
+          tier.group,
+          p.interval,
+        );
+        return intervalKey === local || p.interval === local;
+      });
+      if (match) return match;
+    }
+
+    const monthly = tier.plans.find((p) => {
+      const { intervalKey } = getPlanTierAndInterval(
+        p.name,
+        tier.group,
+        p.interval,
+      );
+      return intervalKey === "monthly";
+    });
+    return monthly || tier.plans[0];
+  };
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
             Subscription Plans
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1 text-lg">
-            Manage pricing tiers and granular feature entitlements
+          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm md:text-base">
+            Manage pricing tiers, billing cycles, and granular feature entitlements
           </p>
         </div>
-        <Button
-          onClick={() => setIsAddOpen(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-emerald-500/25 transition-all text-white"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add New Plan
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={() => setIsAddOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 shadow-md hover:shadow-emerald-500/25 transition-all text-white rounded-xl"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add New Plan
+          </Button>
+        </div>
       </div>
 
-      {/* Plans Grid */}
+      {/* Control Bar: Categories + Billing Cycle Switcher + View Mode */}
+      <div className="space-y-3 bg-white/70 dark:bg-slate-900/70 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 backdrop-blur-md shadow-xs">
+        {/* Category Pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          {categories.map((cat) => {
+            const count =
+              cat.id === "all"
+                ? plans.length
+                : plans.filter(
+                    (p) =>
+                      getPlanGroup(p.name).toLowerCase().trim() ===
+                      cat.id.toLowerCase().trim(),
+                  ).length;
+            const isSelected = selectedCategory === cat.id;
+
+            return (
+              <Button
+                key={cat.id}
+                variant={isSelected ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`rounded-xl transition-all font-semibold ${
+                  isSelected
+                    ? "bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-500/25 border-purple-600"
+                    : "bg-white/80 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                }`}
+              >
+                {cat.label}
+                <span
+                  className={`ml-1.5 text-xs rounded-full px-1.5 py-0.2 ${
+                    isSelected
+                      ? "bg-purple-700/60 text-white"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+                  }`}
+                >
+                  {count}
+                </span>
+              </Button>
+            );
+          })}
+        </div>
+
+        {/* Sub-toolbar: Billing Cycle Filter & Search & View Toggle */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+          {/* Billing Cycle Segmented Control */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+            {billingCycles.map((cycle) => {
+              const isSelected = selectedBillingCycle === cycle.id;
+              return (
+                <button
+                  type="button"
+                  key={cycle.id}
+                  onClick={() => setSelectedBillingCycle(cycle.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    isSelected
+                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <span>{cycle.label}</span>
+                  {cycle.badge && (
+                    <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold">
+                      {cycle.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search & View Mode Switcher */}
+          <div className="flex items-center gap-2">
+            <div className="relative w-48 sm:w-60">
+              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Search plan or feature..."
+                value={planSearchQuery}
+                onChange={(e) => setPlanSearchQuery(e.target.value)}
+                className="h-8 pl-8 pr-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700"
+              />
+              {planSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setPlanSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setViewMode("tier")}
+                title="Grouped by Tier (Simplified)"
+                className={`p-1.5 rounded-md text-xs font-medium transition-all ${
+                  viewMode === "tier"
+                    ? "bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                <Layers className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                title="All Plans Grid"
+                className={`p-1.5 rounded-md text-xs font-medium transition-all ${
+                  viewMode === "grid"
+                    ? "bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
         </div>
-      ) : plans.length === 0 ? (
-        <div className="text-center py-20 bg-white/30 dark:bg-slate-900/30 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
-          <CreditCard className="h-16 w-16 mx-auto text-slate-300 mb-4" />
-          <p className="text-xl font-semibold text-slate-600 dark:text-slate-300">
-            No plans defined
-          </p>
-          <Button onClick={() => setIsAddOpen(true)} className="mt-4">
-            Create First Plan
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {plans.map((plan) => {
-            const count = subscriberCounts[plan.id] || 0;
-            const features = Array.isArray(plan.features) ? plan.features : [];
-            const componentCount = Array.isArray(plan.components)
-              ? plan.components.length
-              : 0;
+      ) : viewMode === "tier" ? (
+        /* ─── TIER VIEW (SIMPLIFIED / COLLAPSED) ─── */
+        tierGroups.length === 0 ? (
+          <div className="text-center py-16 bg-white/40 dark:bg-slate-900/40 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
+            <CreditCard className="h-12 w-12 mx-auto text-slate-400 mb-3" />
+            <p className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+              No plan tiers found matching your filters
+            </p>
+            <Button
+              onClick={() => {
+                setSelectedCategory("all");
+                setSelectedBillingCycle("all");
+                setPlanSearchQuery("");
+              }}
+              variant="outline"
+              size="sm"
+              className="mt-3 rounded-xl"
+            >
+              Reset Filters
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {tierGroups.map((tier) => {
+              const activePlan = resolveActivePlanForTier(tier);
+              const count = subscriberCounts[activePlan.id] || 0;
+              const features = Array.isArray(activePlan.features)
+                ? activePlan.features
+                : [];
+              const componentCount = Array.isArray(activePlan.components)
+                ? activePlan.components.length
+                : 0;
+              const config = TIER_CONFIG[tier.tierName] || {
+                subtitle: activePlan.description || "Subscription tier",
+                inclusions: "",
+                gradient: "from-purple-500 to-indigo-600",
+                borderActive: "border-purple-500",
+                bgActive: "bg-purple-50/50",
+              };
+              const { intervalKey } = getPlanTierAndInterval(
+                activePlan.name,
+                tier.group,
+                activePlan.interval,
+              );
+              const labelInfo = formatIntervalLabel(
+                intervalKey,
+                tier.tierName,
+                activePlan.price,
+              );
 
-            // Tier-based color schemes
-            const tierColor =
-              plan.price === 0
-                ? {
-                    gradient: "from-slate-400 to-slate-500",
-                    light: "slate",
-                    text: "slate",
-                  }
-                : plan.price < 1000
-                  ? {
-                      gradient: "from-emerald-500 to-teal-600",
-                      light: "emerald",
-                      text: "emerald",
-                    }
-                  : plan.price < 2000
-                    ? {
-                        gradient: "from-blue-500 to-indigo-600",
-                        light: "blue",
-                        text: "indigo",
-                      }
-                    : plan.price < 5000
-                      ? {
-                          gradient: "from-violet-500 to-purple-600",
-                          light: "violet",
-                          text: "purple",
-                        }
-                      : {
-                          gradient: "from-amber-500 to-orange-600",
-                          light: "amber",
-                          text: "orange",
-                        };
-
-            return (
-              <div
-                key={plan.id}
-                className={`group relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 overflow-hidden
-                ${!plan.is_active ? "opacity-60 grayscale" : ""}
-                `}
-              >
-                {/* Gradient border on hover */}
+              return (
                 <div
-                  className={`absolute inset-0 bg-gradient-to-br ${tierColor.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl`}
-                />
-                <div className="absolute inset-[2px] bg-white dark:bg-slate-900 rounded-3xl" />
+                  key={tier.key}
+                  className={`group relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-3xl p-6 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 flex flex-col justify-between border ${
+                    config.isHero
+                      ? "border-purple-300 dark:border-purple-700/80 ring-1 ring-purple-400/30"
+                      : "border-slate-200/90 dark:border-slate-800"
+                  } ${!activePlan.is_active ? "opacity-60 grayscale" : ""}`}
+                >
+                  {/* Top gradient highlight bar */}
+                  <div
+                    className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${config.gradient} rounded-t-3xl`}
+                  />
 
-                {/* Top gradient bar */}
-                <div
-                  className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${tierColor.gradient} rounded-t-3xl`}
-                />
+                  <div>
+                    {/* Header: Category Badge + Popular Tag + Inactive Tag */}
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {selectedCategory === "all" && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                            {tier.group}
+                          </span>
+                        )}
+                        {config.badge && (
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-gradient-to-r from-rose-500 to-indigo-600 text-white shadow-xs">
+                            {config.isHero ? "★ POPULAR" : config.badge}
+                          </span>
+                        )}
+                      </div>
 
-                {!plan.is_active && (
-                  <div className="absolute top-4 right-4 bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider z-20">
-                    Inactive
-                  </div>
-                )}
+                      {!activePlan.is_active && (
+                        <span className="bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                          Inactive
+                        </span>
+                      )}
+                    </div>
 
-                <div className="relative z-10">
-                  <div className="mb-6">
+                    {/* Tier Title & Subtitle */}
                     <h3
-                      className={`text-xl font-bold mb-2 bg-gradient-to-r ${tierColor.gradient} bg-clip-text text-transparent`}
+                      className={`text-xl font-bold bg-gradient-to-r ${config.gradient} bg-clip-text text-transparent`}
                     >
-                      {plan.name}
+                      {tier.tierName}
                     </h3>
-                    <p className="text-slate-500 text-sm leading-relaxed min-h-[40px]">
-                      {plan.description}
+                    <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed min-h-[32px] mt-0.5">
+                      {config.subtitle || activePlan.description}
                     </p>
-                  </div>
 
-                  <div className="mb-8">
-                    <div className="flex items-baseline">
-                      <span className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400">
-                        <IndianRupee className="h-8 w-8 inline-block -mt-1 mr-1" />
-                        {plan.price.toLocaleString()}
-                      </span>
-                      <span className="text-slate-400 ml-2 font-medium">
-                        /{plan.interval}
-                      </span>
+                    {/* Inclusions pill if configured */}
+                    {config.inclusions && (
+                      <div className="mt-2 py-1 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                        {config.inclusions}
+                      </div>
+                    )}
+
+                    {/* Duration / Billing Terms Switcher */}
+                    {tier.plans.length > 1 && (
+                      <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800/80 p-1 gap-1 my-3">
+                        {tier.plans.map((p) => {
+                          const { intervalKey: pIntKey } =
+                            getPlanTierAndInterval(p.name, tier.group, p.interval);
+                          const pLabel = formatIntervalLabel(
+                            pIntKey,
+                            tier.tierName,
+                            p.price,
+                          );
+                          const isPlanActive = activePlan.id === p.id;
+
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() =>
+                                setTierIntervalSelection((prev) => ({
+                                  ...prev,
+                                  [tier.key]: pIntKey,
+                                }))
+                              }
+                              className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-semibold transition-all flex flex-col items-center justify-center ${
+                                isPlanActive
+                                  ? "bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-xs border border-purple-200/50 dark:border-purple-800/50"
+                                  : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                              }`}
+                            >
+                              <span>{pLabel.period}</span>
+                              <span className="text-[10px] font-bold opacity-80">
+                                ₹{p.price.toLocaleString()}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Price Display */}
+                    <div className="my-3 pt-1">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
+                          <IndianRupee className="h-6 w-6 inline-block -mt-1" />
+                          {activePlan.price.toLocaleString()}
+                        </span>
+                        <span className="text-slate-400 text-xs font-medium">
+                          /{activePlan.interval}
+                        </span>
+                      </div>
+                      {labelInfo.effectiveMonthly && activePlan.price > 0 && (
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
+                          {labelInfo.effectiveMonthly}
+                          {labelInfo.badge ? ` • ${labelInfo.badge}` : ""}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Feature Count Badge */}
+                    <div className="mb-3">
+                      <Badge
+                        variant="outline"
+                        className="bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-[11px]"
+                      >
+                        <Lock className="h-3 w-3 mr-1" />
+                        {componentCount} / {totalFeatures} features
+                      </Badge>
+                    </div>
+
+                    {/* Feature List (top 4) */}
+                    <div className="space-y-2 mb-4">
+                      {features.slice(0, 4).map((feature, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300"
+                        >
+                          <div className="mt-0.5 shrink-0 h-4 w-4 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
+                            <Check className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+                          </div>
+                          <span className="leading-snug line-clamp-1">
+                            {feature}
+                          </span>
+                        </div>
+                      ))}
+                      {features.length > 4 && (
+                        <p className="text-[11px] text-slate-400 pl-6">
+                          +{features.length - 4} more features
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {/* Feature count badge */}
-                  <div className="mb-6">
-                    <Badge
-                      variant="outline"
-                      className="bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700"
-                    >
-                      <Lock className="h-3 w-3 mr-1" />
-                      {componentCount} / {totalFeatures} features enabled
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-3 mb-8 min-h-[120px]">
-                    {features.slice(0, 5).map((feature, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-start gap-3 text-sm text-slate-600 dark:text-slate-300"
-                      >
-                        <div className="mt-1 min-w-[1.25rem] h-5 w-5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
-                          <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-                        </div>
-                        <span className="leading-tight">{feature}</span>
-                      </div>
-                    ))}
-                    {features.length > 5 && (
-                      <p className="text-xs text-slate-400 pl-8">
-                        +{features.length - 5} more features
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between pt-6 border-t border-slate-100 dark:border-slate-800/50">
-                    <div className="flex items-center gap-2">
-                      <div className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded-lg">
-                        <Building2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                      </div>
+                  {/* Card Footer: Subscribers & Actions */}
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                       <div>
-                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide leading-none">
                           Subscribers
                         </p>
-                        <p className="font-bold text-slate-900 dark:text-white">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
                           {count}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
-                      {/* Feature Permissions Button — NEW */}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openPermissions(activePlan)}
+                        className="h-8 w-8 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20"
+                        title="Manage Feature Permissions"
+                      >
+                        <Shield className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEdit(activePlan)}
+                        className="h-8 w-8 hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-900/20"
+                        title="Edit Plan"
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          toggleMutation.mutate({
+                            id: activePlan.id,
+                            is_active: !activePlan.is_active,
+                          })
+                        }
+                        className={`h-8 w-8 ${
+                          activePlan.is_active
+                            ? "text-emerald-600 hover:bg-emerald-50"
+                            : "text-slate-400 hover:bg-slate-50"
+                        }`}
+                        title={
+                          activePlan.is_active
+                            ? "Deactivate Plan"
+                            : "Activate Plan"
+                        }
+                      >
+                        {activePlan.is_active ? (
+                          <Check className="h-3.5 w-3.5" />
+                        ) : (
+                          <X className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        title="Delete Plan"
+                        onClick={() => {
+                          if (count > 0) {
+                            toast.error(
+                              "Cannot delete plan with active subscribers",
+                            );
+                            return;
+                          }
+                          if (confirm("Delete this plan?")) {
+                            deleteMutation.mutate(activePlan.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        /* ─── GRID VIEW (ALL INDIVIDUAL PLANS) ─── */
+        displayedPlans.length === 0 ? (
+          <div className="text-center py-16 bg-white/40 dark:bg-slate-900/40 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
+            <CreditCard className="h-12 w-12 mx-auto text-slate-400 mb-3" />
+            <p className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+              No plans found matching your filters
+            </p>
+            <Button
+              onClick={() => {
+                setSelectedCategory("all");
+                setSelectedBillingCycle("all");
+                setPlanSearchQuery("");
+              }}
+              variant="outline"
+              size="sm"
+              className="mt-3 rounded-xl"
+            >
+              Reset Filters
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayedPlans.map((plan) => {
+              const count = subscriberCounts[plan.id] || 0;
+              const features = Array.isArray(plan.features) ? plan.features : [];
+              const componentCount = Array.isArray(plan.components)
+                ? plan.components.length
+                : 0;
+              const group = getPlanGroup(plan.name);
+              const { tier } = getPlanTierAndInterval(
+                plan.name,
+                group,
+                plan.interval,
+              );
+              const config = TIER_CONFIG[tier] || {
+                subtitle: plan.description || "Subscription tier",
+                inclusions: "",
+                gradient: "from-purple-500 to-indigo-600",
+              };
+
+              return (
+                <div
+                  key={plan.id}
+                  className={`group relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-3xl p-6 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 flex flex-col justify-between border border-slate-200/90 dark:border-slate-800 ${
+                    !plan.is_active ? "opacity-60 grayscale" : ""
+                  }`}
+                >
+                  <div
+                    className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${config.gradient} rounded-t-3xl`}
+                  />
+
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        {group}
+                      </span>
+                      {!plan.is_active && (
+                        <span className="bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+
+                    <h3
+                      className={`text-lg font-bold bg-gradient-to-r ${config.gradient} bg-clip-text text-transparent`}
+                    >
+                      {plan.name}
+                    </h3>
+                    <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed min-h-[32px] mt-0.5">
+                      {plan.description}
+                    </p>
+
+                    <div className="my-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
+                          <IndianRupee className="h-6 w-6 inline-block -mt-1" />
+                          {plan.price.toLocaleString()}
+                        </span>
+                        <span className="text-slate-400 text-xs font-medium">
+                          /{plan.interval}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mb-3">
+                      <Badge
+                        variant="outline"
+                        className="bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-[11px]"
+                      >
+                        <Lock className="h-3 w-3 mr-1" />
+                        {componentCount} / {totalFeatures} features
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-2 mb-4">
+                      {features.slice(0, 4).map((feature, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300"
+                        >
+                          <div className="mt-0.5 shrink-0 h-4 w-4 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
+                            <Check className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+                          </div>
+                          <span className="leading-snug line-clamp-1">
+                            {feature}
+                          </span>
+                        </div>
+                      ))}
+                      {features.length > 4 && (
+                        <p className="text-[11px] text-slate-400 pl-6">
+                          +{features.length - 4} more features
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      <div>
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide leading-none">
+                          Subscribers
+                        </p>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                          {count}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => openPermissions(plan)}
-                        className="hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20"
+                        className="h-8 w-8 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20"
                         title="Manage Feature Permissions"
                       >
-                        <Shield className="h-4 w-4" />
+                        <Shield className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => openEdit(plan)}
-                        className="hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-900/20"
+                        className="h-8 w-8 hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-900/20"
+                        title="Edit Plan"
                       >
-                        <Edit className="h-4 w-4" />
+                        <Edit className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -584,22 +1178,28 @@ const SubscriptionManager = () => {
                             is_active: !plan.is_active,
                           })
                         }
-                        className={
+                        className={`h-8 w-8 ${
                           plan.is_active
                             ? "text-emerald-600 hover:bg-emerald-50"
                             : "text-slate-400 hover:bg-slate-50"
+                        }`}
+                        title={
+                          plan.is_active
+                            ? "Deactivate Plan"
+                            : "Activate Plan"
                         }
                       >
                         {plan.is_active ? (
-                          <Check className="h-4 w-4" />
+                          <Check className="h-3.5 w-3.5" />
                         ) : (
-                          <X className="h-4 w-4" />
+                          <X className="h-3.5 w-3.5" />
                         )}
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        title="Delete Plan"
                         onClick={() => {
                           if (count > 0) {
                             toast.error(
@@ -612,15 +1212,15 @@ const SubscriptionManager = () => {
                           }
                         }}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {/* ─── Feature Permissions Manager Dialog ─────────────────────────── */}
@@ -978,19 +1578,39 @@ const SubscriptionManager = () => {
                 className="mt-1"
               />
             </div>
-            <div>
-              <Label>Price (₹)</Label>
-              <Input
-                type="number"
-                value={formData.price}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    price: parseInt(e.target.value) || 0,
-                  })
-                }
-                className="mt-1"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Price (₹)</Label>
+                <Input
+                  type="number"
+                  value={formData.price}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      price: parseInt(e.target.value) || 0,
+                    })
+                  }
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Interval</Label>
+                <Select
+                  value={formData.interval}
+                  onValueChange={(v) =>
+                    setFormData({ ...formData, interval: v })
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="half_yearly">Half-Yearly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div>
               <Label>Features (one per line)</Label>
@@ -1001,6 +1621,15 @@ const SubscriptionManager = () => {
                 }
                 rows={4}
                 className="mt-1"
+              />
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+              <Label>Plan is Active</Label>
+              <Switch
+                checked={formData.is_active}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_active: checked })
+                }
               />
             </div>
           </div>
@@ -1020,7 +1649,9 @@ const SubscriptionManager = () => {
                       name: formData.name,
                       description: formData.description,
                       price: formData.price,
+                      interval: formData.interval,
                       features: features,
+                      is_active: formData.is_active,
                     },
                   });
                 }

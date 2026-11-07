@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { calculateSubscriptionEndDate } from "@/utils/subscriptionUtils";
 import {
   Plus,
   Search,
@@ -148,8 +149,12 @@ interface Restaurant {
 interface SubscriptionPlan {
   id: string;
   name: string;
+  description?: string | null;
   price: number;
   interval: string;
+  features?: string[] | null;
+  components?: string[] | null;
+  is_active?: boolean;
 }
 
 const RestaurantManagement = () => {
@@ -245,19 +250,7 @@ const RestaurantManagement = () => {
 
   // Helper: compute subscription end date based on plan interval
   const getSubscriptionEndDate = (interval: string): string => {
-    const now = Date.now();
-    const dayMs = 24 * 60 * 60 * 1000;
-    switch (interval) {
-      case "yearly":
-        return new Date(now + 365 * dayMs).toISOString();
-      case "half_yearly":
-        return new Date(now + 182 * dayMs).toISOString();
-      case "quarterly":
-        return new Date(now + 90 * dayMs).toISOString();
-      case "monthly":
-      default:
-        return new Date(now + 30 * dayMs).toISOString();
-    }
+    return calculateSubscriptionEndDate(interval);
   };
 
   // Fetch restaurants
@@ -315,7 +308,7 @@ const RestaurantManagement = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subscription_plans")
-        .select("id, name, price, interval")
+        .select("*")
         .eq("is_active", true)
         .order("price");
       if (error) throw error;
@@ -374,6 +367,9 @@ const RestaurantManagement = () => {
         const endDate = getSubscriptionEndDate(
           selectedPlan?.interval || "monthly",
         );
+        const componentsToAssign = Array.isArray(selectedPlan?.components)
+          ? selectedPlan.components
+          : [];
         const { error: subError } = await supabase
           .from("restaurant_subscriptions")
           .insert({
@@ -382,6 +378,7 @@ const RestaurantManagement = () => {
             status: "active",
             current_period_start: new Date().toISOString(),
             current_period_end: endDate,
+            components: componentsToAssign,
           });
         if (subError) {
           console.error("Subscription creation failed:", subError);
@@ -593,32 +590,43 @@ const RestaurantManagement = () => {
       planId: string;
       existingSubId?: string;
     }) => {
+      const selectedPlan = plans.find((p) => p.id === data.planId);
+      const endDate = getSubscriptionEndDate(
+        selectedPlan?.interval || "monthly",
+      );
+      const componentsToAssign = Array.isArray(selectedPlan?.components)
+        ? selectedPlan.components
+        : [];
+
       if (data.existingSubId) {
         // Update existing subscription
+        const updatePayload: Record<string, any> = {
+          plan_id: data.planId,
+          status: "active",
+          current_period_start: new Date().toISOString(),
+          current_period_end: endDate,
+          components: componentsToAssign,
+        };
+
         const { error } = await supabase
           .from("restaurant_subscriptions")
-          .update({
-            plan_id: data.planId,
-            current_period_start: new Date().toISOString(),
-            current_period_end: new Date(
-              Date.now() + 30 * 24 * 60 * 60 * 1000,
-            ).toISOString(),
-          })
+          .update(updatePayload)
           .eq("id", data.existingSubId);
         if (error) throw error;
       } else {
         // Create new subscription
+        const insertPayload: Record<string, any> = {
+          restaurant_id: data.restaurantId,
+          plan_id: data.planId,
+          status: "active",
+          current_period_start: new Date().toISOString(),
+          current_period_end: endDate,
+          components: componentsToAssign,
+        };
+
         const { error } = await supabase
           .from("restaurant_subscriptions")
-          .insert({
-            restaurant_id: data.restaurantId,
-            plan_id: data.planId,
-            status: "active",
-            current_period_start: new Date().toISOString(),
-            current_period_end: new Date(
-              Date.now() + 30 * 24 * 60 * 60 * 1000,
-            ).toISOString(),
-          });
+          .insert(insertPayload);
         if (error) throw error;
       }
     },
