@@ -53,7 +53,7 @@ const LazyRoute = ({ children }: { children: React.ReactNode }) => (
 // ─── Smart POS Redirect ───────────────────────────────────────────────────────
 // Redirects to QuickServe POS if the restaurant has that feature,
 // otherwise falls back to QSR POS.
-const SmartPOSRedirect: React.FC = () => {
+export const SmartPOSRedirect: React.FC = () => {
   const { hasSubscriptionAccess } = useSubscriptionAccess();
   const hasQuickServe = hasSubscriptionAccess("quickserve");
   return <Navigate to={hasQuickServe ? "/quickserve-pos" : "/qsr-pos"} replace />;
@@ -63,13 +63,17 @@ const SmartPOSRedirect: React.FC = () => {
 const POS_PATHS = new Set(["/pos-entry", "/qsr-pos", "/quickserve-pos", "/pos"]);
 
 // ─── Main Operations Mobile Layout ──────────────────────────────────────────
-export const OperationsMobileLayout = () => {
+export interface OperationsMobileLayoutProps {
+  children?: React.ReactNode;
+}
+
+export const OperationsMobileLayout: React.FC<OperationsMobileLayoutProps> = ({
+  children,
+}) => {
   const [locked, setLocked] = useState(() => getBiometricEnabled());
   const location = useLocation();
   const navigate  = useNavigate();
   const queryClient = useQueryClient();
-
-
 
   // Re-lock when app returns from background after 30s
   useEffect(() => {
@@ -93,113 +97,121 @@ export const OperationsMobileLayout = () => {
     return <BiometricLock onUnlocked={() => setLocked(false)} />;
   }
 
+  const isFranchise = location.pathname.startsWith("/franchise");
+  const hasBottomNav = !isFranchise;
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
-
       {/* Page content — scrollable */}
       <PullToRefresh onRefresh={async () => { await queryClient.invalidateQueries(); }}>
-        <Routes>
-          {/* Dashboard — role-based */}
-          <Route
-            path="/"
-            element={<LazyRoute><RoleBasedDashboard /></LazyRoute>}
-          />
+        <div className={cn("flex-1 overflow-y-auto min-h-screen", hasBottomNav ? "pb-20" : "")}>
+          {children ? (
+            children
+          ) : (
+            <Routes>
+              {/* Dashboard — role-based */}
+              <Route
+                path="/"
+                element={<LazyRoute><RoleBasedDashboard /></LazyRoute>}
+              />
 
-          {/* Smart POS entry — redirects based on subscription */}
-          <Route
-            path="/pos-entry"
-            element={
-              <PermissionGuard permission="orders.view">
-                <SmartPOSRedirect />
-              </PermissionGuard>
-            }
-          />
+              {/* Smart POS entry — redirects based on subscription */}
+              <Route
+                path="/pos-entry"
+                element={
+                  <PermissionGuard permission="orders.view">
+                    <SmartPOSRedirect />
+                  </PermissionGuard>
+                }
+              />
 
-          {/* QSR POS */}
-          <Route
-            path="/qsr-pos"
-            element={
-              <PermissionGuard permission="orders.view">
-                <LazyRoute><QSRPos /></LazyRoute>
-              </PermissionGuard>
-            }
-          />
+              {/* QSR POS */}
+              <Route
+                path="/qsr-pos"
+                element={
+                  <PermissionGuard permission="orders.view">
+                    <LazyRoute><QSRPos /></LazyRoute>
+                  </PermissionGuard>
+                }
+              />
 
-          {/* QuickServe POS */}
-          <Route
-            path="/quickserve-pos"
-            element={
-              <PermissionGuard permission="orders.view">
-                <LazyRoute><QuickServePOS /></LazyRoute>
-              </PermissionGuard>
-            }
-          />
+              {/* QuickServe POS */}
+              <Route
+                path="/quickserve-pos"
+                element={
+                  <PermissionGuard permission="orders.view">
+                    <LazyRoute><QuickServePOS /></LazyRoute>
+                  </PermissionGuard>
+                }
+              />
 
-          {/* Redirect old POS to QuickServe */}
-          <Route
-            path="/pos"
-            element={<Navigate to="/quickserve-pos" replace />}
-          />
+              {/* Redirect old POS to QuickServe */}
+              <Route
+                path="/pos"
+                element={<Navigate to="/quickserve-pos" replace />}
+              />
 
-          {/* Orders */}
-          <Route
-            path="/orders"
-            element={
-              <PermissionGuard permission="orders.view">
-                <LazyRoute><Orders /></LazyRoute>
-              </PermissionGuard>
-            }
-          />
+              {/* Orders */}
+              <Route
+                path="/orders"
+                element={
+                  <PermissionGuard permission="orders.view">
+                    <LazyRoute><Orders /></LazyRoute>
+                  </PermissionGuard>
+                }
+              />
 
-          {/* Kitchen */}
-          <Route
-            path="/kitchen"
-            element={
-              <PermissionGuard permission="kitchen.view">
-                <LazyRoute><Kitchen /></LazyRoute>
-              </PermissionGuard>
-            }
-          />
+              {/* Kitchen */}
+              <Route
+                path="/kitchen"
+                element={
+                  <PermissionGuard permission="kitchen.view">
+                    <LazyRoute><Kitchen /></LazyRoute>
+                  </PermissionGuard>
+                }
+              />
 
-          {/* Menu */}
-          <Route
-            path="/menu"
-            element={
-              <PermissionGuard permission="menu.view">
-                <LazyRoute><MenuPage /></LazyRoute>
-              </PermissionGuard>
-            }
-          />
+              {/* Menu */}
+              <Route
+                path="/menu"
+                element={
+                  <PermissionGuard permission="menu.view">
+                    <LazyRoute><MenuPage /></LazyRoute>
+                  </PermissionGuard>
+                }
+              />
 
-          {/* Inventory */}
-          <Route
-            path="/inventory"
-            element={
-              <PermissionGuard permission="inventory.view">
-                <LazyRoute><Inventory /></LazyRoute>
-              </PermissionGuard>
-            }
-          />
+              {/* Inventory */}
+              <Route
+                path="/inventory"
+                element={
+                  <PermissionGuard permission="inventory.view">
+                    <LazyRoute><Inventory /></LazyRoute>
+                  </PermissionGuard>
+                }
+              />
 
-          {/* Settings */}
-          <Route
-            path="/settings"
-            element={<LazyRoute><Settings_ /></LazyRoute>}
-          />
+              {/* Settings */}
+              <Route
+                path="/settings"
+                element={<LazyRoute><Settings_ /></LazyRoute>}
+              />
 
-          {/* Printer Setup */}
-          <Route
-            path="/printer-settings"
-            element={<LazyRoute><PrinterSettings /></LazyRoute>}
-          />
+              {/* Printer Setup */}
+              <Route
+                path="/printer-settings"
+                element={<LazyRoute><PrinterSettings /></LazyRoute>}
+              />
 
-          {/* Catch-all → Dashboard */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+              {/* Catch-all → Dashboard */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          )}
+        </div>
       </PullToRefresh>
 
       {/* Unified Mobile Bottom Navigation — matches Web mobile styling with active squircle gradients & z-50 */}
-      <MobileNavigation />
+      {hasBottomNav && <MobileNavigation />}
 
       {/* One-time Biometric Setup Prompt */}
       <BiometricPromptDialog />

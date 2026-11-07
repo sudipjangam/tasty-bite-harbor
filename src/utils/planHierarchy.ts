@@ -7,12 +7,12 @@
 export interface SubscriptionPlanItem {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   price: number;
   interval: string;
-  features?: string[];
-  components?: string[];
-  is_active: boolean;
+  features?: string[] | null;
+  components?: string[] | null;
+  is_active?: boolean;
 }
 
 export interface ParsedPlanItem {

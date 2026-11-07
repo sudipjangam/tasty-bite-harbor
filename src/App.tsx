@@ -1,6 +1,14 @@
 import { useState, useEffect } from "react";
-import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
-import { BrowserRouter as Router, useNavigate, useLocation } from "react-router-dom";
+import {
+  QueryClient,
+  QueryClientProvider,
+  focusManager,
+} from "@tanstack/react-query";
+import {
+  BrowserRouter as Router,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import { Toaster } from "./components/ui/toaster";
 import "./App.css";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -21,11 +29,15 @@ import OwnerNotificationListener from "@/components/Notifications/OwnerNotificat
 import { UpdateNotification } from "@/components/UpdateNotification";
 import { registerServiceWorker } from "@/utils/serviceWorkerUtils";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
-import { App as CapacitorApp } from '@capacitor/app';
+import { App as CapacitorApp } from "@capacitor/app";
 import { supabase } from "@/integrations/supabase/client";
 import { isNativeApp } from "@/utils/platform";
 import { AppUpdateChecker } from "@/components/AppUpdateChecker";
-import { markBackgrounded, shouldLockOnResume, isBiometricEnabled } from "@/hooks/useBiometricAuth";
+import {
+  markBackgrounded,
+  shouldLockOnResume,
+  isBiometricEnabled,
+} from "@/hooks/useBiometricAuth";
 
 // BUG-18 fix: defer isNativeApp() call — will be checked at render time, not import time
 function createQueryClient() {
@@ -64,14 +76,17 @@ function AppWithRealtime() {
 
   useEffect(() => {
     if (isNativeApp()) {
-      const listener = CapacitorApp.addListener("appStateChange", ({ isActive }) => {
-        focusManager.setFocused(isActive);
-        // BUG-16 fix: wire biometric lock to Capacitor lifecycle
-        if (!isActive) {
-          markBackgrounded();
-        }
-        // Note: shouldLockOnResume check should be handled by BiometricGate component
-      });
+      const listener = CapacitorApp.addListener(
+        "appStateChange",
+        ({ isActive }) => {
+          focusManager.setFocused(isActive);
+          // BUG-16 fix: wire biometric lock to Capacitor lifecycle
+          if (!isActive) {
+            markBackgrounded();
+          }
+          // Note: shouldLockOnResume check should be handled by BiometricGate component
+        },
+      );
       return () => {
         listener.then((l) => l.remove());
       };
@@ -82,21 +97,39 @@ function AppWithRealtime() {
   useEffect(() => {
     if (!isNativeApp()) return;
 
-    const backListener = CapacitorApp.addListener("backButton", ({ canGoBack }) => {
-      const rootPaths = ["/", "/dashboard", "/auth", "/login", "/staff-login"];
-      const currentPath = location.pathname.toLowerCase();
+    const backListener = CapacitorApp.addListener(
+      "backButton",
+      ({ canGoBack }) => {
+        // First check if any active overlay/modal (like MobileNavigation) intercepts back press
+        const customBackEvent = new CustomEvent("app:hardwareBack", {
+          cancelable: true,
+        });
+        window.dispatchEvent(customBackEvent);
+        if (customBackEvent.defaultPrevented) {
+          return;
+        }
 
-      if (rootPaths.includes(currentPath)) {
-        // Exit app on top-level root screens
-        CapacitorApp.exitApp();
-      } else if (canGoBack || window.history.length > 1) {
-        // Pop back inside app
-        navigate(-1);
-      } else {
-        // Fallback to dashboard
-        navigate("/dashboard");
-      }
-    });
+        const rootPaths = [
+          "/",
+          "/dashboard",
+          "/auth",
+          "/login",
+          "/staff-login",
+        ];
+        const currentPath = location.pathname.toLowerCase();
+
+        if (rootPaths.includes(currentPath)) {
+          // Exit app on top-level root screens
+          CapacitorApp.exitApp();
+        } else if (canGoBack || window.history.length > 1) {
+          // Pop back inside app
+          navigate(-1);
+        } else {
+          // Fallback to dashboard
+          navigate("/dashboard");
+        }
+      },
+    );
 
     return () => {
       backListener.then((l) => l.remove()).catch(console.error);
@@ -128,27 +161,29 @@ function App() {
     // BUG-09 fix: only listen for deep links on native — CapacitorApp on web can throw
     if (!isNativeApp()) return;
 
-    const listener = CapacitorApp.addListener('appUrlOpen', async (event) => {
+    const listener = CapacitorApp.addListener("appUrlOpen", async (event) => {
       const url = new URL(event.url);
-      if (url.protocol === 'com.swadeshisolutions.app:') {
+      if (url.protocol === "com.swadeshisolutions.app:") {
         if (url.hash) {
-          const hashStr = url.hash.startsWith('#') ? url.hash.substring(1) : url.hash;
+          const hashStr = url.hash.startsWith("#")
+            ? url.hash.substring(1)
+            : url.hash;
           const hashParams = new URLSearchParams(hashStr);
-          const accessToken = hashParams.get('access_token');
-          const refreshToken = hashParams.get('refresh_token');
-          
+          const accessToken = hashParams.get("access_token");
+          const refreshToken = hashParams.get("refresh_token");
+
           if (accessToken && refreshToken) {
             await supabase.auth.setSession({
               access_token: accessToken,
-              refresh_token: refreshToken
+              refresh_token: refreshToken,
             });
           }
         }
       }
     });
-    
+
     return () => {
-      listener.then(l => l.remove()).catch(console.error);
+      listener.then((l) => l.remove()).catch(console.error);
     };
   }, []);
 

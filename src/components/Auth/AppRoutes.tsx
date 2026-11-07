@@ -1,7 +1,7 @@
 import React, { useState, Suspense, lazy } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ImprovedSidebarNavigation } from "@/components/Layout/ImprovedSidebarNavigation";
-import { OperationsMobileLayout } from "@/components/Layout/OperationsMobileLayout";
+import { OperationsMobileLayout, SmartPOSRedirect } from "@/components/Layout/OperationsMobileLayout";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Menu as MenuIcon } from "lucide-react";
@@ -68,6 +68,11 @@ const ChannelManagement = lazy(() => import("@/pages/ChannelManagement"));
 const Aggregators = lazy(() => import("@/pages/Aggregators"));
 const Security = lazy(() => import("@/pages/Security"));
 const Settings = lazy(() => import("@/pages/Settings"));
+const PrinterSettings = lazy(() =>
+  import("@/components/Settings/PrinterSettings").then((m) => ({
+    default: m.PrinterSettings,
+  }))
+);
 const AdminPanel = lazy(() => import("@/pages/AdminPanel"));
 
 // Dev/Test Tools
@@ -144,64 +149,35 @@ const LazyRoute = ({ children }: { children: React.ReactNode }) => (
  * All page components are now lazy-loaded for optimal performance
  */
 export const AppRoutes = () => {
-  // ── Native Android → operations-only shell (no sidebar, no admin routes) ──
-  if (isNativeApp()) {
-    return <OperationsMobileLayout />;
-  }
-
-  // ── Web browser → full sidebar layout ────────────────────────────────────
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const location = useLocation();
 
-  return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Sidebar - Hidden on mobile, hidden on franchise and platform routes */}
-      {!location.pathname.startsWith("/franchise") && !location.pathname.startsWith("/platform") && (
-        <div
-          className={cn(
-            "bg-sidebar-purple transition-all duration-300 ease-in-out relative hidden md:block",
-            isSidebarCollapsed ? "w-16" : "w-64",
-          )}
-        >
-          {isSidebarCollapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsSidebarCollapsed(false)}
-              className="absolute top-4 left-4 text-white hover:bg-white/10 w-8 h-8"
-            >
-              <MenuIcon className="h-5 w-5" />
-            </Button>
-          )}
-          <ImprovedSidebarNavigation
-            isSidebarCollapsed={isSidebarCollapsed}
-            setIsSidebarCollapsed={setIsSidebarCollapsed}
-          />
-        </div>
-      )}
-
-      {/* Main Content - Add padding bottom for mobile navigation, no padding for franchise or platform routes */}
-      <div className={cn(
-        "flex-1 overflow-y-auto",
-        (location.pathname.startsWith("/franchise") || location.pathname.startsWith("/platform")) ? "" : "pb-16 md:pb-0"
-      )}>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <LazyRoute>
-                <RoleBasedDashboard />
-              </LazyRoute>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <LazyRoute>
-                <RoleBasedDashboard />
-              </LazyRoute>
-            }
-          />
+  const routesContent = (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <LazyRoute>
+            <RoleBasedDashboard />
+          </LazyRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <LazyRoute>
+            <RoleBasedDashboard />
+          </LazyRoute>
+        }
+      />
+      <Route
+        path="/pos-entry"
+        element={
+          <PermissionGuard permission="orders.view">
+            <SmartPOSRedirect />
+          </PermissionGuard>
+        }
+      />
           <Route
             path="/orders"
             element={
@@ -317,6 +293,14 @@ export const AppRoutes = () => {
                   <Settings />
                 </LazyRoute>
               </PermissionGuard>
+            }
+          />
+          <Route
+            path="/printer-settings"
+            element={
+              <LazyRoute>
+                <PrinterSettings />
+              </LazyRoute>
             }
           />
           <Route
@@ -665,6 +649,47 @@ export const AppRoutes = () => {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+  );
+
+  // ── Native Android → render full routes within OperationsMobileLayout shell ──
+  if (isNativeApp()) {
+    return <OperationsMobileLayout>{routesContent}</OperationsMobileLayout>;
+  }
+
+  // ── Web browser → full sidebar layout ────────────────────────────────────
+  return (
+    <div className="flex h-screen overflow-hidden">
+      {/* Sidebar - Hidden on mobile, hidden on franchise and platform routes */}
+      {!location.pathname.startsWith("/franchise") && !location.pathname.startsWith("/platform") && (
+        <div
+          className={cn(
+            "bg-sidebar-purple transition-all duration-300 ease-in-out relative hidden md:block",
+            isSidebarCollapsed ? "w-16" : "w-64",
+          )}
+        >
+          {isSidebarCollapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="absolute top-4 left-4 text-white hover:bg-white/10 w-8 h-8"
+            >
+              <MenuIcon className="h-5 w-5" />
+            </Button>
+          )}
+          <ImprovedSidebarNavigation
+            isSidebarCollapsed={isSidebarCollapsed}
+            setIsSidebarCollapsed={setIsSidebarCollapsed}
+          />
+        </div>
+      )}
+
+      {/* Main Content - Add padding bottom for mobile navigation, no padding for franchise or platform routes */}
+      <div className={cn(
+        "flex-1 overflow-y-auto",
+        (location.pathname.startsWith("/franchise") || location.pathname.startsWith("/platform")) ? "" : "pb-16 md:pb-0"
+      )}>
+        {routesContent}
 
         {/* Global Mobile Navigation */}
         {!location.pathname.startsWith("/franchise") && (

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Menu,
@@ -30,6 +30,8 @@ import {
   Store,
   Building2,
   Network,
+  Globe,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -83,11 +85,10 @@ const mobileNavItems: MobileNavItem[] = [
     path: "/quickserve-pos",
     icon: Store,
     requiredPermissions: ["orders.view"],
-    gradient: "from-orange-500 to-pink-500",
-    shadowColor: "shadow-orange-500/30",
-    textColor: "text-orange-600",
+    gradient: "from-emerald-500 to-teal-600",
+    shadowColor: "shadow-emerald-500/30",
+    textColor: "text-emerald-600",
   },
-
   {
     id: "orders",
     label: "Orders",
@@ -107,16 +108,6 @@ const mobileNavItems: MobileNavItem[] = [
     gradient: "from-orange-500 to-red-500",
     shadowColor: "shadow-orange-500/30",
     textColor: "text-orange-600",
-  },
-  {
-    id: "pos",
-    label: "QuickServe",
-    path: "/quickserve-pos",
-    icon: CreditCard,
-    requiredPermissions: ["orders.view"],
-    gradient: "from-emerald-500 to-teal-600",
-    shadowColor: "shadow-emerald-500/30",
-    textColor: "text-emerald-600",
   },
   {
     id: "menu",
@@ -299,6 +290,56 @@ const mobileNavItems: MobileNavItem[] = [
     textColor: "text-gray-600",
   },
   {
+    id: "suppliers",
+    label: "Suppliers",
+    path: "/suppliers",
+    icon: Package,
+    requiredPermissions: ["inventory.view"],
+    gradient: "from-amber-600 to-yellow-600",
+    shadowColor: "shadow-amber-600/30",
+    textColor: "text-amber-600",
+  },
+  {
+    id: "aggregators",
+    label: "Delivery",
+    path: "/aggregators",
+    icon: Globe,
+    requiredPermissions: ["orders.view"],
+    gradient: "from-orange-500 to-amber-600",
+    shadowColor: "shadow-orange-500/30",
+    textColor: "text-orange-600",
+  },
+  {
+    id: "digital-twin",
+    label: "Digital Twin",
+    path: "/digital-twin",
+    icon: Network,
+    requiredPermissions: ["orders.view"],
+    gradient: "from-blue-600 to-cyan-600",
+    shadowColor: "shadow-blue-600/30",
+    textColor: "text-blue-600",
+  },
+  {
+    id: "security",
+    label: "Security",
+    path: "/security",
+    icon: Shield,
+    requiredPermissions: ["audit.view"],
+    gradient: "from-slate-600 to-zinc-700",
+    shadowColor: "shadow-slate-600/30",
+    textColor: "text-slate-600",
+  },
+  {
+    id: "shifts",
+    label: "Shifts",
+    path: "/shift-management",
+    icon: Clock,
+    requiredPermissions: ["staff.update"],
+    gradient: "from-indigo-600 to-blue-700",
+    shadowColor: "shadow-indigo-600/30",
+    textColor: "text-indigo-600",
+  },
+  {
     id: "franchise-portal",
     label: "Franchise",
     path: "/franchise",
@@ -357,11 +398,15 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     "quickserve-pos": "quickserve",
     orders: "orders",
     kitchen: "kitchen.kds",
-    pos: "pos",
     menu: "menu",
-    recipes: "recipes", 
+    recipes: "recipes",
     tables: "tables",
     inventory: "inventory",
+    suppliers: "suppliers",
+    aggregators: "aggregators.view",
+    "digital-twin": "tables.digital_twin",
+    security: "settings.security",
+    shifts: "staff",
     rooms: "rooms",
     reservations: "reservations",
     housekeeping: "rooms.housekeeping",
@@ -399,7 +444,11 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     // Franchise Portal: strictly for franchise/chain organizations (single restaurants NEVER have access)
     if (item.id === "franchise-portal" || item.path === "/franchise") {
       if (!canAccessFranchisePortal) return false;
-      const currentRole = (user.role_name_text || user.role || "").toLowerCase();
+      const currentRole = (
+        user.role_name_text ||
+        user.role ||
+        ""
+      ).toLowerCase();
       return currentRole === "owner" || currentRole === "admin";
     }
 
@@ -407,6 +456,17 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     if (item.adminOnly) {
       const currentRole = user.role_name_text || user.role;
       return currentRole?.toLowerCase() === "admin";
+    }
+
+    // QuickServe POS: allow either modern "quickserve" or legacy "pos" subscription key
+    if (item.id === "quickserve-pos") {
+      const hasAccess =
+        hasSubscriptionAccess("quickserve") || hasSubscriptionAccess("pos");
+      if (!hasAccess) return false;
+      if (item.requiredPermissions && item.requiredPermissions.length > 0) {
+        return hasAnyPermission(item.requiredPermissions);
+      }
+      return true;
     }
 
     const componentKey = itemToComponentMap[item.id];
@@ -445,6 +505,21 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     navigate(path);
     setIsOpen(false);
   };
+
+  // Hardware back button support: close mobile drawer first if open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleHardwareBack = (e: Event) => {
+      e.preventDefault();
+      setIsOpen(false);
+    };
+
+    window.addEventListener("app:hardwareBack", handleHardwareBack);
+    return () => {
+      window.removeEventListener("app:hardwareBack", handleHardwareBack);
+    };
+  }, [isOpen]);
 
   const handleSignOut = async () => {
     try {
@@ -674,7 +749,10 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
               <div className="mt-3 pt-2.5 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
                 <span>© {new Date().getFullYear()} Swadeshi Solutions</span>
                 <span className="font-mono font-semibold bg-gray-100 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-md">
-                  v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "1.0.0"}
+                  v
+                  {typeof __APP_VERSION__ !== "undefined"
+                    ? __APP_VERSION__
+                    : "1.0.0"}
                 </span>
               </div>
             </div>
