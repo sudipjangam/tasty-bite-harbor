@@ -9,7 +9,7 @@ const Orders = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   return (
-    <div className="min-h-screen bg-[#f0f4ff]" style={{
+    <div className="min-h-full bg-[#f0f4ff]" style={{
       backgroundImage: `
         radial-gradient(ellipse at 10% 0%, rgba(29,78,216,0.12) 0%, transparent 50%),
         radial-gradient(ellipse at 90% 0%, rgba(249,115,22,0.10) 0%, transparent 50%),
@@ -18,14 +18,12 @@ const Orders = () => {
     }}>
       {/* Main Content Area */}
       <FeatureLock feature="orders.view" interceptClicks={true}>
-        <div className="flex-1 overflow-auto">
-          <OrdersView
-            searchTrigger={searchTrigger}
-            filterTrigger={filterTrigger}
-            exportTrigger={exportTrigger}
-            refreshTrigger={refreshTrigger}
-          />
-        </div>
+        <OrdersView
+          searchTrigger={searchTrigger}
+          filterTrigger={filterTrigger}
+          exportTrigger={exportTrigger}
+          refreshTrigger={refreshTrigger}
+        />
       </FeatureLock>
     </div>
   );

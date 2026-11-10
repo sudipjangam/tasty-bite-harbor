@@ -41,6 +41,7 @@ import {
   WifiOff,
   User,
   Phone,
+  X,
 } from "lucide-react";
 
 import type { OrderItem } from "@/types/orders";
@@ -1423,7 +1424,7 @@ const PaymentDialog = ({
           }
         }}
       >
-        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 shadow-2xl rounded-2xl">
+        <DialogContent className="max-w-4xl p-0 max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 shadow-2xl rounded-2xl">
           <VisuallyHidden>
             <DialogTitle>Quick POS Payment Settlement</DialogTitle>
           </VisuallyHidden>
@@ -1458,7 +1459,7 @@ const PaymentDialog = ({
           {/* STEP 2: DYNAMIC UPI QR POPUP SCREEN                              */}
           {/* ════════════════════════════════════════════════════════════════ */}
           {currentStep === "qr" && (
-            <div className="p-6 space-y-5 bg-white dark:bg-slate-900">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 bg-white dark:bg-slate-900 flex-1 min-h-0 overflow-y-auto">
               <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                 <Button variant="ghost" size="sm" onClick={() => setCurrentStep("checkout")} className="gap-1.5">
                   <ArrowLeft className="w-4 h-4" /> Back to Payment
@@ -1506,7 +1507,7 @@ const PaymentDialog = ({
           {/* STEP 3: SPLIT BILL SCREEN                                        */}
           {/* ════════════════════════════════════════════════════════════════ */}
           {currentStep === "split" && (
-            <div className="p-6 space-y-4 bg-white dark:bg-slate-900">
+            <div className="p-4 sm:p-6 space-y-4 bg-white dark:bg-slate-900 flex-1 overflow-y-auto">
               <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                 <Button variant="ghost" size="sm" onClick={() => setCurrentStep("checkout")} className="gap-1.5">
                   <ArrowLeft className="w-4 h-4" /> Back to Payment
@@ -1617,7 +1618,7 @@ const PaymentDialog = ({
           {/* STEP: PAY LATER CUSTOMER DETAILS SCREEN                         */}
           {/* ════════════════════════════════════════════════════════════════ */}
           {currentStep === "pay_later" && (
-            <div className="p-6 space-y-5 bg-white dark:bg-slate-900">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 bg-white dark:bg-slate-900 flex-1 overflow-y-auto">
               <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                 <Button variant="ghost" size="sm" onClick={() => setCurrentStep("checkout")} className="gap-1.5">
                   <ArrowLeft className="w-4 h-4" /> Back to Payment
@@ -1744,14 +1745,12 @@ const PaymentDialog = ({
           {/* STEP 4: MAIN 1-CLICK CHECKOUT INTERFACE                          */}
           {/* ════════════════════════════════════════════════════════════════ */}
           {currentStep === "checkout" && (
-            <div className="relative">
-
-
-              <div className="grid grid-cols-1 md:grid-cols-12 min-h-[560px]">
+            <div className="relative flex-1 overflow-y-auto overscroll-contain">
+              <div className="grid grid-cols-1 md:grid-cols-12 min-h-0 md:min-h-[560px]">
                 {/* ──────────────────────────────────────────────────────────── */}
                 {/* LEFT HALF (50%): BILL PREVIEW & INLINE EDITABLE PRICES        */}
                 {/* ──────────────────────────────────────────────────────────── */}
-                <div className="md:col-span-6 p-5 border-r border-slate-300 dark:border-slate-800 flex flex-col justify-between bg-slate-100/90 dark:bg-slate-950/80">
+                <div className="md:col-span-6 p-3.5 sm:p-5 border-b md:border-b-0 md:border-r border-slate-300 dark:border-slate-800 flex flex-col justify-between bg-slate-100/90 dark:bg-slate-950/80">
                   <div className="space-y-3">
                     {/* Dynamic Restaurant / Branch Header */}
                     <div className="flex items-center justify-between pb-2.5 border-b border-slate-300/80 dark:border-slate-800">
@@ -1784,7 +1783,7 @@ const PaymentDialog = ({
                     </div>
 
                     {/* Scrollable Items List with Inline Click-to-Edit Price */}
-                    <div className="space-y-1.5 max-h-[170px] overflow-y-auto pr-1">
+                    <div className="space-y-1.5 max-h-[135px] sm:max-h-[170px] overflow-y-auto pr-1">
                       {orderItems.map((item, idx) => {
                         const unitPrice = item.customPrice !== undefined ? item.customPrice : item.price;
                         const isEditingThis = editingItemIdx === idx;
@@ -2053,10 +2052,10 @@ const PaymentDialog = ({
                 {/* ──────────────────────────────────────────────────────────── */}
                 {/* RIGHT HALF (50%): 1-CLICK PAYMENT ACTIONS & CUSTOMER PANEL   */}
                 {/* ──────────────────────────────────────────────────────────── */}
-                <div className="md:col-span-6 p-4 flex flex-col justify-between space-y-2.5 bg-white dark:bg-slate-900">
-                  <div className="space-y-2.5">
+                <div className="md:col-span-6 p-3 sm:p-4 flex flex-col justify-between space-y-2 sm:space-y-2.5 bg-white dark:bg-slate-900">
+                  <div className="space-y-2 sm:space-y-2.5">
                     {/* Customer Phone & Loyalty Badge (Option 2) */}
-                    <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850/60 space-y-2 shadow-2xs">
+                    <div className="p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850/60 space-y-2 shadow-2xs">
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
@@ -2144,7 +2143,7 @@ const PaymentDialog = ({
                     {/* ──────────────────────────────────────────────────────── */}
                     {/* PROMO & DISCOUNT SECTION (Dropdown + Code Input + Cash)  */}
                     {/* ──────────────────────────────────────────────────────── */}
-                    <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850/60 space-y-2 shadow-2xs">
+                    <div className="p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850/60 space-y-2 shadow-2xs">
                       <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
                         <span className="flex items-center gap-1">
                           <Tag className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Promo & Discounts
@@ -2434,12 +2433,12 @@ const PaymentDialog = ({
                     ) : (
                       <>
                         {/* Big 1-Click Primary Buttons */}
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                           {/* CASH BUTTON */}
                           <button
                             onClick={() => handleQuickPay("cash")}
                             disabled={isProcessingPayment}
-                            className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all disabled:opacity-50 group cursor-pointer"
+                            className="flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all disabled:opacity-50 group cursor-pointer"
                           >
                             <Wallet className="w-5 h-5 mb-0.5 group-hover:scale-110 transition-transform" />
                             <span className="font-bold text-xs">Cash</span>
@@ -2457,7 +2456,7 @@ const PaymentDialog = ({
                               setCurrentStep("qr");
                             }}
                             disabled={isProcessingPayment}
-                            className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-md shadow-indigo-500/20 active:scale-[0.98] transition-all disabled:opacity-50 group cursor-pointer"
+                            className="flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-md shadow-indigo-500/20 active:scale-[0.98] transition-all disabled:opacity-50 group cursor-pointer"
                           >
                             <QrCode className="w-5 h-5 mb-0.5 group-hover:scale-110 transition-transform" />
                             <span className="font-bold text-xs">UPI / QR</span>
@@ -2472,7 +2471,7 @@ const PaymentDialog = ({
                           <button
                             onClick={() => handleQuickPay("card")}
                             disabled={isProcessingPayment}
-                            className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all disabled:opacity-50 group cursor-pointer"
+                            className="flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all disabled:opacity-50 group cursor-pointer"
                           >
                             <CreditCard className="w-5 h-5 mb-0.5 group-hover:scale-110 transition-transform" />
                             <span className="font-bold text-xs">Card</span>

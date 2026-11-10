@@ -13,7 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import OrderList from "../OrderList";
@@ -344,11 +343,11 @@ const OrdersView = ({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="w-full flex flex-col">
         <div className="p-6 flex-shrink-0">
           <EnhancedSkeleton type="orders" count={1} showHeader={false} />
         </div>
-        <div className="flex-1 overflow-hidden p-6">
+        <div className="flex-1 p-6">
           <EnhancedSkeleton type="orders" count={itemsPerPage} />
         </div>
       </div>
@@ -356,10 +355,10 @@ const OrdersView = ({
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="w-full">
       {/* ═══ Topbar ═══ */}
       <div
-        className="relative overflow-hidden flex-shrink-0"
+        className="sticky top-0 z-20 overflow-hidden flex-shrink-0 shadow-md"
         style={{
           background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #f97316 100%)",
           minHeight: isMobile ? 64 : 80,
@@ -426,8 +425,7 @@ const OrdersView = ({
       </div>
 
       {/* ═══ Content ═══ */}
-      <ScrollArea className="flex-1 overflow-auto">
-        <div className="px-3 sm:px-7 py-3.5 sm:py-6 pb-28 sm:pb-8 max-w-[1400px] mx-auto">
+      <div className="px-3 sm:px-7 py-3.5 sm:py-6 pb-12 sm:pb-8 max-w-[1400px] mx-auto">
 
           {/* ── Stat Cards ── */}
           {isMobile ? (
@@ -665,7 +663,6 @@ const OrdersView = ({
             </div>
           )}
         </div>
-      </ScrollArea>
 
       {/* Add/Edit Order Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
