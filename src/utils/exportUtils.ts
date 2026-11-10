@@ -747,3 +747,7 @@ export const exportToExcel = (data: any[], filename: string, sheetName: string =
     return false;
   }
 };
+
+// Re-export new unified business report templates
+export * from "./businessReportTemplates";
+

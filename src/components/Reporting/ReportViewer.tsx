@@ -40,10 +40,13 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-import { loadPDFTableEngine } from "@/utils/lazyExportLoaders";
 import { useToast } from "@/hooks/use-toast";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
-import { generateEditablePPTX, generateRichExcel } from "@/utils/exportUtils";
+import {
+  exportBusinessReport,
+  convertReportsDataToPayload,
+  fetchBusinessContactDetails,
+} from "@/utils/businessReportTemplates";
 
 const COLORS = [
   "#f97316",
@@ -140,7 +143,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
   const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
   const [helpCategory, setHelpCategory] = useState<ReportCategory | null>(null);
   const { toast } = useToast();
-  const { restaurantName } = useRestaurantId();
+  const { restaurantId, restaurantName } = useRestaurantId();
 
   const getCurrentPage = (category: string) => currentPages[category] || 1;
 
@@ -226,276 +229,30 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
     );
   };
 
-  const handleExportPDF = async () => {
+  const buildReportPayload = async (targetReport?: ReportData) => {
+    const contact = await fetchBusinessContactDetails(restaurantId);
+    if (restaurantName) contact.name = restaurantName;
+
+    const reportsToInclude = targetReport ? [targetReport] : reports;
+    const payload = convertReportsDataToPayload(
+      reportsToInclude,
+      contact,
+      dateRange ? { from: dateRange.from, to: dateRange.to } : undefined
+    );
+
+    if (targetReport) {
+      payload.title = targetReport.title;
+      payload.subtitle = `Performance & Audit Summary for ${contact.name}`;
+    }
+
+    return payload;
+  };
+
+  const handleExportPDF = async (report?: ReportData) => {
     setExporting("pdf");
     try {
-      const { jsPDF, autoTable } = await loadPDFTableEngine();
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-
-      // ===== COVER PAGE =====
-      // Header gradient-like effect (Brand Blue and Orange)
-      doc.setFillColor(43, 87, 154); // Brand Blue (#2B579A)
-      doc.rect(0, 0, pageWidth, 60, "F");
-      doc.setFillColor(241, 122, 40); // Brand Orange (#F17A28)
-      doc.rect(0, 55, pageWidth, 5, "F");
-
-      // Attempt to load and add the Swadeshi Solutions Logo
-      try {
-        const logoImg = new Image();
-        logoImg.crossOrigin = "anonymous";
-        logoImg.src = "/swadeshi-logo.png";
-        await new Promise<void>((resolve) => {
-          logoImg.onload = () => {
-            try { doc.addImage(logoImg, "PNG", 14, 15, 55, 30); } catch {}
-            resolve();
-          };
-          logoImg.onerror = () => resolve();
-          setTimeout(resolve, 2000); // Fallback timeout
-        });
-      } catch (e) {
-        console.error("Could not load logo for PDF", e);
-      }
-
-      // Title
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(28);
-      doc.setFont("helvetica", "bold");
-      doc.text("BUSINESS REPORT", pageWidth / 2 + 20, 26, { align: "center" });
-
-      // Subtitle - Swadeshi Solutions branding + motto
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Swadeshi Solutions", pageWidth / 2 + 20, 36, {
-        align: "center",
-      });
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "italic");
-      doc.text("Empowering Restaurants, Enabling Growth", pageWidth / 2 + 20, 44, {
-        align: "center",
-      });
-
-      // Restaurant Info Card
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, 70, pageWidth - 28, 40, 3, 3, "F");
-      doc.setDrawColor(226, 232, 240);
-      doc.roundedRect(14, 70, pageWidth - 28, 40, 3, 3, "S");
-
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      doc.text(restaurantName || "Restaurant", 20, 85);
-
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(71, 85, 105);
-      const dateText =
-        dateRange?.from && dateRange?.to
-          ? `Report Period: ${format(dateRange.from, "MMMM dd, yyyy")} - ${format(dateRange.to, "MMMM dd, yyyy")}`
-          : `Generated: ${format(new Date(), "MMMM dd, yyyy")}`;
-      doc.text(dateText, 20, 95);
-      doc.text(
-        `Report Generated: ${format(new Date(), "MMMM dd, yyyy HH:mm")}`,
-        20,
-        103,
-      );
-
-      // Report Contents Summary
-      doc.setFillColor(241, 122, 40); // Brand Orange
-      doc.roundedRect(14, 120, pageWidth - 28, 10, 2, 2, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("REPORT CONTENTS", 20, 127);
-
-      doc.setTextColor(51, 65, 85);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      let tocY = 140;
-      reports.forEach((report, idx) => {
-        doc.text(`${idx + 1}. ${report.title}`, 20, tocY);
-        tocY += 7;
-      });
-
-      // Try to capture charts from the DOM
-      const chartElements = document.querySelectorAll(
-        ".recharts-responsive-container",
-      );
-      const chartImages: string[] = [];
-
-      if (chartElements.length > 0) {
-        const html2canvas = (await import("html2canvas")).default;
-        for (const chartEl of Array.from(chartElements).slice(
-          0,
-          reports.length,
-        )) {
-          try {
-            const canvas = await html2canvas(chartEl as HTMLElement, {
-              backgroundColor: "#ffffff",
-              scale: 2,
-            });
-            chartImages.push(canvas.toDataURL("image/jpeg", 0.7));
-          } catch (e) {
-          }
-        }
-      }
-
-      // ===== REPORT PAGES =====
-      let chartIndex = 0;
-      for (const report of reports) {
-        doc.addPage();
-        let yPos = 20;
-
-        // Section Header
-        doc.setFillColor(43, 87, 154); // Brand Blue
-        doc.rect(0, 0, pageWidth, 25, "F");
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        doc.text(report.title, pageWidth / 2, 15, { align: "center" });
-
-        yPos = 35;
-
-        // KPI Summary Cards (horizontal layout)
-        const summaryEntries = Object.entries(report.summary);
-        const cardWidth =
-          (pageWidth - 28 - (summaryEntries.length - 1) * 4) /
-          summaryEntries.length;
-
-        summaryEntries.forEach(([key, value], idx) => {
-          const xPos = 14 + idx * (cardWidth + 4);
-
-          // Card background
-          doc.setFillColor(248, 250, 252);
-          doc.roundedRect(xPos, yPos, cardWidth, 25, 2, 2, "F");
-          doc.setDrawColor(226, 232, 240);
-          doc.roundedRect(xPos, yPos, cardWidth, 25, 2, 2, "S");
-
-          // Label
-          doc.setTextColor(100, 116, 139);
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "normal");
-          doc.text(key, xPos + 3, yPos + 8);
-
-          // Value
-          doc.setTextColor(15, 23, 42);
-          doc.setFontSize(12);
-          doc.setFont("helvetica", "bold");
-          const valueStr = String(value).replace(/₹/g, "Rs.");
-          doc.text(
-            valueStr.length > 15 ? valueStr.substring(0, 15) + "..." : valueStr,
-            xPos + 3,
-            yPos + 18,
-          );
-        });
-
-        yPos += 35;
-
-        // Chart Image (if available)
-        if (chartImages[chartIndex]) {
-          try {
-            const imgWidth = pageWidth - 28;
-            const imgHeight = 60;
-            doc.addImage(
-              chartImages[chartIndex],
-              "JPEG",
-              14,
-              yPos,
-              imgWidth,
-              imgHeight,
-            );
-            yPos += imgHeight + 10;
-          } catch (e) {
-          }
-        }
-        chartIndex++;
-
-        // Data Table
-        if (report.tableData.length > 0) {
-          const columns = getDisplayColumns(
-            report.tableData as Record<string, unknown>[],
-          ).slice(0, 6);
-          const rows = report.tableData.map((row) =>
-            columns.map((col) => {
-              const val = formatCellValue(
-                (row as Record<string, unknown>)[col],
-              ).replace(/₹/g, "Rs.");
-              return val.length > 25 ? val.substring(0, 25) + "..." : val;
-            }),
-          );
-
-          autoTable(doc, {
-            head: [columns.map(c => formatColumnName(c).replace(/₹/g, "Rs."))],
-            body: rows,
-            startY: yPos,
-            theme: "striped",
-            styles: {
-              fontSize: 8,
-              cellPadding: 3,
-              lineColor: [226, 232, 240],
-            },
-            headStyles: {
-              fillColor: [43, 87, 154], // Brand Blue
-              textColor: 255,
-              fontStyle: "bold",
-            },
-            alternateRowStyles: {
-              fillColor: [248, 250, 252],
-            },
-            margin: { left: 14, right: 14 },
-          });
-
-          // Show total row count
-          const finalY = (doc as any).lastAutoTable?.finalY || yPos;
-          doc.setFontSize(8);
-          doc.setTextColor(100, 116, 139);
-          doc.text(
-            `Total: ${report.tableData.length} rows`,
-            14,
-            finalY + 6,
-          );
-        }
-      }
-
-      // ===== WATERMARK + FOOTER ON ALL PAGES =====
-      const pageCount = doc.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-
-        // Diagonal watermark with transparency
-        try {
-          const wmState = new (doc as any).GState({ opacity: 0.15 });
-          doc.saveGraphicsState();
-          doc.setGState(wmState);
-          doc.setTextColor(100, 110, 140);
-          doc.setFontSize(50);
-          doc.setFont("helvetica", "bold");
-          doc.text("SWADESHI SOLUTIONS", pageWidth / 2, pageHeight / 2, {
-            align: "center",
-            angle: 0,
-          });
-          doc.restoreGraphicsState();
-        } catch {
-          // GState fallback — skip watermark if unsupported
-        }
-
-        // Footer line
-        doc.setDrawColor(226, 232, 240);
-        doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
-
-        // Footer text
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(148, 163, 184);
-        doc.text(`Business Report by Swadeshi Solutions`, 14, pageHeight - 8);
-        doc.text(`Page ${i} of ${pageCount}`, pageWidth - 14, pageHeight - 8, {
-          align: "right",
-        });
-      }
-
-      const fileName = `${restaurantName || "Business"}_Report_${format(new Date(), "yyyy-MM-dd")}.pdf`;
-      doc.save(fileName);
+      const payload = await buildReportPayload(report);
+      const fileName = await exportBusinessReport("pdf", payload);
       toast({ title: "PDF exported successfully", description: fileName });
     } catch (error) {
       console.error("PDF export error:", error);
@@ -505,11 +262,12 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
     }
   };
 
-  const handleExportExcel = async () => {
+  const handleExportExcel = async (report?: ReportData) => {
     setExporting("excel");
     try {
-      await generateRichExcel(reports, restaurantName, dateRange);
-      toast({ title: "Rich Excel exported successfully" });
+      const payload = await buildReportPayload(report);
+      const fileName = await exportBusinessReport("xlsx", payload);
+      toast({ title: "Excel exported successfully", description: fileName });
     } catch (error) {
       console.error("Excel export error:", error);
       toast({ title: "Export failed", variant: "destructive" });
@@ -518,11 +276,12 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
     }
   };
 
-  const handleExportPPTX = async () => {
+  const handleExportPPTX = async (report?: ReportData) => {
     setExporting("pptx");
     try {
-      await generateEditablePPTX(reports, restaurantName, dateRange);
-      toast({ title: "PowerPoint exported successfully" });
+      const payload = await buildReportPayload(report);
+      const fileName = await exportBusinessReport("pptx", payload);
+      toast({ title: "PowerPoint exported successfully", description: fileName });
     } catch (error) {
       console.error("PPTX export error:", error);
       toast({ title: "Export failed", variant: "destructive" });
@@ -560,7 +319,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
               <h3 className="text-sm font-semibold text-muted-foreground">{report.title}</h3>
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
-                  onClick={handleExportPPTX}
+                  onClick={() => handleExportPPTX(report)}
                   disabled={exporting !== null}
                   className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 hover:shadow-lg active:scale-95 text-white shadow-md shadow-orange-500/30"
                   style={{ background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)" }}
@@ -569,7 +328,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                   <span className="hidden sm:inline">PPT</span>
                 </button>
                 <button
-                  onClick={handleExportExcel}
+                  onClick={() => handleExportExcel(report)}
                   disabled={exporting !== null}
                   className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 hover:shadow-lg active:scale-95 text-white shadow-md shadow-emerald-500/30"
                   style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)" }}
@@ -578,7 +337,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ reports, dateRange }) => {
                   <span className="hidden sm:inline">Excel</span>
                 </button>
                 <button
-                  onClick={handleExportPDF}
+                  onClick={() => handleExportPDF(report)}
                   disabled={exporting !== null}
                   className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 hover:shadow-lg active:scale-95 text-white shadow-md shadow-blue-500/30"
                   style={{ background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" }}
