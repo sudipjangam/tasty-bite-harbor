@@ -57,7 +57,8 @@ const LaborCostWidget: React.FC = () => {
       if (!restaurantId) return [];
       const { data, error } = await supabase
         .from('staff_time_clock')
-        .select('*')
+        // Egress fix: select only columns needed for labor calculation (was select('*'))
+        .select('staff_id, clock_in, clock_out')
         .eq('restaurant_id', restaurantId)
         .gte('clock_in', weekStart.toISOString())
         .lte('clock_in', weekEnd.toISOString());
@@ -74,7 +75,8 @@ const LaborCostWidget: React.FC = () => {
       if (!restaurantId) return [];
       const { data, error } = await supabase
         .from('staff_time_clock')
-        .select('*')
+        // Egress fix: select only columns needed for labor calculation (was select('*'))
+        .select('staff_id, clock_in, clock_out')
         .eq('restaurant_id', restaurantId)
         .gte('clock_in', prevWeekStart.toISOString())
         .lte('clock_in', prevWeekEnd.toISOString());

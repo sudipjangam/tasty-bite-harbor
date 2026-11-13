@@ -60,7 +60,7 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
     (async () => {
       const { data } = await supabase
         .from('menu_item_variants')
-        .select('*')
+        .select('id, menu_item_id, name, price, sort_order, is_available')
         .eq('restaurant_id', restaurantId)
         .eq('is_available', true)
         .order('sort_order');

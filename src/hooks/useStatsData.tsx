@@ -27,18 +27,20 @@ export const useStatsData = () => {
       const cutoffDate = startOfPrevMonth < sixtyDaysAgo ? startOfPrevMonth : sixtyDaysAgo;
 
       // Always include any currently active orders (pending, preparing, ready, held) regardless of created date
+      // Egress fix: select only columns used by dashboard stats (was select("*"))
       const { data: orders, error } = await supabase
         .from("orders")
-        .select("*")
+        .select("id, total, status, order_type, created_at, customer_name, customer_phone, payment_method, discount_amount, source, table_number, split_payments")
         .eq("restaurant_id", restaurantId)
         .or(`created_at.gte.${cutoffDate},status.in.(pending,preparing,ready,held)`);
 
       if (error) throw error;
 
       // Fetch room billings for revenue calculation
+      // Egress fix: select only columns used by dashboard stats (was select("*"))
       const { data: roomBillings } = await supabase
         .from("room_billings")
-        .select("*")
+        .select("id, total_amount, payment_status, room_id, checkout_date, created_at")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", cutoffDate);
 
@@ -59,11 +61,12 @@ export const useStatsData = () => {
       };
     },
     enabled: !!restaurantId && !isRestaurantLoading,
-    // Auto-refresh options for real-time data
-    staleTime: 0, // Always consider data stale - fetch fresh on every mount
-    refetchOnWindowFocus: true, // Refetch when browser tab gains focus
-    refetchOnMount: "always", // Always refetch when component mounts (navigation)
-    // Note: refetchInterval removed - useRealtimeSubscription handles live updates
-    refetchIntervalInBackground: false, // Don't poll when tab is in background
+    // Egress fix: cache for 5 minutes — realtime subscription handles live order
+    // updates, so we don't need to refetch the full dataset on every navigation.
+    // Previously staleTime: 0 caused a full 60-day orders fetch on every page load.
+    staleTime: 5 * 60 * 1000,     // 5 minutes (was 0)
+    refetchOnWindowFocus: false,   // was true — tab switching caused redundant fetches
+    refetchOnMount: true,          // was "always" — now only refetches if stale
+    refetchIntervalInBackground: false,
   });
 };

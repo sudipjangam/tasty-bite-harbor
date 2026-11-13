@@ -279,7 +279,8 @@ export const useGSTData = (period: GSTReportPeriod = 'current_month') => {
       // Fetch orders for the period (B2C transactions)
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
-        .select('*')
+        // Egress fix: select only GST-relevant columns (was select('*'))
+        .select('id, total, status, order_type, created_at, payment_method, items, discount_amount, tax_amount, customer_name, customer_phone')
         .eq('restaurant_id', user.restaurant_id)
         .gte('created_at', dateRange.start.toISOString())
         .lte('created_at', dateRange.end.toISOString())

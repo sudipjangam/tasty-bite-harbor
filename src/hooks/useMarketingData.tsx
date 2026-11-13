@@ -90,7 +90,8 @@ export const useMarketingData = (dateRange: DateRange = '30d') => {
       if (!restaurantId) return [];
       const { data, error } = await supabase
         .from('promotion_campaigns')
-        .select('*')
+        // Egress fix: select only columns displayed/used in campaign UI
+        .select('id, name, description, discount_percentage, discount_amount, promotion_code, start_date, end_date, is_active, created_at')
         .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -106,9 +107,11 @@ export const useMarketingData = (dateRange: DateRange = '30d') => {
       if (!restaurantId) return [];
       const { data, error } = await supabase
         .from('customers')
-        .select('*')
+        // Egress fix: select only columns needed for marketing (campaign targeting, display)
+        .select('id, name, phone, email, loyalty_points, loyalty_tier_id, visit_count, total_spent, last_visit_date, loyalty_enrolled')
         .eq('restaurant_id', restaurantId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(1000);
       if (error) {
         console.error('Customers query error:', error.message);
         return [];
@@ -134,19 +137,20 @@ export const useMarketingData = (dateRange: DateRange = '30d') => {
       // ── Sent Promotions (all time, for campaign perf) ──
       const { data: allSentPromotions } = await supabase
         .from('sent_promotions')
-        .select('*')
+        // Egress fix: select only columns needed for analytics calculation
+        .select('id, promotion_campaign_id, sent_date, sent_status, sent_method')
         .eq('restaurant_id', restaurantId);
 
       // Recent sends for messagesSent stat
       const { data: recentPromotions } = await supabase
         .from('sent_promotions')
-        .select('*')
+        .select('id, promotion_campaign_id, sent_date, sent_status, sent_method')
         .eq('restaurant_id', restaurantId)
         .gte('sent_date', rangeStart.toISOString());
 
       const { data: previousPromotions } = await supabase
         .from('sent_promotions')
-        .select('*')
+        .select('id, promotion_campaign_id, sent_date, sent_status, sent_method')
         .eq('restaurant_id', restaurantId)
         .gte('sent_date', previousStart.toISOString())
         .lt('sent_date', rangeStart.toISOString());
@@ -265,8 +269,8 @@ export const useMarketingData = (dateRange: DateRange = '30d') => {
       };
 
       (allSentPromotions || []).forEach((sp: any) => {
-        const channel = (sp.channel || 'whatsapp').toLowerCase();
-        const status = (sp.status || 'sent').toLowerCase();
+        const channel = (sp.sent_method || sp.channel || 'whatsapp').toLowerCase();
+        const status = (sp.sent_status || sp.status || 'sent').toLowerCase();
         if (channel in channelStats) {
           const ch = channelStats[channel as keyof typeof channelStats];
           ch.sent++;

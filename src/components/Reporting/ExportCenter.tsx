@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { StandardizedCard } from "@/components/ui/standardized-card";
@@ -55,18 +55,27 @@ const ExportCenter: React.FC = () => {
 
     setExportingTable(table.id);
     
+    // Egress fix: cap exports at 5000 rows to prevent runaway bandwidth usage.
+    // Previously there was no limit — a single export could transfer hundreds of MB.
+    const EXPORT_ROW_LIMIT = 5000;
+
     try {
-      // Build query
-      let query = supabase.from(table.tableName).select('*').eq('restaurant_id', restaurantId);
-      
-      // Add date filter for tables with created_at
-      if (['orders', 'expenses', 'reservations'].includes(table.id) && dateRange?.from && dateRange?.to) {
+      // Build query with safety row limit and count to detect truncation
+      let query = supabase
+        .from(table.tableName)
+        .select('*', { count: 'exact' })
+        .eq('restaurant_id', restaurantId)
+        .limit(EXPORT_ROW_LIMIT);
+
+      // Add date filter — applied to ALL date-aware tables (expanded from 3 to 5)
+      const dateAwareTables = ['orders', 'expenses', 'reservations', 'room_billings', 'payments'];
+      if (dateAwareTables.includes(table.id) && dateRange?.from && dateRange?.to) {
         query = query
           .gte('created_at', dateRange.from.toISOString())
           .lte('created_at', dateRange.to.toISOString());
       }
 
-      const { data, error } = await query;
+      const { data, count, error } = await query;
       
       if (error) throw error;
 
@@ -75,6 +84,12 @@ const ExportCenter: React.FC = () => {
         setExportingTable(null);
         return;
       }
+
+      const isTruncated = count !== null && count !== undefined
+        ? count > data.length
+        : data.length >= EXPORT_ROW_LIMIT;
+      const totalCount = count ?? data.length;
+      const exportedCount = data.length;
 
       if (exportFormat === 'csv') {
         // CSV fallback — same as before
@@ -94,7 +109,8 @@ const ExportCenter: React.FC = () => {
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `${table.name}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+        const suffix = isTruncated ? '_partial' : '';
+        link.download = `${table.name}${suffix}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
         link.click();
       } else {
         // Branded Excel export
@@ -104,17 +120,31 @@ const ExportCenter: React.FC = () => {
           header: k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         }));
 
+        const excelTitle = isTruncated
+          ? `${table.name} Export (Partial - 1 to ${exportedCount} of ${totalCount})`
+          : `${table.name} Export`;
+        const excelReportType = isTruncated
+          ? `Raw Data — ${table.description} (Partial Batch: ${exportedCount} of ${totalCount} records. Narrow date range to export remaining.)`
+          : `Raw Data — ${table.description}`;
+
         await generateBrandedDataExcel(data as any, columns, {
-          title: `${table.name} Export`,
+          title: excelTitle,
           sheetName: table.name,
           restaurantName,
           dateRange: dateRange as any,
-          reportType: `Raw Data — ${table.description}`,
+          reportType: excelReportType,
         });
       }
 
-      setExportedTables(prev => [...prev.filter(t => t !== table.id), table.id]);
-      toast({ title: "Export successful", description: `${table.name} exported as ${exportFormat.toUpperCase()}` });
+      if (isTruncated) {
+        toast({
+          title: "Partial Export Downloaded",
+          description: `Exported first ${exportedCount.toLocaleString()} of ${totalCount.toLocaleString()} ${table.name} records. Narrow date range to export remaining records.`,
+        });
+      } else {
+        setExportedTables(prev => [...prev.filter(t => t !== table.id), table.id]);
+        toast({ title: "Export successful", description: `${table.name} exported as ${exportFormat.toUpperCase()}` });
+      }
     } catch (error) {
       console.error('Export error:', error);
       toast({ title: "Export failed", variant: "destructive" });

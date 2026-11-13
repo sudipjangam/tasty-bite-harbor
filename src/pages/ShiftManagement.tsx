@@ -65,17 +65,20 @@ const ShiftManagement: React.FC = () => {
   // Real-time synchronization
   useRealtimeSubscription({
     table: 'shifts',
-    queryKey: ['shifts'],
+    queryKey: ['shifts', restaurantId],
+    filter: restaurantId ? { column: 'restaurant_id', value: restaurantId } : null,
   });
 
   useRealtimeSubscription({
     table: 'staff',
-    queryKey: ['staff-list'],
+    queryKey: ['staff-list', restaurantId],
+    filter: restaurantId ? { column: 'restaurant_id', value: restaurantId } : null,
   });
 
   useRealtimeSubscription({
     table: 'staff_shift_assignments',
-    queryKey: ['shift-assignments'],
+    queryKey: ['shift-assignments', restaurantId],
+    filter: restaurantId ? { column: 'restaurant_id', value: restaurantId } : null,
   });
   const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
@@ -102,7 +105,7 @@ const ShiftManagement: React.FC = () => {
       if (!restaurantId) return [];
       const { data, error } = await supabase
         .from('shifts')
-        .select('*')
+        .select('id, name, start_time, end_time, color, grace_period_minutes, auto_clock_out_minutes, is_active')
         .eq('restaurant_id', restaurantId)
         .order('start_time');
       if (error) throw error;
@@ -135,7 +138,7 @@ const ShiftManagement: React.FC = () => {
       if (!restaurantId) return [];
       const { data, error } = await supabase
         .from('staff_shift_assignments')
-        .select('*')
+        .select('id, staff_id, shift_id, day_of_week, is_active')
         .eq('restaurant_id', restaurantId)
         .eq('is_active', true);
       if (error) throw error;

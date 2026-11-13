@@ -27,6 +27,7 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
       const endDate = format(rangeTo, "yyyy-MM-dd");
 
       // Fetch revenue stats for the selected date range
+      // daily_revenue_stats is a small aggregated table — select * is fine here
       const { data: revenueStats } = await supabase
         .from("daily_revenue_stats")
         .select("*")
@@ -43,10 +44,11 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
         .order("total_spent", { ascending: false })
         .limit(100);
 
-      // Fetch recent orders from all sources - only COMPLETED, chargeable orders
+      // Fetch recent orders — only COMPLETED, chargeable orders
+      // Egress fix: select only columns used by calculateTopProducts & calculateCategoryRevenue
       const { data: regularOrders } = await supabase
         .from("orders")
-        .select("*")
+        .select("id, total, status, order_type, created_at, items, payment_method, customer_name")
         .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
         .neq("order_type", "non-chargeable")
@@ -56,9 +58,10 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
         .limit(1000);
 
       // Room service orders - only completed
+      // Egress fix: select only columns used (total, created_at, status, items)
       const { data: roomOrders } = await supabase
         .from("room_food_orders")
-        .select("*")
+        .select("id, total, status, created_at, items")
         .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
         .gte("created_at", startISO)
@@ -67,9 +70,10 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
         .limit(500);
 
       // Kitchen orders - only completed
+      // Egress fix: select only columns used (status, created_at, items)
       const { data: kitchenOrders } = await supabase
         .from("kitchen_orders")
-        .select("*")
+        .select("id, status, created_at, items")
         .eq("restaurant_id", restaurantId)
         .eq("status", "completed")
         .gte("created_at", startISO)
@@ -78,9 +82,10 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
         .limit(500);
 
       // Fetch room billings for hotel revenue - ONLY paid billings
+      // Egress fix: select only columns used by calculateHotelMetrics & calculateConsolidatedRevenue
       const { data: roomBillings } = await supabase
         .from("room_billings")
-        .select("*")
+        .select("id, total_amount, payment_status, checkout_date, room_id")
         .eq("restaurant_id", restaurantId)
         .eq("payment_status", "paid")
         .gte("checkout_date", startDate)
@@ -89,24 +94,27 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
         .limit(500);
 
       // Fetch rooms for occupancy calculation
+      // Egress fix: select only columns used (id, status, type, room_number, base_price)
       const { data: rooms } = await supabase
         .from("rooms")
-        .select("*")
+        .select("id, status, type, room_number, base_price")
         .eq("restaurant_id", restaurantId);
 
       // Fetch reservations for hotel metrics
+      // Egress fix: select only columns used by calculateHotelMetrics (start_time, end_time)
       const { data: reservations } = await supabase
         .from("reservations")
-        .select("*")
+        .select("id, start_time, end_time, status, room_id")
         .eq("restaurant_id", restaurantId)
         .gte("start_time", startISO)
         .lte("start_time", endISO)
         .order("start_time", { ascending: false });
 
       // Fetch menu items to calculate top products
+      // Egress fix: select only columns used by calculateTopProducts & calculateCategoryRevenue
       const { data: menuItems } = await supabase
         .from("menu_items")
-        .select("*")
+        .select("id, name, category, price, is_available")
         .eq("restaurant_id", restaurantId);
 
       // Calculate top products from actual orders
@@ -194,7 +202,11 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
   });
 
   // Set up real-time subscriptions
+  // Egress fix: added restaurant_id filter to all channels so we only receive
+  // events from THIS restaurant, not every restaurant on the platform.
   useEffect(() => {
+    if (!restaurantId) return;
+
     const ordersChannel = supabase
       .channel("analytics-orders-changes")
       .on(
@@ -203,6 +215,7 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
           event: "*",
           schema: "public",
           table: "orders",
+          filter: `restaurant_id=eq.${restaurantId}`,
         },
         () => {
           query.refetch();
@@ -214,6 +227,7 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
           event: "*",
           schema: "public",
           table: "room_food_orders",
+          filter: `restaurant_id=eq.${restaurantId}`,
         },
         () => {
           query.refetch();
@@ -225,6 +239,7 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
           event: "*",
           schema: "public",
           table: "kitchen_orders",
+          filter: `restaurant_id=eq.${restaurantId}`,
         },
         () => {
           query.refetch();
@@ -236,6 +251,7 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
           event: "*",
           schema: "public",
           table: "daily_revenue_stats",
+          filter: `restaurant_id=eq.${restaurantId}`,
         },
         () => {
           query.refetch();
@@ -246,7 +262,7 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
     return () => {
       supabase.removeChannel(ordersChannel);
     };
-  }, [query]);
+  }, [query, restaurantId]);
 
   return query;
 };

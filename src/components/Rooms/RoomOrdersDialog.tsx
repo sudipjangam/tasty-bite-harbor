@@ -73,7 +73,7 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
       
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('id, total, status, source, items, created_at, payment_status')
         .eq('reservation_id', reservationId)
         .order('created_at', { ascending: false });
 
@@ -95,7 +95,7 @@ const RoomOrdersDialog: React.FC<RoomOrdersDialogProps> = ({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('menu_items')
-        .select('*')
+        .select('id, name, price, description, category, is_vegetarian, is_available')
         .eq('restaurant_id', restaurantId)
         .eq('is_available', true);
 

@@ -43,10 +43,14 @@ export const useRealTimeBusinessData = () => {
       const sevenDaysAgo = subDays(new Date(), 7);
       const today = new Date();
 
+      // Egress fix: select only columns needed for peak-hour/weekday calculations
+      // (was select("*") — only created_at, status, order_type, total are used)
+      const orderColumns = "id, created_at, status, order_type, total";
+
       // Fetch orders for the last 7 days
       const { data: weekOrders } = await supabase
         .from("orders")
-        .select("*")
+        .select(orderColumns)
         .eq("restaurant_id", restaurantId)
         .gte("created_at", sevenDaysAgo.toISOString())
         .order("created_at", { ascending: true });
@@ -54,7 +58,7 @@ export const useRealTimeBusinessData = () => {
       // Fetch today's orders specifically
       const { data: todayOrders } = await supabase
         .from("orders")
-        .select("*")
+        .select(orderColumns)
         .eq("restaurant_id", restaurantId)
         .gte("created_at", startOfDay(today).toISOString())
         .lte("created_at", endOfDay(today).toISOString());

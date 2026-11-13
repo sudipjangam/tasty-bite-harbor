@@ -33,15 +33,70 @@ export const OrderHistory = ({ onRetrieveOrder, currentOrderHasItems }: OrderHis
     queryFn: async () => {
       if (!restaurantId) return [];
 
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      // Paginates all held orders using cursor-based pagination (created_at + id) so older held orders
+      // remain retrievable without offset drift or skipping orders with matching timestamps.
+      const fetchHeldOrders = async (): Promise<HistoryOrder[]> => {
+        const PAGE_SIZE = 1000;
+        let heldOrders: HistoryOrder[] = [];
+        let lastCursor: { created_at: string; id: string } | null = null;
+        let hasMore = true;
 
-      if (error) throw error;
-      return data as HistoryOrder[];
+        while (hasMore) {
+          let query = supabase
+            .from('orders')
+            .select('id, total, status, created_at, items, customer_name, source')
+            .eq('restaurant_id', restaurantId)
+            .eq('status', 'held')
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: false })
+            .limit(PAGE_SIZE);
+
+          if (lastCursor) {
+            query = query.or(
+              `created_at.lt.${lastCursor.created_at},and(created_at.eq.${lastCursor.created_at},id.lt.${lastCursor.id})`
+            );
+          }
+
+          const { data, error } = await query;
+
+          if (error) throw error;
+          if (data && data.length > 0) {
+            heldOrders.push(...(data as HistoryOrder[]));
+            if (data.length < PAGE_SIZE) {
+              hasMore = false;
+            } else {
+              const lastOrder = data[data.length - 1];
+              lastCursor = { created_at: lastOrder.created_at, id: lastOrder.id };
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return heldOrders;
+      };
+
+      // Fetch recent 50 orders (kept unchanged) and paginated held orders concurrently
+      const [recentResult, heldOrders] = await Promise.all([
+        supabase
+          .from('orders')
+          .select('id, total, status, created_at, items, customer_name, source')
+          .eq('restaurant_id', restaurantId)
+          .order('created_at', { ascending: false })
+          .limit(50),
+        fetchHeldOrders(),
+      ]);
+
+      if (recentResult.error) throw recentResult.error;
+
+      const orderMap = new Map<string, HistoryOrder>();
+      heldOrders.forEach(o => orderMap.set(o.id, o));
+      ((recentResult.data || []) as HistoryOrder[]).forEach(o => {
+        if (!orderMap.has(o.id)) orderMap.set(o.id, o);
+      });
+
+      return Array.from(orderMap.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
     },
     enabled: !!restaurantId,
   });

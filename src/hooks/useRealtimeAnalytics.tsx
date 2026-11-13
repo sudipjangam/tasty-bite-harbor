@@ -1,14 +1,20 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRestaurantId } from './useRestaurantId';
 
 /**
  * Global real-time analytics synchronization hook
- * Subscribes to critical table changes and invalidates relevant queries with debounce
- * This prevents memory and CPU spikes on rapid realtime event storms
+ * Subscribes to critical table changes and invalidates relevant queries with debounce.
+ * This prevents memory and CPU spikes on rapid realtime event storms.
+ *
+ * Egress fix: added restaurant_id filter to all subscriptions so we only receive
+ * events from THIS restaurant. Previously, all 5 subscriptions were global — every
+ * order from every restaurant on the platform was triggering analytics refetches.
  */
 export const useRealtimeAnalytics = () => {
   const queryClient = useQueryClient();
+  const { restaurantId } = useRestaurantId();
   const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
   const debounceInvalidate = (keys: string[][], delay = 600) => {
@@ -25,12 +31,21 @@ export const useRealtimeAnalytics = () => {
   };
 
   useEffect(() => {
+    // Don't subscribe until we know which restaurant we are
+    if (!restaurantId) return;
+
     // Create a single channel for all critical table subscriptions
+    // Egress fix: each .on() now has filter: `restaurant_id=eq.${restaurantId}`
     const channel = supabase
       .channel('realtime-analytics')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
         () => {
           debounceInvalidate([
             ['analytics-data'],
@@ -43,7 +58,12 @@ export const useRealtimeAnalytics = () => {
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'room_billings' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_billings',
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
         () => {
           debounceInvalidate([
             ['analytics-data'],
@@ -53,7 +73,12 @@ export const useRealtimeAnalytics = () => {
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'kitchen_orders' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'kitchen_orders',
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
         () => {
           debounceInvalidate([
             ['liveActivity'],
@@ -65,14 +90,24 @@ export const useRealtimeAnalytics = () => {
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'check_ins' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'check_ins',
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
         () => {
           debounceInvalidate([['liveActivity']]);
         }
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'daily_revenue_stats' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_revenue_stats',
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
         () => {
           debounceInvalidate([['analytics-data']]);
         }
@@ -84,8 +119,7 @@ export const useRealtimeAnalytics = () => {
       Object.values(debounceTimers.current).forEach(clearTimeout);
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, restaurantId]);
 
   return null;
 };
-

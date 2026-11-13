@@ -97,15 +97,39 @@ export const useCustomerData = () => {
     queryFn: async () => {
       if (!restaurantId) return [];
 
-      // STEP 1: Fetch all customers
-      const { data: customersData, error: customersError } = await supabase
-        .from("customers")
-        .select("*")
-        .eq("restaurant_id", restaurantId);
+      // STEP 1: Fetch customers with bounded pagination
+      // Ordering by created_at descending ensures newly registered customers (whose last_visit_date is null)
+      // are always included at the top of the collection rather than excluded after saveCustomer.
+      const PAGE_SIZE = 500;
+      const MAX_RECORDS = 2000;
+      let customersData: any[] = [];
+      let page = 0;
+      let hasMore = true;
 
-      if (customersError) {
-        console.error("Error fetching customers:", customersError);
-        throw customersError;
+      while (hasMore) {
+        const { data: pageData, error: pageError } = await supabase
+          .from("customers")
+          .select("*")
+          .eq("restaurant_id", restaurantId)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+        if (pageError) {
+          console.error("Error fetching customers:", pageError);
+          throw pageError;
+        }
+
+        if (pageData && pageData.length > 0) {
+          customersData.push(...pageData);
+          if (pageData.length < PAGE_SIZE || customersData.length >= MAX_RECORDS) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
       }
 
       if (!customersData || customersData.length === 0) {

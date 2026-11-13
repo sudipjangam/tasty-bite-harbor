@@ -50,13 +50,13 @@ const AdvancedAnalytics = () => {
       const [ordersResult, customersResult] = await Promise.all([
         supabase
           .from('orders')
-          .select('*')
+          .select('id, total, status, order_type, created_at, items, payment_method')
           .eq('restaurant_id', restaurantId)
           .gte('created_at', `${startDate}T00:00:00`)
           .lte('created_at', `${endDate}T23:59:59`),
         supabase
           .from('customers')
-          .select('*')
+          .select('id, name, created_at')
           .eq('restaurant_id', restaurantId)
           .gte('created_at', `${startDate}T00:00:00`)
           .lte('created_at', `${endDate}T23:59:59`)

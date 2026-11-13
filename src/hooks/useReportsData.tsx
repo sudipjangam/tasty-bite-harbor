@@ -290,7 +290,7 @@ export const useReportsData = (dateRange?: DateRange) => {
       const [menuResult, ordersResult] = await Promise.all([
         supabase
           .from("menu_items")
-          .select("*")
+          .select("id, name, price, category, is_available, is_veg")
           .eq("restaurant_id", restaurantId),
         supabase
           .from("orders")
@@ -509,7 +509,7 @@ export const useReportsData = (dateRange?: DateRange) => {
 
       const { data: items, error } = await supabase
         .from("inventory_items")
-        .select("*")
+        .select("id, name, category, quantity, unit, cost_per_unit, reorder_level")
         .eq("restaurant_id", restaurantId)
         .order("quantity", { ascending: true });
 
@@ -578,12 +578,36 @@ export const useReportsData = (dateRange?: DateRange) => {
     queryFn: async () => {
       if (!restaurantId) return null;
 
+      // Fetch all customers for the restaurant in 1,000-row pages to preserve all active customer contact & loyalty data
+      const fetchAllReportCustomers = async () => {
+        const PAGE_SIZE = 1000;
+        let records: any[] = [];
+        let page = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from("customers")
+            .select("id, name, phone, email, total_spent, visit_count, loyalty_points, loyalty_enrolled")
+            .eq("restaurant_id", restaurantId)
+            .order("id", { ascending: true })
+            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+          if (error) throw error;
+          if (data && data.length > 0) {
+            records.push(...data);
+            if (data.length < PAGE_SIZE) hasMore = false;
+            else page++;
+          } else {
+            hasMore = false;
+          }
+        }
+        return records;
+      };
+
       // Fetch orders in date range to identify active customers
-      const [customersResult, ordersResult] = await Promise.all([
-        supabase
-          .from("customers")
-          .select("*")
-          .eq("restaurant_id", restaurantId),
+      const [allCustomers, ordersResult] = await Promise.all([
+        fetchAllReportCustomers(),
         supabase
           .from("orders")
           .select("customer_name, Customer_Name, customer_phone, Customer_MobileNumber, total, order_type, created_at")
@@ -592,9 +616,7 @@ export const useReportsData = (dateRange?: DateRange) => {
           .lte("created_at", endDate),
       ]);
 
-      if (customersResult.error) throw customersResult.error;
-
-      const allCustomers = customersResult.data || [];
+      if (ordersResult.error) throw ordersResult.error;
       const orders = ordersResult.data || [];
 
       // Build a map of customer name → aggregated stats from orders in range
@@ -695,16 +717,16 @@ export const useReportsData = (dateRange?: DateRange) => {
       if (!restaurantId) return null;
 
       const [staffResult, clockResult, leavesResult] = await Promise.all([
-        supabase.from("staff").select("*").eq("restaurant_id", restaurantId),
+        supabase.from("staff").select("id, first_name, last_name, role, phone, email").eq("restaurant_id", restaurantId),
         supabase
           .from("staff_clock_entries")
-          .select("*")
+          .select("staff_id, clock_in, clock_out")
           .eq("restaurant_id", restaurantId)
           .gte("clock_in", startDate)
           .lte("clock_in", endDate),
         supabase
           .from("staff_leaves")
-          .select("*")
+          .select("id, start_date, end_date, staff_id")
           .eq("restaurant_id", restaurantId)
           .gte("start_date", startDate.split("T")[0])
           .lte("end_date", endDate.split("T")[0]),
@@ -760,11 +782,11 @@ export const useReportsData = (dateRange?: DateRange) => {
       const [suppliersResult, ordersResult] = await Promise.all([
         supabase
           .from("suppliers")
-          .select("*")
+          .select("id, name, contact_person, phone, email")
           .eq("restaurant_id", restaurantId),
         supabase
           .from("purchase_orders")
-          .select("*")
+          .select("id, supplier_id, total_amount, status, created_at")
           .eq("restaurant_id", restaurantId)
           .gte("created_at", startDate)
           .lte("created_at", endDate),
@@ -822,7 +844,7 @@ export const useReportsData = (dateRange?: DateRange) => {
 
       const { data: expenses, error } = await supabase
         .from("expenses")
-        .select("*")
+        .select("id, description, category, amount, expense_date, payment_method")
         .eq("restaurant_id", restaurantId)
         .gte("expense_date", startDate.split("T")[0])
         .lte("expense_date", endDate.split("T")[0])
@@ -874,16 +896,16 @@ export const useReportsData = (dateRange?: DateRange) => {
 
       const [roomsResult, reservationsResult, billingsResult] =
         await Promise.all([
-          supabase.from("rooms").select("*").eq("restaurant_id", restaurantId),
+          supabase.from("rooms").select("id, name, room_type, status, floor, base_price").eq("restaurant_id", restaurantId),
           supabase
             .from("reservations")
-            .select("*")
+            .select("id, room_id, start_time, end_time, status")
             .eq("restaurant_id", restaurantId)
             .gte("start_time", startDate)
             .lte("end_time", endDate),
           supabase
             .from("room_billings")
-            .select("*")
+            .select("id, total_amount, created_at")
             .eq("restaurant_id", restaurantId)
             .gte("created_at", startDate)
             .lte("created_at", endDate),
@@ -932,7 +954,7 @@ export const useReportsData = (dateRange?: DateRange) => {
 
       const { data: recipes, error } = await supabase
         .from("recipes")
-        .select("*")
+        .select("id, name, category, selling_price, food_cost_percentage, margin_percentage")
         .eq("restaurant_id", restaurantId)
         .order("food_cost_percentage", { ascending: false });
 
@@ -982,11 +1004,11 @@ export const useReportsData = (dateRange?: DateRange) => {
       const [campaignsResult, sentResult] = await Promise.all([
         supabase
           .from("promotion_campaigns")
-          .select("*")
+          .select("id, name, discount_percentage, discount_amount, is_active, start_date, end_date")
           .eq("restaurant_id", restaurantId),
         supabase
           .from("sent_promotions")
-          .select("*")
+          .select("id, sent_at")
           .eq("restaurant_id", restaurantId)
           .gte("sent_at", startDate)
           .lte("sent_at", endDate),

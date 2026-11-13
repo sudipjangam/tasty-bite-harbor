@@ -35,7 +35,7 @@ export const LiveOrderStatus = () => {
     const fetchOrders = async () => {
       const { data, error } = await supabase
         .from('kitchen_orders')
-        .select('*')
+        .select('id, order_id, source, status, items, created_at, bumped_at')
         .eq('restaurant_id', restaurantId)
         .in('status', ['preparing', 'ready'])
         .is('bumped_at', null) // Exclude bumped orders
