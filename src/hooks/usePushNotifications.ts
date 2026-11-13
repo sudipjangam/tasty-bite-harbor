@@ -22,13 +22,21 @@ export const usePushNotifications = () => {
 
         // Save the token to our Supabase database so our Edge Function can target it
         if (user) {
+          const displayName = (user as any).user_metadata?.first_name
+            ? `${(user as any).user_metadata.first_name} ${(user as any).user_metadata.last_name || ''}`.trim()
+            : user.email || 'Android User';
+
           const { error } = await supabase
             .from('user_push_tokens')
             .upsert({
               user_id: user.id,
               token: t.value,
-              device_type: Capacitor.getPlatform()
-            }, { onConflict: 'user_id, token' });
+              device_type: Capacitor.getPlatform(),
+              user_name: displayName,
+              user_email: user.email,
+              device_name: `${Capacitor.getPlatform().toUpperCase()} Device`,
+              updated_at: new Date().toISOString(),
+            } as any, { onConflict: 'user_id, token' });
 
           if (error) {
             console.error("Error saving push token to DB:", error);

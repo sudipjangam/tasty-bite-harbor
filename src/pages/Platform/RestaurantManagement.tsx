@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import SwadeshiLoader from "@/styles/Loader/SwadeshiLoader";
 import { supabase } from "@/integrations/supabase/client";
@@ -90,6 +90,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DiscountDialog } from "@/components/Platform/DiscountDialog";
 import { SubscriberInvoiceModal } from "@/components/Subscription/SubscriberInvoiceModal";
+import { usePlatformPaymentConfig } from "@/hooks/usePlatformPaymentConfig";
 import { PlanSelector } from "@/components/Platform/PlanSelector";
 import type { SubscriptionPlanItem } from "@/utils/planHierarchy";
 
@@ -154,6 +155,7 @@ type SubscriptionPlan = SubscriptionPlanItem;
 const RestaurantManagement = () => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
+  const { liveConfig: livePaymentConfig } = usePlatformPaymentConfig();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -1288,11 +1290,11 @@ const RestaurantManagement = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="fixed">
-                            🏢 Fixed Location — Restaurant with a permanent
+                            ðŸ¢ Fixed Location â€” Restaurant with a permanent
                             address
                           </SelectItem>
                           <SelectItem value="mobile">
-                            🚚 Mobile / Food Truck — Changes location regularly
+                            ðŸšš Mobile / Food Truck â€” Changes location regularly
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -1366,7 +1368,7 @@ const RestaurantManagement = () => {
                       Owner Login Account
                     </h4>
                     <p className="text-xs text-amber-600/80 dark:text-amber-400/60 mb-3">
-                      Set a password so the owner can log in immediately — no
+                      Set a password so the owner can log in immediately â€” no
                       manual Supabase setup needed.
                     </p>
                     <div className="grid grid-cols-2 gap-3">
@@ -2267,7 +2269,7 @@ const RestaurantManagement = () => {
                                 {sub.subscription_plans?.name}
                               </span>
                               <p className="text-sm text-slate-500">
-                                ₹{sub.subscription_plans?.price}/month
+                                â‚¹{sub.subscription_plans?.price}/month
                               </p>
                             </div>
                             {getStatusBadge(sub.status)}
@@ -2337,6 +2339,7 @@ const RestaurantManagement = () => {
                                   Subscriber Invoice / Bill
                                 </Button>
                               }
+                              companyConfig={livePaymentConfig}
                             />
                           </div>
                         </div>
@@ -2595,7 +2598,7 @@ const RestaurantManagement = () => {
                           {sub && (
                             <div className="text-right">
                               <span className="text-2xl font-black text-blue-700 dark:text-blue-300">
-                                ₹{sub.subscription_plans?.price}
+                                â‚¹{sub.subscription_plans?.price}
                               </span>
                               <span className="text-xs text-slate-500 font-medium">
                                 {" "}
@@ -2716,7 +2719,7 @@ const RestaurantManagement = () => {
                       {sub && (
                         <div className="text-right mr-2 hidden sm:block">
                           <div className="text-xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                            ₹{sub.subscription_plans?.price}
+                            â‚¹{sub.subscription_plans?.price}
                           </div>
                           <p className="text-[11px] text-slate-500 font-medium">
                             / {sub.subscription_plans?.interval || "month"}
@@ -2935,7 +2938,7 @@ const RestaurantManagement = () => {
                           password: e.target.value,
                         })
                       }
-                      placeholder="••••••••"
+                      placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                       className="mt-1 h-9 text-sm bg-white dark:bg-slate-900"
                     />
                   </div>
@@ -3232,6 +3235,7 @@ const RestaurantManagement = () => {
                       Date.now() + 30 * 24 * 60 * 60 * 1000,
                     ).toISOString(),
                 }}
+              companyConfig={livePaymentConfig}
               />
             );
           })()}

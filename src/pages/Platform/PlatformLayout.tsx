@@ -20,6 +20,7 @@ import {
   MessageCircle,
   GitBranch,
   Database,
+  Bell,
 } from "lucide-react";
 import { isAdminSubdomain, getMainAppUrl } from "@/utils/subdomain";
 
@@ -90,6 +91,12 @@ const navItems: NavItem[] = [
     href: "/platform/db-sync",
     icon: Database,
     description: "Replicate database",
+  },
+  {
+    title: "Push Broadcast",
+    href: "/platform/notifications",
+    icon: Bell,
+    description: "Send app push alerts",
   },
 ];
 

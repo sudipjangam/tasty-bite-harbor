@@ -37,6 +37,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
+import { UPIPaymentCard } from '@/components/Subscription/UPIPaymentCard';
+import { usePlatformPaymentConfig } from '@/hooks/usePlatformPaymentConfig';
 import { jsPDF } from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -70,6 +72,7 @@ export const SubscriberInvoiceModal: React.FC<SubscriberInvoiceModalProps> = ({
   isOpen,
   onOpenChange,
 }) => {
+  const [invoiceView, setInvoiceView] = React.useState<'invoice' | 'qr_card'>('invoice');
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = isOpen !== undefined;
   const open = isControlled ? isOpen : internalOpen;
@@ -99,6 +102,8 @@ export const SubscriberInvoiceModal: React.FC<SubscriberInvoiceModalProps> = ({
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [attachPdf, setAttachPdf] = useState(true);
   const [includeSignature, setIncludeSignature] = useState(true);
+
+  const { liveConfig: livePaymentConfig } = usePlatformPaymentConfig();
 
   const numDiscount = parseFloat(discountValue) || 0;
 
@@ -649,14 +654,38 @@ ${DEFAULT_COMPANY_CONFIG.name}`;
             </div>
           </div>
 
+
+          {/* View Toggle: Invoice vs QR Card */}
+          <div className="bg-white dark:bg-slate-950 border-b px-6 py-2 flex items-center gap-2">
+            <button type="button" onClick={() => setInvoiceView('invoice')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${invoiceView === 'invoice' ? 'bg-blue-700 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}` }>
+              Invoice / Bill
+            </button>
+            <button type="button" onClick={() => setInvoiceView('qr_card')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${invoiceView === 'qr_card' ? 'bg-orange-600 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+              🔲 UPI Payment Card
+            </button>
+          </div>
+
           {/* Scrollable Preview Area */}
           <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-200 dark:bg-slate-950 flex justify-center">
-            <div className="w-full max-w-[820px] shadow-lg rounded-2xl overflow-hidden bg-white">
-              <div
-                ref={invoicePrintRef}
-                dangerouslySetInnerHTML={{ __html: invoiceHtml }}
-              />
-            </div>
+            {invoiceView === 'invoice' ? (
+              <div className="w-full max-w-[820px] shadow-lg rounded-2xl overflow-hidden bg-white">
+                <div
+                  ref={invoicePrintRef}
+                  dangerouslySetInnerHTML={{ __html: invoiceHtml }}
+                />
+              </div>
+            ) : (
+              <div className="w-full max-w-[520px] py-4">
+                <UPIPaymentCard
+                  company={livePaymentConfig}
+                  planName={plan.name}
+                  planPrice={Number(activePayment?.amount_paid)}
+                  invoiceNumber={activePayment?.invoice_number}
+                />
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

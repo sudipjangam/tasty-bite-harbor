@@ -84,15 +84,15 @@ export const DEFAULT_COMPANY_CONFIG: CompanyInvoiceConfig = {
   pan: '',   // Skipped per requirements: No PAN number currently
   logoUrl: 'https://clmsoetktmvhazctlans.supabase.co/storage/v1/object/public/images/90bfb05e-129b-45ea-b5e3-519cbd00cfab.png',
   bank: {
-    bankName: 'HDFC Bank',
+    bankName: 'Bank of Maharashtra',
     accountName: 'Swadeshi Solutions',
-    accountNumber: '50200084729103',
-    ifsc: 'HDFC0000180',
+    accountNumber: '60139599010',
+    ifsc: 'MAHB0000216',
     branch: 'Kothrud, Pune',
     accountType: 'Current Account',
   },
   upi: {
-    upiId: '8329540398@hdfcbank',
+    upiId: '8308903224@upi',
     merchantName: 'Swadeshi Solutions',
   },
 };

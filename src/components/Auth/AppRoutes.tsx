@@ -109,6 +109,9 @@ const DailySummaryHistory = lazy(() => import("@/pages/DailySummaryHistory"));
 const DatabaseSync = lazy(
   () => import("@/components/Admin/DatabaseSync").then(m => ({ default: m.DatabaseSync }))
 );
+const PushBroadcast = lazy(
+  () => import("@/pages/Platform/PushBroadcast")
+);
 
 // Franchise pages (lazy-loaded, no DB impact)
 const FranchiseLayout = lazy(() => import("@/components/Franchise/FranchiseLayout").then(m => ({ default: m.FranchiseLayout })));
@@ -606,6 +609,14 @@ export const AppRoutes = () => {
               element={
                 <LazyRoute>
                   <DatabaseSync />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="notifications"
+              element={
+                <LazyRoute>
+                  <PushBroadcast />
                 </LazyRoute>
               }
             />

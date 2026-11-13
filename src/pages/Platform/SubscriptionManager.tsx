@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,6 +90,12 @@ import {
   INTERVAL_SORT_ORDER,
 } from "@/utils/planHierarchy";
 
+import {
+  usePlatformPaymentConfig,
+  PaymentConfigFields,
+} from "@/hooks/usePlatformPaymentConfig";
+import { UPIPaymentCard } from "@/components/Subscription/UPIPaymentCard";
+
 // Icon map for category rendering
 const ICON_MAP: Record<string, any> = {
   Monitor,
@@ -150,7 +156,44 @@ const SubscriptionManager = () => {
   const [viewMode, setViewMode] = useState<"tier" | "grid">("tier");
   const [planSearchQuery, setPlanSearchQuery] = useState("");
   const [tierIntervalSelection, setTierIntervalSelection] = useState<Record<string, string>>({});
-  const [formData, setFormData] = useState({
+    // ── Tab switcher ──────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"plans" | "bill_settings">("plans");
+
+  // ── Bill / Payment Settings ───────────────────────────────────────────────
+  const {
+    isLoading: isBillConfigLoading,
+    liveConfig: livePaymentConfig,
+    rawFields: rawBillFields,
+    saveMutation: saveBillConfig,
+  } = usePlatformPaymentConfig();
+
+  const [billForm, setBillForm] = useState<PaymentConfigFields>({
+    bankName: "Bank of Maharashtra",
+    accountName: "Swadeshi Solutions",
+    accountNumber: "60139599010",
+    ifsc: "MAHB0001227",
+    branch: "Kothrud, Pune",
+    accountType: "Current Account",
+    upiId: "8329540398@bom",
+    merchantName: "Swadeshi Solutions",
+    qrImageUrl: "",
+    cardTagline: "Start Your Complete POS Automation Journey",
+  });
+
+  // Sync billForm when DB data loads
+  useEffect(() => {
+    if (rawBillFields) {
+      setBillForm((prev) => ({ ...prev, ...rawBillFields }));
+    }
+  }, [rawBillFields]);
+
+  const handleSaveBillSettings = () => {
+    saveBillConfig.mutate(billForm, {
+      onSuccess: () => toast.success("Bill & Payment settings saved successfully!"),
+      onError: (err: any) => toast.error(err.message || "Failed to save settings"),
+    });
+  };
+const [formData, setFormData] = useState({
     name: "",
     description: "",
     price: 0,
@@ -333,7 +376,7 @@ const SubscriptionManager = () => {
     setIsEditOpen(true);
   };
 
-  // ─── Permissions Manager Logic ──────────────────────────────────────
+  // â”€â”€â”€ Permissions Manager Logic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const openPermissions = (plan: SubscriptionPlan) => {
     setSelectedPlan(plan);
@@ -592,26 +635,117 @@ const SubscriptionManager = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header */}
+      {/* Header + Tab Switcher */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
-            Subscription Plans
+            {activeTab === "plans" ? "Subscription Plans" : "Bill & Payment Settings"}
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm md:text-base">
-            Manage pricing tiers, billing cycles, and granular feature entitlements
+            {activeTab === "plans"
+              ? "Manage pricing tiers, billing cycles, and granular feature entitlements"
+              : "Configure bank account, UPI ID, and branded payment card shown on invoices"}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setIsAddOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 shadow-md hover:shadow-emerald-500/25 transition-all text-white rounded-xl"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add New Plan
-          </Button>
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+            <button type="button" onClick={() => setActiveTab("plans")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === "plans" ? "bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-400 shadow-sm" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"}`}>
+              <CreditCard className="h-3.5 w-3.5" /> Plans
+            </button>
+            <button type="button" onClick={() => setActiveTab("bill_settings")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === "bill_settings" ? "bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 shadow-sm" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"}`}>
+              <Save className="h-3.5 w-3.5" /> Bill Settings
+            </button>
+          </div>
+          {activeTab === "plans" && (
+            <Button onClick={() => setIsAddOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 shadow-md hover:shadow-emerald-500/25 transition-all text-white rounded-xl">
+              <Plus className="h-4 w-4 mr-2" /> Add New Plan
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* BILL SETTINGS TAB */}
+      {activeTab === "bill_settings" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-5">
+            <div className="bg-white/90 dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400"><Building2 className="h-4 w-4" /></div>
+                <div>
+                  <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100">Bank Account Details</h3>
+                  <p className="text-xs text-slate-500">Shown on subscription invoices & bills</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Bank Name</Label>
+                  <Input value={billForm.bankName} onChange={(e) => setBillForm({ ...billForm, bankName: e.target.value })} placeholder="e.g. Bank of Maharashtra" className="h-8 text-sm" />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Account Name</Label>
+                  <Input value={billForm.accountName} onChange={(e) => setBillForm({ ...billForm, accountName: e.target.value })} placeholder="e.g. Swadeshi Solutions" className="h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Account Number</Label>
+                  <Input value={billForm.accountNumber} onChange={(e) => setBillForm({ ...billForm, accountNumber: e.target.value })} placeholder="60139599010" className="h-8 text-sm font-mono" />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">IFSC Code</Label>
+                  <Input value={billForm.ifsc} onChange={(e) => setBillForm({ ...billForm, ifsc: e.target.value.toUpperCase() })} placeholder="MAHB0001227" className="h-8 text-sm font-mono" />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Branch</Label>
+                  <Input value={billForm.branch} onChange={(e) => setBillForm({ ...billForm, branch: e.target.value })} placeholder="Kothrud, Pune" className="h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Account Type</Label>
+                  <Input value={billForm.accountType} onChange={(e) => setBillForm({ ...billForm, accountType: e.target.value })} placeholder="Current Account" className="h-8 text-sm" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white/90 dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 rounded-lg bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400"><QrCode className="h-4 w-4" /></div>
+                <div>
+                  <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100">UPI & Branded Payment Card</h3>
+                  <p className="text-xs text-slate-500">QR image and card settings for invoices</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">UPI ID</Label>
+                  <Input value={billForm.upiId} onChange={(e) => setBillForm({ ...billForm, upiId: e.target.value })} placeholder="8329540398@bom" className="h-8 text-sm font-mono" />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Custom QR Image URL <span className="text-slate-400 font-normal">(Supabase Storage or external)</span></Label>
+                  <Input value={billForm.qrImageUrl || ""} onChange={(e) => setBillForm({ ...billForm, qrImageUrl: e.target.value })} placeholder="https://... (blank = auto-generated from UPI ID)" className="h-8 text-sm" />
+                  <p className="text-[11px] text-slate-400 mt-1">Upload your Canva/PhonePe branded QR PNG to Supabase Storage and paste the public URL here.</p>
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Card Headline / Tagline</Label>
+                  <Input value={billForm.cardTagline || ""} onChange={(e) => setBillForm({ ...billForm, cardTagline: e.target.value })} placeholder="Start Your Complete POS Automation Journey" className="h-8 text-sm" />
+                </div>
+              </div>
+            </div>
+            <Button onClick={handleSaveBillSettings} disabled={saveBillConfig.isPending} className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-xl shadow-md h-10">
+              {saveBillConfig.isPending ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</>) : (<><Save className="h-4 w-4 mr-2" />Save Bill & Payment Settings</>)}
+            </Button>
+          </div>
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <QrCode className="h-4 w-4 text-orange-500" /> Live Card Preview
+            </p>
+            <UPIPaymentCard company={livePaymentConfig} cardTagline={billForm.cardTagline || "Start Your Complete POS Automation Journey"} customQrImageUrl={billForm.qrImageUrl || undefined} />
+            <p className="text-[11px] text-slate-400 text-center">This card is embedded in invoice modals and can be downloaded as a PNG image.</p>
+          </div>
+        </div>
+      )}
+
+      {/* PLANS TAB */}
+      {activeTab === "plans" && (
+        <>
 
       {/* Control Bar: Categories + Billing Cycle Switcher + View Mode */}
       <div className="space-y-3 bg-white/70 dark:bg-slate-900/70 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 backdrop-blur-md shadow-xs">
@@ -740,7 +874,7 @@ const SubscriptionManager = () => {
           <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
         </div>
       ) : viewMode === "tier" ? (
-        /* ─── TIER VIEW (SIMPLIFIED / COLLAPSED) ─── */
+        /* â”€â”€â”€ TIER VIEW (SIMPLIFIED / COLLAPSED) â”€â”€â”€ */
         tierGroups.length === 0 ? (
           <div className="text-center py-16 bg-white/40 dark:bg-slate-900/40 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
             <CreditCard className="h-12 w-12 mx-auto text-slate-400 mb-3" />
@@ -814,7 +948,7 @@ const SubscriptionManager = () => {
                         )}
                         {config.badge && (
                           <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-gradient-to-r from-rose-500 to-indigo-600 text-white shadow-xs">
-                            {config.isHero ? "★ POPULAR" : config.badge}
+                            {config.isHero ? "â˜… POPULAR" : config.badge}
                           </span>
                         )}
                       </div>
@@ -874,7 +1008,7 @@ const SubscriptionManager = () => {
                             >
                               <span>{pLabel.period}</span>
                               <span className="text-[10px] font-bold opacity-80">
-                                ₹{p.price.toLocaleString()}
+                                â‚¹{p.price.toLocaleString()}
                               </span>
                             </button>
                           );
@@ -896,7 +1030,7 @@ const SubscriptionManager = () => {
                       {labelInfo.effectiveMonthly && activePlan.price > 0 && (
                         <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
                           {labelInfo.effectiveMonthly}
-                          {labelInfo.badge ? ` • ${labelInfo.badge}` : ""}
+                          {labelInfo.badge ? ` â€¢ ${labelInfo.badge}` : ""}
                         </p>
                       )}
                     </div>
@@ -1021,7 +1155,7 @@ const SubscriptionManager = () => {
           </div>
         )
       ) : (
-        /* ─── GRID VIEW (ALL INDIVIDUAL PLANS) ─── */
+        /* â”€â”€â”€ GRID VIEW (ALL INDIVIDUAL PLANS) â”€â”€â”€ */
         displayedPlans.length === 0 ? (
           <div className="text-center py-16 bg-white/40 dark:bg-slate-900/40 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
             <CreditCard className="h-12 w-12 mx-auto text-slate-400 mb-3" />
@@ -1223,7 +1357,7 @@ const SubscriptionManager = () => {
         )
       )}
 
-      {/* ─── Feature Permissions Manager Dialog ─────────────────────────── */}
+      {/* â”€â”€â”€ Feature Permissions Manager Dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <Dialog open={isPermissionsOpen} onOpenChange={setIsPermissionsOpen}>
         <DialogContent className="max-w-4xl max-h-[92vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-white/20 dark:border-gray-700/50">
           <DialogHeader className="pb-4 border-b border-gray-100 dark:border-gray-800">
@@ -1233,7 +1367,7 @@ const SubscriptionManager = () => {
               </div>
               <div className="flex-1">
                 <DialogTitle className="text-lg font-semibold">
-                  Feature Permissions — {selectedPlan?.name}
+                  Feature Permissions â€” {selectedPlan?.name}
                 </DialogTitle>
                 <DialogDescription className="text-sm">
                   Control which features are included in this subscription plan
@@ -1470,7 +1604,7 @@ const SubscriptionManager = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Price (₹) *</Label>
+                <Label>Price (â‚¹) *</Label>
                 <Input
                   type="number"
                   value={formData.price}
@@ -1580,7 +1714,7 @@ const SubscriptionManager = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Price (₹)</Label>
+                <Label>Price (â‚¹)</Label>
                 <Input
                   type="number"
                   value={formData.price}
@@ -1667,6 +1801,9 @@ const SubscriptionManager = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </>
+      )}
+
     </div>
   );
 };
