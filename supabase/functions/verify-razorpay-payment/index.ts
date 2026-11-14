@@ -297,48 +297,115 @@ serve(async (req) => {
     } catch (e) {
       console.warn('Could not fetch payment method:', e);
     }
-    // 4. Calculate subscription period
-    const now = new Date();
-    const periodEnd = calculateEndDate(now, plan.interval);
-    // 5. Update restaurant_subscriptions with verified payment details
-    const { data: subscription, error: updateError } = await supabaseAdmin
-      .from('restaurant_subscriptions')
-      .upsert(
-        {
-          restaurant_id: activeRestaurantId,
-          plan_id: activePlanId,
-          status: 'active',
-          current_period_start: now.toISOString(),
-          current_period_end: periodEnd.toISOString(),
-          cancel_at_period_end: false,
-          razorpay_order_id: isPaymentLink ? null : razorpay_order_id,
-          razorpay_payment_id: razorpay_payment_id,
-          razorpay_signature: razorpay_signature,
-          amount_paid: isPaymentLink ? amountPaid : Number(plan.price),
-          currency: 'INR',
-          payment_method: paymentMethod,
-          paid_at: now.toISOString(),
-          refund_status: 'none',
-          refund_amount: 0,
-          payment_notes: {
-            plan_name: plan.name,
-            billing_interval: plan.interval,
-            verified_at: now.toISOString(),
+    // 4. Concurrency-safe subscription calculation & persistence with deduplication and error handling
+    let subscription = null;
+    const MAX_RETRIES = 3;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      // Check existing subscription and retain read error
+      const { data: currentSub, error: readSubError } = await supabaseAdmin
+        .from('restaurant_subscriptions')
+        .select('*')
+        .eq('restaurant_id', activeRestaurantId)
+        .maybeSingle();
+
+      if (readSubError) {
+        console.error('Database error reading existing subscription:', readSubError);
+        return new Response(
+          JSON.stringify({ error: 'Database error reading subscription', details: readSubError.message }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+
+      // Deduplication: if this exact payment ID was already applied, return idempotently without extending again
+      if (currentSub?.razorpay_payment_id === razorpay_payment_id) {
+        console.log('Payment already applied for payment ID:', razorpay_payment_id);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Payment already processed and applied',
+            subscription: currentSub,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const now = new Date();
+      let startDate = now;
+      let baseDate = now;
+
+      if (currentSub?.current_period_end) {
+        const existingEnd = new Date(currentSub.current_period_end);
+        if (existingEnd > now && currentSub.status === 'active') {
+          // Active term in the future: extend from existing end date to preserve paid term
+          baseDate = existingEnd;
+          startDate = currentSub.current_period_start ? new Date(currentSub.current_period_start) : now;
+        }
+      }
+
+      const periodEnd = calculateEndDate(baseDate, plan.interval);
+
+      // 5. Update restaurant_subscriptions with verified payment details
+      const { data: updatedSub, error: updateError } = await supabaseAdmin
+        .from('restaurant_subscriptions')
+        .upsert(
+          {
+            restaurant_id: activeRestaurantId,
+            plan_id: activePlanId,
+            status: 'active',
+            current_period_start: startDate.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            cancel_at_period_end: false,
+            razorpay_order_id: isPaymentLink ? null : razorpay_order_id,
+            razorpay_payment_id: razorpay_payment_id,
+            razorpay_signature: razorpay_signature,
+            amount_paid: isPaymentLink ? amountPaid : Number(plan.price),
+            currency: 'INR',
             payment_method: paymentMethod,
-            payment_link_id: isPaymentLink ? razorpay_payment_link_id : null,
+            paid_at: now.toISOString(),
+            refund_status: 'none',
+            refund_amount: 0,
+            payment_notes: {
+              plan_name: plan.name,
+              billing_interval: plan.interval,
+              verified_at: now.toISOString(),
+              payment_method: paymentMethod,
+              payment_link_id: isPaymentLink ? razorpay_payment_link_id : null,
+            },
+            updated_at: now.toISOString(),
           },
-          updated_at: now.toISOString(),
-        },
-        { onConflict: 'restaurant_id' }
-      )
-      .select()
-      .single();
-    if (updateError) {
-      console.error('Error updating subscription:', updateError);
-      return new Response(
-        JSON.stringify({ error: 'Payment verified but failed to update subscription', details: updateError.message }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
+          { onConflict: 'restaurant_id' }
+        )
+        .select()
+        .single();
+
+      if (updateError) {
+        if (attempt === MAX_RETRIES - 1) {
+          console.error('Error updating subscription after retries:', updateError);
+          return new Response(
+            JSON.stringify({ error: 'Payment verified but failed to update subscription', details: updateError.message }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
+        }
+        await new Promise(r => setTimeout(r, 150 * (attempt + 1)));
+        continue;
+      }
+
+      // Stale-write check: verify our write is the latest applied for this restaurant
+      const { data: verifyWrite } = await supabaseAdmin
+        .from('restaurant_subscriptions')
+        .select('razorpay_payment_id')
+        .eq('restaurant_id', activeRestaurantId)
+        .maybeSingle();
+
+      if (verifyWrite?.razorpay_payment_id !== razorpay_payment_id && attempt < MAX_RETRIES - 1) {
+        console.warn('Concurrent subscription write detected, recalculating with latest period end...');
+        await new Promise(r => setTimeout(r, 150 * (attempt + 1)));
+        continue;
+      }
+
+      subscription = updatedSub;
+      break;
     }
     console.log('Subscription activated for restaurant:', activeRestaurantId);
     // ── Send email + WhatsApp + invoice ──

@@ -346,7 +346,7 @@ function generateInvoiceHTML(data: {
             <span class="bank-label">IFSC Code</span>
             <span class="bank-val">HDFC0000180</span>
             <span class="bank-label">Branch & Type</span>
-            <span class="bank-val">Kothrud, Pune (Current)</span>
+            <span class="bank-val">Bhuinj, Satara(Current)</span>
           </div>
         </div>
         <div>

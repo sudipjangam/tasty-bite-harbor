@@ -9,10 +9,11 @@ const corsHeaders = {
 interface CreateDiscountLinkRequest {
   restaurantId: string;
   planId: string;
-  discountType: 'percentage' | 'cash' | 'fixed_price';
+  discountType: 'percentage' | 'cash' | 'fixed_price' | 'none';
   discountValue: number;
   expiresAt?: string;
   notes?: string;
+  description?: string; // custom description shown on the Razorpay payment link
 }
 
 serve(async (req) => {
@@ -37,11 +38,20 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { restaurantId, planId, discountType, discountValue, expiresAt, notes }: CreateDiscountLinkRequest = await req.json();
+    const { restaurantId, planId, discountType, discountValue, expiresAt, notes, description }: CreateDiscountLinkRequest = await req.json();
 
-    if (!restaurantId || !planId || !discountType || discountValue === undefined) {
+    const validDiscountTypes = ['percentage', 'cash', 'fixed_price', 'none'];
+    if (!restaurantId || !planId || !discountType || !validDiscountTypes.includes(discountType)) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ error: 'Missing or invalid required fields (restaurantId, planId, discountType)' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    const effectiveDiscountValue = discountValue !== undefined ? Number(discountValue) : (discountType === 'none' ? 0 : NaN);
+    if (discountType !== 'none' && isNaN(effectiveDiscountValue)) {
+      return new Response(
+        JSON.stringify({ error: 'Missing or invalid discountValue for discounted link' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
@@ -82,17 +92,22 @@ serve(async (req) => {
     let discountPercentage = 0;
 
     if (discountType === 'fixed_price') {
-      discountedPrice = discountValue;
+      discountedPrice = effectiveDiscountValue;
       discountAmount = originalPrice - discountedPrice;
       discountPercentage = (discountAmount / originalPrice) * 100;
     } else if (discountType === 'cash') {
-      discountAmount = discountValue;
+      discountAmount = effectiveDiscountValue;
       discountedPrice = originalPrice - discountAmount;
       discountPercentage = (discountAmount / originalPrice) * 100;
     } else if (discountType === 'percentage') {
-      discountPercentage = discountValue;
+      discountPercentage = effectiveDiscountValue;
       discountAmount = (originalPrice * discountPercentage) / 100;
       discountedPrice = originalPrice - discountAmount;
+    } else if (discountType === 'none') {
+      // No discount — charge full plan price
+      discountedPrice = originalPrice;
+      discountAmount = 0;
+      discountPercentage = 0;
     }
 
     // Ensure price doesn't go below zero
@@ -120,7 +135,7 @@ serve(async (req) => {
         accept_partial: false,
         expire_by: expireBy,
         reference_id: referenceId,
-        description: `Special Offer: ${plan.name} (${plan.interval})`,
+        description: description || `Subscription Renewal: ${plan.name} (${plan.interval})`,
         customer: {
           name: restaurant.owner_name || restaurant.name,
           contact: contactPhone,
@@ -168,8 +183,8 @@ serve(async (req) => {
         restaurant_id: restaurantId,
         restaurant_name: restaurant.name,
         plan_id: planId,
-        discount_type: discountType,
-        discount_value: discountValue,
+        discount_type: discountType === 'none' ? 'fixed_price' : discountType,
+        discount_value: discountType === 'none' ? originalPrice : effectiveDiscountValue,
         original_price: originalPrice,
         discounted_price: discountedPrice,
         discount_amount: discountAmount,
@@ -187,7 +202,7 @@ serve(async (req) => {
     if (insertError) {
       console.error('Failed to save discount record:', insertError);
       return new Response(
-        JSON.stringify({ error: 'Failed to save discount record' }),
+        JSON.stringify({ error: 'Failed to save discount record', details: insertError }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }

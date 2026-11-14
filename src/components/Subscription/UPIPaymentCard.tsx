@@ -7,7 +7,8 @@
  *   Navy    #1E3270
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Download, QrCode, Copy, Check, Sun, Moon } from 'lucide-react';
@@ -21,18 +22,6 @@ const BRAND = {
   navy: '#1E3270',
   navyDark: '#141E4A',
 };
-
-// ── QR helper ─────────────────────────────────────────────────────────────────
-function buildAutoQrUrl(upiId: string, merchantName: string, amount?: number, dark = false) {
-  const pa = encodeURIComponent(upiId);
-  const pn = encodeURIComponent(merchantName);
-  const link = amount
-    ? `upi://pay?pa=${pa}&pn=${pn}&am=${amount}&cu=INR&tn=Subscription`
-    : `upi://pay?pa=${pa}&pn=${pn}&cu=INR`;
-  const fg = dark ? 'ffffff' : '1E3270';
-  const bg = dark ? '1a2560' : 'ffffff';
-  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(link)}&color=${fg}&bgcolor=${bg}&margin=8`;
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface UPIPaymentCardProps {
@@ -56,34 +45,99 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
   className = '',
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [mode, setMode] = useState<'light' | 'dark'>('light');
 
   const dark = mode === 'dark';
-  const qrSrc =
-    customQrImageUrl ||
-    buildAutoQrUrl(company.upi.upiId, company.upi.merchantName, planPrice, dark);
+
+  // Build UPI deep-link
+  const buildUpiLink = useCallback(() => {
+    const pa = encodeURIComponent(company.upi.upiId);
+    const pn = encodeURIComponent(company.upi.merchantName);
+    return planPrice
+      ? `upi://pay?pa=${pa}&pn=${pn}&am=${planPrice}&cu=INR&tn=Subscription`
+      : `upi://pay?pa=${pa}&pn=${pn}&cu=INR`;
+  }, [company.upi.upiId, company.upi.merchantName, planPrice]);
+
+  // Generate QR code as Base64 PNG data URL — offline, crisp 400px resolution, correct contrast
+  useEffect(() => {
+    if (customQrImageUrl) {
+      setQrDataUrl(customQrImageUrl);
+      return;
+    }
+
+    QRCode.toDataURL(buildUpiLink(), {
+      width: 400,
+      margin: 1,
+      color: {
+        dark: dark ? '#FFFFFF' : '#000000',
+        light: dark ? '#1A2560' : '#FFFFFF',
+      },
+    })
+      .then(url => setQrDataUrl(url))
+      .catch(err => console.error('QR generation error:', err));
+  }, [buildUpiLink, dark, customQrImageUrl]);
 
   // ── Save as PNG ────────────────────────────────────────────────────────────
   const handleSaveImage = async () => {
-    if (!cardRef.current) return;
+    if (!cardRef.current || !qrDataUrl) {
+      toast.error('QR code is still preparing, please try again in a moment');
+      return;
+    }
     setIsSaving(true);
     try {
+      const cardEl = cardRef.current;
+
+      // 1. Snapshot exact geometry BEFORE html2canvas runs
+      const cardRect = cardEl.getBoundingClientRect();
+      const qrBox = cardEl.querySelector('[data-qr-box="true"]') as HTMLElement | null;
+      const boxRect = qrBox ? qrBox.getBoundingClientRect() : null;
+
+      const relLeft = boxRect ? boxRect.left - cardRect.left : 24;
+      const relTop = boxRect ? boxRect.top - cardRect.top : 160;
+
+      // 2. Prepare offscreen canvas with exact QR bitmap (solid black on white in light mode)
+      const scale = 2;
+      const pad = 10; // 10px padding of qrBox
+      const drawX = Math.round((relLeft + pad) * scale);
+      const drawY = Math.round((relTop + pad) * scale);
+      const drawSize = 120 * scale; // 240px
+
+      const tempCanvas = document.createElement('canvas');
+      await QRCode.toCanvas(tempCanvas, buildUpiLink(), {
+        width: drawSize,
+        margin: 1,
+        color: {
+          dark: dark ? '#FFFFFF' : '#000000',
+          light: dark ? '#1A2560' : '#FFFFFF',
+        },
+      });
+
+      // 3. Render card DOM using html2canvas
       const { default: html2canvas } = await import('html2canvas');
-      const canvas = await html2canvas(cardRef.current, {
-        scale: 2,
+      const canvas = await html2canvas(cardEl, {
+        scale,
         useCORS: true,
         backgroundColor: dark ? BRAND.navyDark : '#ffffff',
         logging: false,
       });
+
+      // 4. Direct stamp: paint QR bitmap right into the orange box on output canvas
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(tempCanvas, drawX, drawY, drawSize, drawSize);
+      }
+
       const url = canvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = url;
       a.download = `swadeshi-payment-card-${invoiceNumber || 'upi'}.png`;
       a.click();
       toast.success('Payment card saved as PNG!');
-    } catch {
+    } catch (err) {
+      console.error('Save image error:', err);
       toast.error('Could not save image. Try screenshot instead.');
     } finally {
       setIsSaving(false);
@@ -172,7 +226,7 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
             size="sm"
             variant="outline"
             onClick={handleSaveImage}
-            disabled={isSaving}
+            disabled={isSaving || !qrDataUrl}
             className="text-xs gap-1.5 h-7"
           >
             <Download className="w-3 h-3" />
@@ -257,20 +311,19 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
         {/* Invoice/amount ref pill */}
         {(invoiceNumber || planPrice) && (
           <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
+            display: 'inline-block',
             background: card.refBg,
             border: card.refBorder,
             borderRadius: '20px',
-            padding: '3px 12px',
+            padding: '4px 14px',
             color: card.refText,
-            fontSize: '10px',
-            fontWeight: 600,
+            fontSize: '11px',
+            fontWeight: 700,
             marginBottom: '14px',
+            lineHeight: 1.4,
           }}>
-            {invoiceNumber && <span>{invoiceNumber}</span>}
-            {invoiceNumber && planPrice && <span style={{ opacity: 0.5 }}>·</span>}
+            {invoiceNumber && <span style={{ marginRight: planPrice ? '6px' : '0' }}>{invoiceNumber}</span>}
+            {invoiceNumber && planPrice && <span style={{ opacity: 0.5, marginRight: '6px' }}>·</span>}
             {planPrice && <span>₹{planPrice.toLocaleString('en-IN')}</span>}
           </div>
         )}
@@ -300,21 +353,38 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
         <div style={{ display: 'flex', gap: '18px', alignItems: 'flex-start' }}>
           {/* QR block */}
           <div style={{ flexShrink: 0, textAlign: 'center' }}>
-            <div style={{
-              background: card.qrBg,
-              border: card.qrBorder,
-              borderRadius: '12px',
-              padding: '10px',
-              display: 'inline-block',
-            }}>
-              <img
-                src={qrSrc}
-                alt="UPI QR Code"
-                width={120}
-                height={120}
-                style={{ borderRadius: '6px', display: 'block' }}
-                crossOrigin="anonymous"
-              />
+            <div
+              data-qr-box="true"
+              style={{
+                background: card.qrBg,
+                border: card.qrBorder,
+                borderRadius: '12px',
+                padding: '10px',
+                display: 'inline-block',
+                width: '140px',
+                height: '140px',
+                boxSizing: 'border-box',
+              }}
+            >
+              {qrDataUrl ? (
+                <img
+                  data-qr="true"
+                  src={qrDataUrl}
+                  alt="UPI QR Code"
+                  width={120}
+                  height={120}
+                  style={{
+                    borderRadius: '6px',
+                    display: 'block',
+                    width: '120px',
+                    height: '120px',
+                  }}
+                />
+              ) : (
+                <div style={{ width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <QrCode style={{ width: 32, height: 32, color: card.scanText, opacity: 0.5 }} />
+                </div>
+              )}
             </div>
             <div style={{
               marginTop: '5px',
@@ -330,12 +400,12 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
 
           {/* Right column */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            {/* UPI ID */}
+            {/* UPI ID Box */}
             <div style={{
               background: card.upiBg,
               border: card.upiBorder,
               borderRadius: '10px',
-              padding: '9px 11px',
+              padding: '9px 12px',
               marginBottom: '10px',
             }}>
               <div style={{
@@ -344,13 +414,13 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '1px',
-                marginBottom: '3px',
+                marginBottom: '2px',
               }}>
                 UPI ID
               </div>
               <div style={{
                 color: card.upiText,
-                fontSize: '13px',
+                fontSize: '13.5px',
                 fontWeight: 700,
                 fontFamily: "'Courier New', Courier, monospace",
                 wordBreak: 'break-all',
@@ -359,17 +429,22 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
               </div>
             </div>
 
-            {/* App pills */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px' }}>
-              {['GPay', 'PhonePe', 'Paytm', 'BHIM'].map((app) => (
+            {/* App pills — cleanly aligned */}
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '5px', marginBottom: '10px' }}>
+              <span style={{ fontSize: '9.5px', color: card.labelColor, fontWeight: 600, marginRight: '2px' }}>
+                Accepts:
+              </span>
+              {['Google Pay', 'PhonePe', 'Paytm', 'BHIM UPI'].map((app) => (
                 <div key={app} style={{
                   background: card.pillBg,
                   border: `1px solid ${card.pillBorder}`,
-                  borderRadius: '20px',
-                  padding: '2px 9px',
+                  borderRadius: '16px',
+                  padding: '2px 8px',
                   color: card.pillText,
                   fontSize: '9px',
                   fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
                 }}>
                   {app}
                 </div>
@@ -380,25 +455,18 @@ export const UPIPaymentCard: React.FC<UPIPaymentCardProps> = ({
             <div style={{
               borderTop: `1px solid ${card.divider}`,
               paddingTop: '9px',
-              lineHeight: 1.7,
+              lineHeight: 1.65,
             }}>
-              <div style={{ color: card.bankName, fontSize: '11px', fontWeight: 700 }}>
+              <div style={{ color: card.bankName, fontSize: '11px', fontWeight: 700, marginBottom: '2px' }}>
                 {company.bank.bankName}
               </div>
               <div style={{ color: card.labelColor, fontSize: '10px' }}>
-                A/C:{' '}
-                <span style={{ color: card.valueColor, fontFamily: 'monospace', fontWeight: 600 }}>
-                  {company.bank.accountNumber}
-                </span>
+                A/C: <span style={{ color: card.valueColor, fontFamily: 'monospace', fontWeight: 600 }}>{company.bank.accountNumber}</span>
+                <span style={{ margin: '0 6px', opacity: 0.4 }}>|</span>
+                IFSC: <span style={{ color: card.valueColor, fontFamily: 'monospace', fontWeight: 600 }}>{company.bank.ifsc}</span>
               </div>
-              <div style={{ color: card.labelColor, fontSize: '10px' }}>
-                IFSC:{' '}
-                <span style={{ color: card.valueColor, fontFamily: 'monospace', fontWeight: 600 }}>
-                  {company.bank.ifsc}
-                </span>
-              </div>
-              <div style={{ color: card.bankMeta, fontSize: '10px' }}>
-                {company.bank.accountType} · {company.bank.branch}
+              <div style={{ color: card.bankMeta, fontSize: '9.5px', marginTop: '1px' }}>
+                {company.bank.accountType} &middot; {company.bank.branch}
               </div>
             </div>
           </div>

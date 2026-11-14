@@ -44,6 +44,10 @@ const SpecialOfferPage = lazy(
   () => import("@/pages/SpecialOfferPage"),
 );
 
+const SubscriptionSuccess = lazy(
+  () => import("@/pages/SubscriptionSuccess"),
+);
+
 /** Sends an already-signed-in user to ?next= (same-origin relative paths only) or logs out if switch requested. */
 const PostAuthRedirect = () => {
   const [searchParams] = useSearchParams();
@@ -159,6 +163,7 @@ const Routes = () => {
         <Route path="/live-experience" element={<Suspense fallback={<PageLoader />}><LiveExperience /></Suspense>} />
         <Route path="/kiosk" element={<Suspense fallback={<PageLoader />}><KioskMode /></Suspense>} />
         <Route path="/offer/:discountId" element={<Suspense fallback={<PageLoader />}><SpecialOfferPage /></Suspense>} />
+        <Route path="/subscription-success" element={<Suspense fallback={<PageLoader />}><SubscriptionSuccess /></Suspense>} />
         <Route path="*" element={isNativeApp() ? <Auth /> : <LandingWebsite />} />
       </RouterRoutes>
     );
@@ -189,6 +194,7 @@ const Routes = () => {
       <Route path="/order-status/*" element={<Suspense fallback={<PageLoader />}><OrderStatusPage /></Suspense>} />
       <Route path="/kitchen-tv" element={<Suspense fallback={<PageLoader />}><KitchenTV /></Suspense>} />
       <Route path="/offer/:discountId" element={<Suspense fallback={<PageLoader />}><SpecialOfferPage /></Suspense>} />
+      <Route path="/subscription-success" element={<Suspense fallback={<PageLoader />}><SubscriptionSuccess /></Suspense>} />
 
       {/* Standalone subscription page — NO sidebar, NO subscription gate */}
       <Route

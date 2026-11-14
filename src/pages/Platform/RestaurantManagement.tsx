@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import SwadeshiLoader from "@/styles/Loader/SwadeshiLoader";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,10 +86,12 @@ import {
   Key,
   Truck,
   Lock,
+  Link,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DiscountDialog } from "@/components/Platform/DiscountDialog";
 import { SubscriberInvoiceModal } from "@/components/Subscription/SubscriberInvoiceModal";
+import { SendRenewalLinkModal } from "@/components/Subscription/SendRenewalLinkModal";
 import { usePlatformPaymentConfig } from "@/hooks/usePlatformPaymentConfig";
 import { PlanSelector } from "@/components/Platform/PlanSelector";
 import type { SubscriptionPlanItem } from "@/utils/planHierarchy";
@@ -164,6 +166,8 @@ const RestaurantManagement = () => {
   const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false);
   const [isDiscountOpen, setIsDiscountOpen] = useState(false);
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  const [isRenewalLinkOpen, setIsRenewalLinkOpen] = useState(false);
+  const [renewalLinkRestaurant, setRenewalLinkRestaurant] = useState<Restaurant | null>(null);
   const [invoiceTargetRestaurant, setInvoiceTargetRestaurant] =
     useState<Restaurant | null>(null);
   const [selectedRestaurant, setSelectedRestaurant] =
@@ -1029,6 +1033,15 @@ const RestaurantManagement = () => {
                           >
                             <FileText className="h-4 w-4 mr-2 text-blue-500" />{" "}
                             Subscriber Invoice / Bill
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setRenewalLinkRestaurant(restaurant);
+                              setIsRenewalLinkOpen(true);
+                            }}
+                            className="rounded-xl font-medium focus:bg-orange-50 dark:focus:bg-orange-950/20 text-orange-600 dark:text-orange-400"
+                          >
+                            <Link className="h-4 w-4 mr-2 text-orange-500" /> Send Renewal Link
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {
@@ -3239,6 +3252,24 @@ const RestaurantManagement = () => {
               />
             );
           })()}
+
+      {/* ── Send Renewal Link Modal ── */}
+      {renewalLinkRestaurant && (() => {
+        const subRaw = (renewalLinkRestaurant as any).restaurant_subscriptions;
+        const sub = Array.isArray(subRaw) ? subRaw[0] ?? null : subRaw ?? null;
+        return (
+          <SendRenewalLinkModal
+            open={isRenewalLinkOpen}
+            onOpenChange={(open) => {
+              setIsRenewalLinkOpen(open);
+              if (!open) setRenewalLinkRestaurant(null);
+            }}
+            restaurant={renewalLinkRestaurant}
+            subscription={sub}
+            plans={plans}
+          />
+        );
+      })()}
       </div>
     </div>
   );

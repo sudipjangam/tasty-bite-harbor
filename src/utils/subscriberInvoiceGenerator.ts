@@ -88,7 +88,7 @@ export const DEFAULT_COMPANY_CONFIG: CompanyInvoiceConfig = {
     accountName: 'Swadeshi Solutions',
     accountNumber: '60139599010',
     ifsc: 'MAHB0000216',
-    branch: 'Kothrud, Pune',
+    branch:'Bhuinj, Satara',
     accountType: 'Current Account',
   },
   upi: {
