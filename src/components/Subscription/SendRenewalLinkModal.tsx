@@ -9,7 +9,7 @@
  * - Razorpay = auto-activate; UPI = manual UTR confirmation
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -24,6 +24,7 @@ import {
   Link, Copy, Check, Loader2, MessageSquare, Mail,
   IndianRupee, Calendar, QrCode, ExternalLink,
   RefreshCw, ChevronDown, ChevronUp, AlertCircle,
+  Tag, Percent,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlatformPaymentConfig } from '@/hooks/usePlatformPaymentConfig';
@@ -37,7 +38,17 @@ interface Restaurant {
 }
 interface Plan { id: string; name: string; price: number; interval: string; }
 interface Subscription { plan_id?: string; current_period_end?: string; status?: string; }
-interface LinkSnapshot { url: string; planId: string; planName: string; interval: string; amount: number; }
+interface LinkSnapshot {
+  url: string;
+  planId: string;
+  planName: string;
+  interval: string;
+  amount: number;
+  originalAmount?: number;
+  discountAmount?: number;
+  discountPercentage?: number;
+}
+type DiscountMode = 'none' | 'percentage' | 'cash' | 'fixed_price';
 
 interface SendRenewalLinkModalProps {
   open: boolean;
@@ -120,12 +131,14 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
     });
 
   const [selectedPlanId, setSelectedPlanId] = useState(currentPlan?.id ?? '');
-  const [customAmount, setCustomAmount]     = useState('');
+  const [discountMode, setDiscountMode]     = useState<DiscountMode>('none');
+  const [discountInputValue, setDiscountInputValue] = useState<string>('');
   const [expiresAt, setExpiresAt]           = useState(daysFromNow(3));
   const [customNote, setCustomNote]         = useState('');
   const [isGenerating, setIsGenerating]     = useState(false);
   const [linkSnapshot, setLinkSnapshot]     = useState<LinkSnapshot | null>(null);
   const [copiedLink, setCopiedLink]         = useState(false);
+  const [copiedWaText, setCopiedWaText]     = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [showQr, setShowQr]                 = useState(false);
   const generationIdRef    = useRef(0);
@@ -134,13 +147,131 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
 
   const selectedPlan = eligiblePlans.find(p => p.id === selectedPlanId) ?? currentPlan;
   const planPrice    = selectedPlan?.price ?? 0;
-  const rawCustom    = customAmount ? Number(customAmount) : null;
-  const amountError  =
-    rawCustom !== null && rawCustom > planPrice ? `Max ₹${planPrice.toLocaleString('en-IN')}`
-    : rawCustom !== null && rawCustom <= 0      ? 'Must be > 0'
-    : null;
-  const finalAmount  = rawCustom && !amountError ? rawCustom : planPrice;
-  const isDiscounted = rawCustom !== null && !amountError && rawCustom < planPrice;
+
+  // ── Live Discount & Pricing Calculation ──────────────────────────────────────
+  const { finalPrice, discountAmount, discountPercentage, discountError, isDiscountActive } = useMemo(() => {
+    if (!selectedPlan) {
+      return {
+        finalPrice: 0,
+        discountAmount: 0,
+        discountPercentage: 0,
+        discountError: null,
+        isDiscountActive: false,
+      };
+    }
+
+    if (discountMode === 'none') {
+      return {
+        finalPrice: planPrice,
+        discountAmount: 0,
+        discountPercentage: 0,
+        discountError: null,
+        isDiscountActive: false,
+      };
+    }
+
+    const val = parseFloat(discountInputValue);
+    if (!discountInputValue || isNaN(val)) {
+      return {
+        finalPrice: planPrice,
+        discountAmount: 0,
+        discountPercentage: 0,
+        discountError: 'Please enter a discount value',
+        isDiscountActive: false,
+      };
+    }
+
+    if (discountMode === 'percentage') {
+      if (val <= 0 || val >= 100) {
+        return {
+          finalPrice: planPrice,
+          discountAmount: 0,
+          discountPercentage: 0,
+          discountError: 'Percentage must be between 1% and 99%',
+          isDiscountActive: false,
+        };
+      }
+      const discAmt = Math.round((planPrice * val) / 100);
+      const finalAmt = Math.max(1, planPrice - discAmt);
+      return {
+        finalPrice: finalAmt,
+        discountAmount: planPrice - finalAmt,
+        discountPercentage: Math.round(val * 10) / 10,
+        discountError: null,
+        isDiscountActive: true,
+      };
+    }
+
+    if (discountMode === 'cash') {
+      if (val <= 0) {
+        return {
+          finalPrice: planPrice,
+          discountAmount: 0,
+          discountPercentage: 0,
+          discountError: 'Discount must be greater than ₹0',
+          isDiscountActive: false,
+        };
+      }
+      if (val >= planPrice) {
+        return {
+          finalPrice: planPrice,
+          discountAmount: 0,
+          discountPercentage: 0,
+          discountError: `Discount must be less than ₹${planPrice.toLocaleString('en-IN')}`,
+          isDiscountActive: false,
+        };
+      }
+      const discAmt = Math.round(val);
+      const finalAmt = Math.max(1, planPrice - discAmt);
+      const pct = planPrice > 0 ? Math.round(((planPrice - finalAmt) / planPrice) * 1000) / 10 : 0;
+      return {
+        finalPrice: finalAmt,
+        discountAmount: planPrice - finalAmt,
+        discountPercentage: pct,
+        discountError: null,
+        isDiscountActive: true,
+      };
+    }
+
+    if (discountMode === 'fixed_price') {
+      const finalAmt = Math.round(val);
+      if (isNaN(finalAmt) || finalAmt < 1) {
+        return {
+          finalPrice: planPrice,
+          discountAmount: 0,
+          discountPercentage: 0,
+          discountError: 'Custom price must be at least ₹1',
+          isDiscountActive: false,
+        };
+      }
+      if (finalAmt > planPrice) {
+        return {
+          finalPrice: planPrice,
+          discountAmount: 0,
+          discountPercentage: 0,
+          discountError: `Cannot exceed plan price (₹${planPrice.toLocaleString('en-IN')})`,
+          isDiscountActive: false,
+        };
+      }
+      const discAmt = planPrice - finalAmt;
+      const pct = planPrice > 0 ? Math.round((discAmt / planPrice) * 1000) / 10 : 0;
+      return {
+        finalPrice: finalAmt,
+        discountAmount: discAmt,
+        discountPercentage: pct,
+        discountError: null,
+        isDiscountActive: discAmt > 0,
+      };
+    }
+
+    return {
+      finalPrice: planPrice,
+      discountAmount: 0,
+      discountPercentage: 0,
+      discountError: null,
+      isDiscountActive: false,
+    };
+  }, [discountMode, discountInputValue, planPrice, selectedPlan]);
 
   // Invalidate link and any in-flight generation when form inputs change or modal unmounts
   useEffect(() => {
@@ -151,7 +282,7 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
       generationIdRef.current += 1;
       setIsGenerating(false);
     };
-  }, [selectedPlanId, customAmount, expiresAt]);
+  }, [selectedPlanId, discountMode, discountInputValue, expiresAt]);
 
   // Reset on open
   useEffect(() => {
@@ -159,9 +290,14 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
       const cp = eligiblePlans.find(p => p.id === subscription?.plan_id) ?? eligiblePlans[0];
       setSelectedPlanId(cp?.id ?? '');
       setExpandedGroups(new Set([cp ? planGroup(cp.name) : 'Restaurant']));
-      setCustomAmount(''); setExpiresAt(daysFromNow(3));
-      setCustomNote(''); setLinkSnapshot(null);
-      setCopiedLink(false); setShowQr(false);
+      setDiscountMode('none');
+      setDiscountInputValue('');
+      setExpiresAt(daysFromNow(3));
+      setCustomNote('');
+      setLinkSnapshot(null);
+      setCopiedLink(false);
+      setCopiedWaText(false);
+      setShowQr(false);
     }
   }, [open, eligiblePlans, subscription?.plan_id]);
 
@@ -178,12 +314,27 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
   // ── Generate ────────────────────────────────────────────────────────────────
   const handleGenerate = useCallback(async () => {
     if (!selectedPlanId || !selectedPlan) { toast.error('Select an eligible plan'); return; }
-    if (amountError)     { toast.error(amountError);    return; }
+    if (discountError) { toast.error(discountError); return; }
 
     const myId = ++generationIdRef.current;
-    const snap = { plan: selectedPlan, amount: finalAmount };
+    const snap = {
+      plan: selectedPlan,
+      finalAmount: finalPrice,
+      originalAmount: planPrice,
+      discountAmount,
+      discountPercentage,
+      mode: isDiscountActive ? discountMode : 'none',
+      val: isDiscountActive
+        ? (discountMode === 'fixed_price'
+            ? finalPrice
+            : discountMode === 'cash'
+              ? discountAmount
+              : parseFloat(discountInputValue) || 0)
+        : 0,
+    };
 
-    setIsGenerating(true); setLinkSnapshot(null);
+    setIsGenerating(true);
+    setLinkSnapshot(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
@@ -196,9 +347,11 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
           planId:       snap.plan.id,
           expiresAt:    new Date(expiresAt + 'T23:59:59').toISOString(),
           notes:        customNote || undefined,
-          description:  `Subscription Renewal: ${snap.plan.name} (${intervalLabel(snap.plan.interval)}) — ${restaurant.name}`,
-          discountType:  isDiscounted ? 'fixed_price' : 'none',
-          discountValue: isDiscounted ? snap.amount   : 0,
+          description:  isDiscountActive
+            ? `Renewal (${snap.discountPercentage}% OFF): ${snap.plan.name} (${intervalLabel(snap.plan.interval)}) — ${restaurant.name}`
+            : `Subscription Renewal: ${snap.plan.name} (${intervalLabel(snap.plan.interval)}) — ${restaurant.name}`,
+          discountType:  snap.mode,
+          discountValue: snap.val,
         }),
       });
       const json = await res.json();
@@ -211,14 +364,17 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
       const confirmedAmount =
         typeof json.discount?.discounted_price === 'number'
           ? json.discount.discounted_price
-          : snap.amount;
+          : snap.finalAmount;
 
-      const snap2 = {
+      const snap2: LinkSnapshot = {
         url: json.paymentLink,
         planId: snap.plan.id,
         planName: snap.plan.name,
         interval: snap.plan.interval,
         amount: confirmedAmount,
+        originalAmount: typeof json.discount?.original_price === 'number' ? json.discount.original_price : snap.originalAmount,
+        discountAmount: typeof json.discount?.discount_amount === 'number' ? json.discount.discount_amount : snap.discountAmount,
+        discountPercentage: typeof json.discount?.discount_percentage === 'number' ? json.discount.discount_percentage : snap.discountPercentage,
       };
       setLinkSnapshot(snap2);
 
@@ -239,9 +395,13 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
     } finally {
       if (myId === generationIdRef.current) setIsGenerating(false);
     }
-  }, [selectedPlanId, selectedPlan, finalAmount, amountError, isDiscounted, expiresAt, customNote, restaurant]);
+  }, [
+    selectedPlanId, selectedPlan, finalPrice, planPrice, discountAmount,
+    discountPercentage, discountError, isDiscountActive, discountMode,
+    discountInputValue, expiresAt, customNote, restaurant,
+  ]);
 
-  // ── Copy ────────────────────────────────────────────────────────────────────
+  // ── Copy Link ───────────────────────────────────────────────────────────────
   const handleCopy = async () => {
     if (!linkSnapshot?.url) return;
     try {
@@ -254,17 +414,39 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
     }
   };
 
+  // ── Copy WhatsApp Text ──────────────────────────────────────────────────────
+  const handleCopyWaText = async () => {
+    const text = buildWaText();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedWaText(true);
+      toast.success('WhatsApp text copied with emojis intact!');
+      setTimeout(() => setCopiedWaText(false), 2500);
+    } catch {
+      toast.error('Failed to copy WhatsApp message');
+    }
+  };
+
   // ── WhatsApp message ────────────────────────────────────────────────────────
   const buildWaText = useCallback(() => {
     if (!linkSnapshot) return '';
+    const hasDiscount = (linkSnapshot.discountAmount ?? 0) > 0;
+    const origAmount = linkSnapshot.originalAmount ?? linkSnapshot.amount;
+
     return (
-      `*Swadeshi Solutions — Subscription Renewal* 🚀\n\n` +
+      `*Swadeshi Solutions — Subscription Renewal* ✨\n\n` +
       `Hi ${restaurant.owner_name || restaurant.name},\n\n` +
       `Your *${linkSnapshot.planName}* plan expires on *${fmtDate(subscription?.current_period_end)}*.\n` +
       `Renew now to keep your POS uninterrupted.\n\n` +
+      (hasDiscount
+        ? `🎉 *Special Renewal Discount Applied:*\n` +
+          `• Original Price: ~₹${origAmount.toLocaleString('en-IN')}~\n` +
+          `• Final Renewal Amount: *₹${linkSnapshot.amount.toLocaleString('en-IN')}* (₹${linkSnapshot.discountAmount?.toLocaleString('en-IN')} OFF)\n\n`
+        : '') +
       `💳 *Pay via Razorpay (₹${linkSnapshot.amount.toLocaleString('en-IN')}):*\n${linkSnapshot.url}\n` +
       `_(Auto-activates subscription on payment)_\n\n` +
-      `🏦 *Or pay via UPI / Bank Transfer:*\n` +
+      `🏛️ *Or pay via UPI / Bank Transfer:*\n` +
       `UPI ID: *${paymentConfig.upi.upiId}*\n` +
       `Bank: ${paymentConfig.bank.bankName} | A/C: ${paymentConfig.bank.accountNumber} | IFSC: ${paymentConfig.bank.ifsc}\n` +
       `_(After UPI payment, share UTR to +91 83295 40398 for manual activation)_\n\n` +
@@ -277,7 +459,7 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
   const cleanPhone = rawPhone.replace(/\D/g, '');
   const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
   const waUrl = formattedPhone && linkSnapshot
-    ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(buildWaText())}`
+    ? `https://api.whatsapp.com/send/?phone=${formattedPhone}&text=${encodeURIComponent(buildWaText())}`
     : '#';
 
   // ── Send Email ──────────────────────────────────────────────────────────────
@@ -297,6 +479,9 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
             planName:       linkSnapshot.planName,
             interval:       intervalLabel(linkSnapshot.interval),
             amount:         linkSnapshot.amount,
+            originalAmount: linkSnapshot.originalAmount,
+            discountAmount: linkSnapshot.discountAmount,
+            discountPercentage: linkSnapshot.discountPercentage,
             expiryDate:     fmtDate(subscription?.current_period_end),
             invoiceNumber:  `RENEWAL-${restaurant.id.slice(0, 6).toUpperCase()}`,
             paymentLink:    linkSnapshot.url,
@@ -401,7 +586,7 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
                             key={p.id}
                             type="button"
                             disabled={isGenerating}
-                            onClick={() => { setSelectedPlanId(p.id); setCustomAmount(''); }}
+                            onClick={() => { setSelectedPlanId(p.id); setDiscountInputValue(''); }}
                             className={`text-left px-3 py-2 rounded-lg border text-xs transition-all ${isGenerating ? 'opacity-60 cursor-not-allowed ' : ''}${
                               selectedPlanId === p.id
                                 ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 ring-1 ring-orange-300'
@@ -422,48 +607,206 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
             </div>
           </div>
 
-          {/* Amount + expiry */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">
-                Amount (₹){isDiscounted && <span className="ml-1.5 text-green-600 font-normal">(discounted)</span>}
-              </Label>
-              <div className="relative">
-                <IndianRupee className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                <Input
-                  type="number" min={1} max={planPrice}
-                  disabled={isGenerating}
-                  className={`pl-7 h-9 text-sm ${amountError ? 'border-red-400' : ''}`}
-                  placeholder={String(planPrice)}
-                  value={customAmount}
-                  onChange={e => setCustomAmount(e.target.value)}
-                />
+          {/* ── Plan Customization & Discount ── */}
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 p-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-orange-500" />
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  Plan Pricing &amp; Discount
+                </span>
               </div>
-              {amountError
-                ? <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{amountError}</p>
-                : <p className="text-[10px] text-slate-400 mt-1">Blank = full price (₹{planPrice.toLocaleString('en-IN')})</p>
-              }
+              {isDiscountActive && (
+                <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 text-[10px] px-2 py-0.5">
+                  ₹{discountAmount.toLocaleString('en-IN')} OFF ({discountPercentage}%)
+                </Badge>
+              )}
             </div>
+
+            {/* Discount Mode Selector Tabs */}
+            <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/70 dark:bg-slate-800 rounded-lg text-xs font-medium">
+              <button
+                type="button"
+                disabled={isGenerating || !selectedPlan}
+                onClick={() => { setDiscountMode('none'); setDiscountInputValue(''); }}
+                className={`py-1.5 px-2 rounded-md transition-all text-[11px] ${
+                  discountMode === 'none'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                Full Price
+              </button>
+              <button
+                type="button"
+                disabled={isGenerating || !selectedPlan}
+                onClick={() => { setDiscountMode('percentage'); setDiscountInputValue('10'); }}
+                className={`py-1.5 px-2 rounded-md transition-all text-[11px] ${
+                  discountMode === 'percentage'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                % Off
+              </button>
+              <button
+                type="button"
+                disabled={isGenerating || !selectedPlan}
+                onClick={() => { setDiscountMode('cash'); setDiscountInputValue('1000'); }}
+                className={`py-1.5 px-2 rounded-md transition-all text-[11px] ${
+                  discountMode === 'cash'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                ₹ Flat Off
+              </button>
+              <button
+                type="button"
+                disabled={isGenerating || !selectedPlan}
+                onClick={() => {
+                  setDiscountMode('fixed_price');
+                  setDiscountInputValue(String(Math.max(100, planPrice - 1000)));
+                }}
+                className={`py-1.5 px-2 rounded-md transition-all text-[11px] ${
+                  discountMode === 'fixed_price'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                Custom Price
+              </button>
+            </div>
+
+            {/* Quick Presets & Custom Input */}
+            {discountMode !== 'none' && (
+              <div className="space-y-2 pt-0.5">
+                {/* Percentage Presets */}
+                {discountMode === 'percentage' && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-slate-500 font-medium">Presets:</span>
+                    {[5, 10, 15, 20, 25, 30].map(pct => (
+                      <button
+                        key={pct}
+                        type="button"
+                        disabled={isGenerating || !selectedPlan}
+                        onClick={() => setDiscountInputValue(String(pct))}
+                        className={`px-2 py-0.5 rounded text-[11px] border transition-colors ${
+                          discountInputValue === String(pct)
+                            ? 'bg-orange-500 text-white border-orange-500 font-semibold shadow-xs'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-orange-300'
+                        }`}
+                      >
+                        {pct}% OFF
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Flat Cash Presets */}
+                {discountMode === 'cash' && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-slate-500 font-medium">Presets:</span>
+                    {[500, 1000, 1500, 2000, 3000].filter(amt => amt < planPrice).map(amt => (
+                      <button
+                        key={amt}
+                        type="button"
+                        disabled={isGenerating || !selectedPlan}
+                        onClick={() => setDiscountInputValue(String(amt))}
+                        className={`px-2 py-0.5 rounded text-[11px] border transition-colors ${
+                          discountInputValue === String(amt)
+                            ? 'bg-orange-500 text-white border-orange-500 font-semibold shadow-xs'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-orange-300'
+                        }`}
+                      >
+                        ₹{amt.toLocaleString('en-IN')} OFF
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Input with Icon */}
+                <div>
+                  <div className="relative">
+                    {discountMode === 'percentage' ? (
+                      <Percent className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    ) : (
+                      <IndianRupee className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    )}
+                    <Input
+                      type="number"
+                      min={1}
+                      disabled={isGenerating || !selectedPlan}
+                      className={`pl-8 h-8 text-sm ${discountError ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
+                      placeholder={
+                        discountMode === 'percentage' ? 'Discount % (e.g. 15)' :
+                        discountMode === 'cash' ? 'Discount in ₹ (e.g. 1000)' :
+                        'Final price in ₹ (e.g. 6999)'
+                      }
+                      value={discountInputValue}
+                      onChange={e => setDiscountInputValue(e.target.value)}
+                    />
+                  </div>
+                  {discountError && (
+                    <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      {discountError}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Live Price Summary Box */}
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-xs">
+              <div>
+                <span className="text-slate-500 text-[10px] uppercase tracking-wider block font-semibold">
+                  Customer Renewal Price
+                </span>
+                <div className="flex items-baseline gap-2 mt-0.5">
+                  <span className="text-base font-extrabold text-[#2E4FA3] dark:text-blue-400">
+                    ₹{finalPrice.toLocaleString('en-IN')}
+                  </span>
+                  {isDiscountActive && (
+                    <span className="text-xs text-slate-400 line-through">
+                      ₹{planPrice.toLocaleString('en-IN')}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {isDiscountActive && (
+                <div className="text-right">
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold block">
+                    Save ₹{discountAmount.toLocaleString('en-IN')} ({discountPercentage}%)
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Plan: ₹{planPrice.toLocaleString('en-IN')}{selectedPlan ? ` / ${intervalLabel(selectedPlan.interval)}` : ''}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Expiry + Note */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">Link Expires</Label>
               <Input type="date" disabled={isGenerating} className="h-9 text-sm" value={expiresAt} min={daysFromNow(1)} onChange={e => setExpiresAt(e.target.value)} />
             </div>
-          </div>
-
-          {/* Note */}
-          <div>
-            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">Message Note (optional)</Label>
-            <Textarea disabled={isGenerating} className="text-sm resize-none h-16" placeholder="e.g. Special renewal offer…" value={customNote} onChange={e => setCustomNote(e.target.value)} />
+            <div>
+              <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">Message Note (optional)</Label>
+              <Input disabled={isGenerating} className="h-9 text-sm" placeholder="e.g. Special offer valid this week" value={customNote} onChange={e => setCustomNote(e.target.value)} />
+            </div>
           </div>
 
           {/* Generate */}
           <Button
             onClick={handleGenerate}
-            disabled={isGenerating || !selectedPlanId || !!amountError}
-            className="w-full bg-[#2E4FA3] hover:bg-[#1E3270] text-white gap-2"
+            disabled={isGenerating || !selectedPlanId || !selectedPlan || !!discountError}
+            className="w-full bg-[#2E4FA3] hover:bg-[#1E3270] text-white gap-2 font-semibold"
           >
-            {isGenerating ? <><Loader2 className="w-4 h-4 animate-spin" />Generating…</>
-              : linkSnapshot ? <><RefreshCw className="w-4 h-4" />Regenerate Link</>
+            {isGenerating ? <><Loader2 className="w-4 h-4 animate-spin" />Generating Link…</>
+              : linkSnapshot ? <><RefreshCw className="w-4 h-4" />Regenerate Payment Link</>
               : <><Link className="w-4 h-4" />Generate Razorpay Payment Link</>}
           </Button>
 
@@ -478,9 +821,9 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
                 <span className="text-slate-700 dark:text-slate-300">
                   <strong className="text-blue-700 dark:text-blue-300">₹{linkSnapshot.amount.toLocaleString('en-IN')}</strong>
                   {' · '}{linkSnapshot.planName}{' · '}{intervalLabel(linkSnapshot.interval)}
-                  {linkSnapshot.amount < planPrice && (
-                    <span className="ml-1.5 text-green-600 font-semibold">
-                      (₹{(planPrice - linkSnapshot.amount).toLocaleString('en-IN')} off)
+                  {(linkSnapshot.discountAmount ?? 0) > 0 && (
+                    <span className="ml-1.5 text-emerald-600 font-semibold">
+                      (₹{linkSnapshot.discountAmount?.toLocaleString('en-IN')} OFF · {linkSnapshot.discountPercentage}%)
                     </span>
                   )}
                 </span>
@@ -491,7 +834,7 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-green-600 dark:text-green-400 font-bold uppercase tracking-wide mb-0.5">Payment Link Ready ✅</p>
                   <a href={linkSnapshot.url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-blue-600 dark:text-blue-400 underline truncate block">
+                    className="text-xs text-blue-600 dark:text-blue-400 underline truncate block font-mono">
                     {linkSnapshot.url}
                   </a>
                 </div>
@@ -508,39 +851,65 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
                 </div>
               </div>
 
-              {/* Send label */}
-              <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                Send to {restaurant.owner_name || restaurant.name}
-              </p>
-
-              {/* WhatsApp + Email — full width, solid, prominent */}
-              {rawPhone ? (
+              {/* Send label & Quick Copy Header */}
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Send to {restaurant.owner_name || restaurant.name}
+                </p>
                 <Button
-                  asChild
-                  className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold"
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleCopyWaText}
+                  className="h-6 px-2 text-[11px] text-green-700 dark:text-green-400 hover:text-green-800 hover:bg-green-100 dark:hover:bg-green-950/40 gap-1 font-semibold"
+                  title="Copy full WhatsApp message with emojis directly to clipboard"
                 >
-                  <a
-                    href={waUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => toast.success('Opening WhatsApp...')}
+                  {copiedWaText ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                  {copiedWaText ? 'Message Copied!' : 'Copy WhatsApp Text'}
+                </Button>
+              </div>
+
+              {/* WhatsApp Buttons Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {rawPhone ? (
+                  <Button
+                    asChild
+                    className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold h-9"
+                  >
+                    <a
+                      href={waUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => toast.success('Opening WhatsApp...')}
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Send via WhatsApp ({cleanPhone.slice(-10)})
+                    </a>
+                  </Button>
+                ) : (
+                  <Button
+                    disabled
+                    className="w-full gap-2 bg-slate-200 dark:bg-slate-800 text-slate-400 text-xs font-semibold h-9"
                   >
                     <MessageSquare className="w-4 h-4" />
-                    Send via WhatsApp ({cleanPhone.slice(-10)})
-                  </a>
-                </Button>
-              ) : (
+                    No phone on record
+                  </Button>
+                )}
+
                 <Button
-                  disabled
-                  className="w-full gap-2 bg-slate-200 dark:bg-slate-800 text-slate-400 text-sm font-semibold"
+                  type="button"
+                  variant="outline"
+                  onClick={handleCopyWaText}
+                  className="w-full gap-2 border-green-300 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950/30 text-xs font-semibold h-9"
                 >
-                  <MessageSquare className="w-4 h-4" />
-                  Send via WhatsApp — no phone on record
+                  {copiedWaText ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                  {copiedWaText ? 'Copied Message!' : 'Copy WhatsApp Message'}
                 </Button>
-              )}
+              </div>
+
+              {/* Email Button */}
               <Button
                 onClick={handleSendEmail} disabled={isSendingEmail}
-                className="w-full gap-2 bg-[#2E4FA3] hover:bg-[#1E3270] text-white text-sm font-semibold"
+                className="w-full gap-2 bg-[#2E4FA3] hover:bg-[#1E3270] text-white text-xs font-semibold h-9"
               >
                 {isSendingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
                 {isSendingEmail ? 'Sending…' : `Send via Email ${restaurant.owner_email || restaurant.email ? `(${restaurant.owner_email || restaurant.email})` : '— no email on record'}`}
@@ -568,10 +937,15 @@ export const SendRenewalLinkModal: React.FC<SendRenewalLinkModalProps> = ({
               )}
 
               {/* Activation note */}
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed">
-                💡 <strong>Razorpay</strong> → subscription activates automatically on payment.
-                <strong> UPI</strong> → ask the customer to share UTR to <strong>+91 83295 40398</strong> for manual activation.
-              </p>
+              <div className="space-y-1 text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed">
+                <p>
+                  💡 <strong>Razorpay</strong> → subscription activates automatically on payment.
+                  <strong> UPI</strong> → ask the customer to share UTR to <strong>+91 83295 40398</strong> for manual activation.
+                </p>
+                <p>
+                  ✨ <strong>WhatsApp Emojis</strong> → If browser redirects alter emojis on your desktop, use <strong>Copy WhatsApp Message</strong> above to paste directly into chat with full icons intact.
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -587,6 +961,9 @@ function buildRenewalEmailHtml(opts: {
   planName: string;
   interval: string;
   amount: number;
+  originalAmount?: number;
+  discountAmount?: number;
+  discountPercentage?: number;
   expiryDate: string;
   invoiceNumber: string;
   paymentLink: string;
@@ -617,6 +994,9 @@ function buildRenewalEmailHtml(opts: {
   const phone    = escHtml(opts.phone || '+91 83295 40398');
   const suppMail = escHtml(opts.email || 'support@swadeshisolutions.com');
   const amount   = opts.amount.toLocaleString('en-IN');
+  const origAmount = (opts.originalAmount ?? (opts.amount + (opts.discountAmount || 0))).toLocaleString('en-IN');
+  const discAmt  = opts.discountAmount ? opts.discountAmount.toLocaleString('en-IN') : '0';
+  const hasDisc  = !!opts.discountAmount && opts.discountAmount > 0;
   const year     = new Date().getFullYear();
 
   return `<!DOCTYPE html>
@@ -714,6 +1094,13 @@ function buildRenewalEmailHtml(opts: {
                   <td width="50%" valign="top" style="padding:4px 4px 4px 8px;">
                     <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Renewal Amount</div>
                     <div style="font-size:16px;font-weight:800;color:#2E4FA3;margin-top:2px;">₹${amount}</div>
+                    ${hasDisc ? `
+                    <div style="font-size:10.5px;font-weight:700;color:#16a34a;margin-top:2px;">
+                      Save ₹${discAmt} (${opts.discountPercentage ?? ''}% OFF)
+                    </div>
+                    <div style="font-size:9.5px;color:#94a3b8;text-decoration:line-through;margin-top:1px;">
+                      Base: ₹${origAmount}
+                    </div>` : ''}
                   </td>
                 </tr>
               </table>
@@ -758,8 +1145,17 @@ function buildRenewalEmailHtml(opts: {
                       <strong>${planName} License Renewal</strong>
                       <div style="font-size:11.5px;color:#64748b;margin-top:2px;">${restName} &middot; Full Cloud POS, Kitchen Order System &amp; Cloud Sync</div>
                     </td>
-                    <td style="padding:12px 14px;font-size:13px;font-weight:600;color:#0f172a;text-align:right;">₹${amount}</td>
+                    <td style="padding:12px 14px;font-size:13px;font-weight:600;color:#0f172a;text-align:right;">₹${hasDisc ? origAmount : amount}</td>
                   </tr>
+                  ${hasDisc ? `
+                  <tr style="border-bottom:1px solid #e2e8f0;background-color:#f0fdf4;">
+                    <td style="padding:10px 14px;font-size:12.5px;color:#15803d;font-weight:600;">
+                      🎉 Special Renewal Discount
+                    </td>
+                    <td style="padding:10px 14px;font-size:12.5px;font-weight:700;color:#15803d;text-align:right;">
+                      -₹${discAmt}
+                    </td>
+                  </tr>` : ''}
                   <tr style="background-color:#f8fafc;">
                     <td style="padding:12px 14px;font-size:13px;font-weight:700;color:#0f172a;">Total Renewal Amount</td>
                     <td style="padding:12px 14px;font-size:16px;font-weight:800;text-align:right;color:#0f172a;">₹${amount}</td>
