@@ -208,7 +208,7 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
             tx.objectStore("writeQueue").getAll(),
           ]);
           localOrders = (rawLocalOrders as OfflineQsrOrder[]).filter((lo) => {
-            if (lo.restaurantId !== restaurantId) return false;
+            if (lo.restaurant_id !== restaurantId) return false;
             const src = (lo.source || "").toLowerCase();
             if (src && src !== "quickserve" && src !== "pos") return false;
             const ts = new Date(lo.createdAt).getTime();
