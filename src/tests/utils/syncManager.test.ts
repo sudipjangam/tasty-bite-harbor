@@ -64,7 +64,8 @@ let mockQueueSeq = 0;
 
 vi.mock("@/utils/offlineDB", () => ({
   getDB: vi.fn(async () => mockDb),
-  allocateQueueSeq: vi.fn(async () => ++mockQueueSeq),
+  allocateQueueSeq: vi.fn(() => ++mockQueueSeq),
+  ensureQueueSeqFloor: vi.fn(async () => undefined),
   withLocalOrderLock: vi.fn(async (_id: string, fn: () => Promise<any>) => fn()),
   OFFLINE_QUEUE_EVENT: "swadeshi:offline-queue-changed",
   LOCAL_ORDERS_EVENT: "swadeshi:local-orders-changed",

@@ -127,6 +127,12 @@ export const QSRPosMain: React.FC = () => {
     offlineToken: string;
     txnId: string;
   } | null>(null);
+  const pendingOnlinePrePayRef = React.useRef<{
+    fingerprint: string;
+    kitchenOrderId: string | null;
+    orderId: string | null;
+    txnId: string | null;
+  } | null>(null);
   // C-1: Stable UUID cache for new-order path in handleSendToKitchen (prevents duplicate rows on retry)
   const pendingNewKitchenOrderRef = React.useRef<{
     fingerprint: string;
@@ -2049,6 +2055,7 @@ export const QSRPosMain: React.FC = () => {
         const persistPrePayOffline = async (
           existingServerKitchenOrderId?: string | null,
           existingServerOrderId?: string | null,
+          existingServerTxnId?: string | null,
         ) => {
           if (!restaurantId) return;
           const activeItems =
@@ -2202,7 +2209,7 @@ export const QSRPosMain: React.FC = () => {
             existingServerKitchenOrderId ? "update" : "insert",
           );
 
-          if (!isNC) {
+          if (!isNC && !existingServerTxnId) {
             await enqueueWrite(
               "pos_transaction",
               {
@@ -2579,75 +2586,98 @@ export const QSRPosMain: React.FC = () => {
             notes: item.notes ? (Array.isArray(item.notes) ? item.notes : [item.notes]) : [],
           }));
 
-          let createdKitchenOrderId: string | null = null;
-          let createdOrderId: string | null = null;
+          const orderItemsFormatted = activeItems.map(
+            (item) => formatOrderItemString(
+              item.quantity,
+              item.name,
+              (item as any).calculatedPrice ?? (item as any).customPrice ?? item.price,
+              Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
+            )
+          );
+          const onlineFingerprint = `${restaurantId}|${isNC ? 0 : orderTotal}|${finalMethod}|${orderItemsFormatted.join(",")}`;
+          const reusedOnline =
+            pendingOnlinePrePayRef.current?.fingerprint === onlineFingerprint
+              ? pendingOnlinePrePayRef.current
+              : null;
+
+          let createdKitchenOrderId: string | null = reusedOnline?.kitchenOrderId || null;
+          let createdOrderId: string | null = reusedOnline?.orderId || null;
+          let createdTxnId: string | null = reusedOnline?.txnId || null;
+          const saveOnlineProgress = () => {
+            pendingOnlinePrePayRef.current = {
+              fingerprint: onlineFingerprint,
+              kitchenOrderId: createdKitchenOrderId,
+              orderId: createdOrderId,
+              txnId: createdTxnId,
+            };
+          };
+
           try {
-            const { data: kitchenOrder, error: kitchenError } = await supabase
-              .from("kitchen_orders")
-              .insert({
-                restaurant_id: restaurantId,
-                source: `QSR-${orderSource}`,
-                status: "completed",
-                items: kitchenItems,
-                order_type: currentMode === "nc" ? "takeaway" : currentMode,
-                customer_name: paymentCustomerName,
-                server_name: attendantName,
-                priority: "normal",
-                bumped_at: new Date().toISOString(),
-              })
-              .select()
-              .maybeSingle();
-
-            if (kitchenError) throw kitchenError;
-            createdKitchenOrderId = kitchenOrder?.id || null;
-
-            const orderItemsFormatted = activeItems.map(
-              (item) => formatOrderItemString(
-                item.quantity,
-                item.name,
-                (item as any).calculatedPrice ?? (item as any).customPrice ?? item.price,
-                Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
-              )
-            );
-
-            const { data: createdOrder, error: orderError } = await supabase
-              .from("orders")
-              .insert({
-                restaurant_id: restaurantId,
-                customer_name: paymentCustomerName,
-                items: orderItemsFormatted,
-                status: "completed",
-                total: isNC ? 0 : orderTotal,
-                order_type: isNC ? "non-chargeable" : currentMode,
-                nc_reason: isNC ? ncReason || null : null,
-                source: "pos",
-                payment_status: finalPaymentStatus,
-                payment_method: finalMethod,
-                ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
-                discount_amount: isNC ? orderTotal : 0,
-                discount_percentage: isNC ? 100 : 0,
-                attendant: attendantName,
-              })
-              .select()
-              .maybeSingle();
-
-            if (orderError) throw orderError;
-            createdOrderId = createdOrder?.id || null;
-
-            if (createdOrder?.id && kitchenOrder?.id) {
-              const { error: linkErr } = await supabase
+            if (!createdKitchenOrderId) {
+              const { data: kitchenOrder, error: kitchenError } = await supabase
                 .from("kitchen_orders")
-                .update({ order_id: createdOrder.id })
-                .eq("id", kitchenOrder.id);
-              if (linkErr) throw linkErr;
+                .insert({
+                  restaurant_id: restaurantId,
+                  source: `QSR-${orderSource}`,
+                  status: "completed",
+                  items: kitchenItems,
+                  order_type: currentMode === "nc" ? "takeaway" : currentMode,
+                  customer_name: paymentCustomerName,
+                  server_name: attendantName,
+                  priority: "normal",
+                  bumped_at: new Date().toISOString(),
+                })
+                .select()
+                .maybeSingle();
+
+              if (kitchenError) throw kitchenError;
+              createdKitchenOrderId = kitchenOrder?.id || null;
+              saveOnlineProgress();
             }
 
-            if (!isNC && restaurantId) {
+            if (!createdOrderId) {
+              const { data: createdOrder, error: orderError } = await supabase
+                .from("orders")
+                .insert({
+                  restaurant_id: restaurantId,
+                  customer_name: paymentCustomerName,
+                  items: orderItemsFormatted,
+                  status: "completed",
+                  total: isNC ? 0 : orderTotal,
+                  order_type: isNC ? "non-chargeable" : currentMode,
+                  nc_reason: isNC ? ncReason || null : null,
+                  source: "pos",
+                  payment_status: finalPaymentStatus,
+                  payment_method: finalMethod,
+                  ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
+                  discount_amount: isNC ? orderTotal : 0,
+                  discount_percentage: isNC ? 100 : 0,
+                  attendant: attendantName,
+                })
+                .select()
+                .maybeSingle();
+
+              if (orderError) throw orderError;
+              createdOrderId = createdOrder?.id || null;
+              saveOnlineProgress();
+
+              if (createdOrderId && createdKitchenOrderId) {
+                const { error: linkErr } = await supabase
+                  .from("kitchen_orders")
+                  .update({ order_id: createdOrderId })
+                  .eq("id", createdKitchenOrderId);
+                if (linkErr) throw linkErr;
+              }
+            }
+
+            if (!isNC && restaurantId && !createdTxnId) {
               const { data: authData } = await supabase.auth.getUser();
+              const prePayTxnId = crypto.randomUUID();
               const { error: txnErr } = await supabase.from("pos_transactions").insert({
+                id: prePayTxnId,
                 restaurant_id: restaurantId,
-                order_id: createdOrder?.id || null,
-                kitchen_order_id: kitchenOrder?.id || null,
+                order_id: createdOrderId || null,
+                kitchen_order_id: createdKitchenOrderId || null,
                 amount: orderTotal,
                 payment_method: finalMethod,
                 status: finalPaymentStatus === "pending" ? "pending" : "completed",
@@ -2656,13 +2686,29 @@ export const QSRPosMain: React.FC = () => {
                 ...(splitPayments && { split_payments: splitPayments }),
               });
               if (txnErr) throw txnErr;
+              createdTxnId = prePayTxnId;
+              saveOnlineProgress();
             }
 
-            if (kitchenOrder?.id) {
+            if (finalMethod === "room" && paymentDetails?.roomId && createdOrderId && restaurantId) {
+              const { error: roomErr } = await supabase.from("room_food_orders").insert({
+                room_id: paymentDetails.roomId,
+                order_id: createdOrderId,
+                restaurant_id: restaurantId,
+                customer_name: paymentCustomerName || "Room Guest",
+                total: orderTotal,
+                status: "pending",
+              });
+              if (roomErr) throw roomErr;
+            }
+
+            pendingOnlinePrePayRef.current = null;
+
+            if (createdKitchenOrderId) {
               try {
                 const { data: deductResult, error: deductError } =
                   await supabase.functions.invoke("deduct-inventory-on-prep", {
-                    body: { order_id: kitchenOrder.id },
+                    body: { order_id: createdKitchenOrderId },
                   });
 
                 if (deductError) {
@@ -2683,7 +2729,7 @@ export const QSRPosMain: React.FC = () => {
           } catch (prePayErr) {
             console.warn("[QSR] Pre-pay parent finalization deferred offline:", prePayErr);
             deferredToOffline = true;
-            await persistPrePayOffline(createdKitchenOrderId, createdOrderId);
+            await persistPrePayOffline(createdKitchenOrderId, createdOrderId, createdTxnId);
           }
         }
 

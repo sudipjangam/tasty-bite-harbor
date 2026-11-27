@@ -26,7 +26,7 @@ const defaultCurrency: Currency = {
   name: 'Indian Rupee'
 };
 
-const CurrencyContext = createContext<CurrencyContextType | null>(null);
+export const CurrencyContext = createContext<CurrencyContextType | null>(null);
 
 export const useCurrencyContext = () => {
   const context = useContext(CurrencyContext);

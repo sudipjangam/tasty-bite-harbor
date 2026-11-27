@@ -11,6 +11,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -130,6 +131,10 @@ const PaymentDialog = ({
   const paymentAttemptRef = useRef(0);
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reservationLookupSeqRef = useRef(0);
+  const promoSeqRef = useRef(0);
+  const qrRequestSeqRef = useRef(0);
+  const latestTotalRef = useRef(0);
+  const currentStepRef = useRef<"bill" | "checkout" | "qr" | "split" | "edit" | "success" | "pay_later">("bill");
   const pendingOfflineTxnIdRef = useRef<{ key: string; txnId: string } | null>(null);
   const isMigratingLegacyRef = useRef(false);
   const onlineSettlementRef = useRef<{
@@ -164,6 +169,7 @@ const PaymentDialog = ({
 
   // ─── Flow State ──────────────────────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState<"bill" | "checkout" | "qr" | "split" | "edit" | "success" | "pay_later">("bill");
+  currentStepRef.current = currentStep;
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [isPrintingBill, setIsPrintingBill] = useState(false);
 
@@ -216,6 +222,7 @@ const PaymentDialog = ({
   const [isPaytmQR, setIsPaytmQR] = useState(false);
   const [qrExpiresAt, setQrExpiresAt] = useState<string | null>(null);
   const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
   const [paymentAutoDetected, setPaymentAutoDetected] = useState(false);
 
   // ─── Edit Mode & Extras ──────────────────────────────────────────────────
@@ -240,6 +247,10 @@ const PaymentDialog = ({
       }
       prevOrderKeyRef.current = "";
       paymentAttemptRef.current += 1;
+      promoSeqRef.current += 1;
+      qrRequestSeqRef.current += 1;
+      setIsApplyingPromo(false);
+      setQrError(null);
       persistedByParentRef.current = false;
       onlineSettlementRef.current = null;
       setIsProcessingPayment(false);
@@ -250,6 +261,9 @@ const PaymentDialog = ({
     if (!isNewOrder && prevOrderKeyRef.current !== "") return; // already initialised this order
     prevOrderKeyRef.current = orderKey;
     paymentAttemptRef.current += 1;
+    promoSeqRef.current += 1;
+    qrRequestSeqRef.current += 1;
+    setIsApplyingPromo(false);
     if (autoCloseTimerRef.current) {
       clearTimeout(autoCloseTimerRef.current);
       autoCloseTimerRef.current = null;
@@ -344,6 +358,8 @@ const PaymentDialog = ({
       return;
     }
     if (!raw) return;
+    if (isMigratingLegacyRef.current) return;
+    isMigratingLegacyRef.current = true;
 
     (async () => {
       try {
@@ -679,7 +695,7 @@ const PaymentDialog = ({
 
   // ─── Load Existing Order Details ─────────────────────────────────────────
   useEffect(() => {
-    if (!orderId) return;
+    if (!isOpen || !orderId) return;
     const loadOrderId = orderId;
     let cancelled = false;
     const isCurrentLoad = () => !cancelled && activeOrderIdRef.current === loadOrderId;
@@ -758,7 +774,7 @@ const PaymentDialog = ({
     return () => {
       cancelled = true;
     };
-  }, [orderId, linkedOrderId, isOnline]);
+  }, [isOpen, orderId, linkedOrderId, isOnline]);
 
   // ─── Calculations Engine (Totals, Loyalty, Tip, Round-off, Taxes) ─────────
   const hasGstin = Boolean(
@@ -812,6 +828,7 @@ const PaymentDialog = ({
     customAdjustmentAmount,
     total,
   } = totals;
+  latestTotalRef.current = total;
 
   // Net bill amount eligible for loyalty discount (after promo & manual discount)
   const eligibleBillForLoyalty = Math.max(
@@ -888,11 +905,13 @@ const PaymentDialog = ({
       toast({ title: "Enter promo code", variant: "destructive" });
       return;
     }
+    const seq = ++promoSeqRef.current;
     setIsApplyingPromo(true);
     try {
       const { data, error } = await supabase.functions.invoke("validate-promo-code", {
         body: { code, orderSubtotal: subtotal, restaurantId: restaurantInfo?.id || hookRestaurantId },
       });
+      if (seq !== promoSeqRef.current) return;
       if (error) throw error;
       if (data?.valid && data?.promotion) {
         discountsDirtyRef.current = true;
@@ -909,18 +928,31 @@ const PaymentDialog = ({
         });
       }
     } catch (err: any) {
+      if (seq !== promoSeqRef.current) return;
       toast({
         title: "Promo Validation Failed",
         description: err?.message || "Please try again",
         variant: "destructive",
       });
     } finally {
-      setIsApplyingPromo(false);
+      if (seq === promoSeqRef.current) {
+        setIsApplyingPromo(false);
+      }
     }
   };
 
   // ─── Dynamic QR Generator ────────────────────────────────────────────────
-  const generateQRCode = useCallback(async () => {
+  const generateQRCode = useCallback(async (): Promise<boolean> => {
+    const reqSeq = ++qrRequestSeqRef.current;
+    const sessionAtStart = paymentAttemptRef.current;
+    const totalAtStart = total;
+    const isRequestStillValid = () =>
+      reqSeq === qrRequestSeqRef.current &&
+      sessionAtStart === paymentAttemptRef.current &&
+      Math.abs(latestTotalRef.current - totalAtStart) < 0.005 &&
+      currentStepRef.current !== "success";
+
+    setQrError(null);
     const rName = resolvedRestaurantName;
     const targetId = (restaurantInfo as any)?.id || hookRestaurantId;
     const isOfflineOrErrored =
@@ -935,24 +967,39 @@ const PaymentDialog = ({
         ? localStorage.getItem(`cached_restaurant_upi_id_${targetId}`)
         : null);
     if (!upiId) {
+      if (!isRequestStillValid()) return false;
       setQrCodeUrl("");
-      if (restaurantInfoError || paymentSettingsError) {
-        toast({
-          title: "UPI settings unavailable",
-          description: "Failed to load UPI details. Please check connection.",
-          variant: "destructive",
-        });
-      }
-      return;
+      setQrError("UPI ID is not configured or unavailable.");
+      toast({
+        title: "UPI settings unavailable",
+        description:
+          restaurantInfoError || paymentSettingsError
+            ? "Failed to load UPI details. Please check connection."
+            : "UPI ID is not configured for this restaurant.",
+        variant: "destructive",
+      });
+      return false;
     }
 
     try {
       const { default: QRCodeLib } = await import("qrcode");
-      const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(rName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Order ${tableNumber || "POS"}`)}`;
+      const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(rName)}&am=${totalAtStart.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Order ${tableNumber || "POS"}`)}`;
       const url = await QRCodeLib.toDataURL(upiUrl, { width: 300, margin: 2 });
+      if (!isRequestStillValid()) return false;
       setQrCodeUrl(url);
+      setQrError(null);
+      return true;
     } catch (err) {
+      if (!isRequestStillValid()) return false;
       console.error("QR Generation error:", err);
+      setQrCodeUrl("");
+      setQrError("Failed to generate UPI QR code.");
+      toast({
+        title: "QR Generation Failed",
+        description: "Could not generate UPI QR code. Please try another method.",
+        variant: "destructive",
+      });
+      return false;
     }
   }, [resolvedRestaurantName, paymentSettings, restaurantInfo, hookRestaurantId, total, tableNumber, isOnline, restaurantInfoError, paymentSettingsError, toast]);
 
@@ -1004,7 +1051,8 @@ const PaymentDialog = ({
   };
 
   // ─── Printing & Thermal Support ──────────────────────────────────────────
-  const handlePrint = useCallback(async (options?: { forceBrowser?: boolean }) => {
+  const handlePrint = useCallback(async (options?: { forceBrowser?: boolean }): Promise<boolean> => {
+    const receiptTotal = isSettledReprint && initialTotal !== undefined ? initialTotal : total;
     try {
       if (thermalPrinterService.isConnected()) {
         await thermalPrinterService.printReceipt({
@@ -1028,18 +1076,18 @@ const PaymentDialog = ({
           cgst: cgstAmount,
           sgst: sgstAmount,
           discount: totalDiscountAmount,
-          netAmount: isSettledReprint && initialTotal !== undefined ? initialTotal : total,
+          netAmount: receiptTotal,
           currencySymbol,
           upiId: paymentSettings?.upi_id,
         });
         toast({ title: "Bill printed via thermal printer ✓" });
-        return;
+        return true;
       }
 
       // If no thermal printer connected, only trigger browser print preview if explicitly requested (e.g. user clicked Print Preview button)
       if (!options?.forceBrowser) {
         console.log("[PaymentDialog] No thermal printer connected — skipping automatic browser print popup.");
-        return;
+        return true;
       }
 
       // Browser iframe print fallback with dynamic restaurant name
@@ -1049,7 +1097,7 @@ const PaymentDialog = ({
         restaurantName: resolvedRestaurantName,
         orderItems,
         subtotal,
-        total: isSettledReprint && initialTotal !== undefined ? initialTotal : total,
+        total: receiptTotal,
         currencySymbol,
         tableNumber,
         customerName,
@@ -1080,26 +1128,52 @@ const PaymentDialog = ({
       document.body.appendChild(iframe);
 
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (iframeDoc) {
-        iframeDoc.open();
-        iframeDoc.write(html);
-        iframeDoc.close();
+      if (!iframeDoc) {
+        iframe.remove();
+        toast({
+          title: "Printing failed",
+          description: "Unable to access print preview frame.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      iframeDoc.open();
+      iframeDoc.write(html);
+      iframeDoc.close();
+      return await new Promise<boolean>((resolve) => {
         setTimeout(() => {
+          let printed = false;
           try {
             iframe.contentWindow?.focus();
             iframe.contentWindow?.print();
+            printed = true;
           } catch (e) {
             // Fallback: if iframe print is blocked, use window.print() with dialog
             console.warn("[PaymentDialog] iframe.print() blocked, falling back to window.print()", e);
-            window.print();
+            try {
+              window.print();
+              printed = true;
+            } catch (fallbackErr: any) {
+              console.error("Print error:", fallbackErr);
+              toast({
+                title: "Printing failed",
+                description: fallbackErr?.message,
+                variant: "destructive",
+              });
+            }
+          }
+          if (printed) {
+            toast({ title: "Bill preview sent to printer ✓" });
           }
           setTimeout(() => iframe.remove(), 60000);
+          resolve(printed);
         }, 300);
-      }
-      toast({ title: "Bill preview sent to printer ✓" });
+      });
     } catch (err: any) {
       console.error("Print error:", err);
       toast({ title: "Printing failed", description: err?.message, variant: "destructive" });
+      return false;
     }
   }, [
     restaurantInfo,
@@ -1107,6 +1181,8 @@ const PaymentDialog = ({
     orderItems,
     subtotal,
     total,
+    isSettledReprint,
+    initialTotal,
     currencySymbol,
     tableNumber,
     customerName,
@@ -1329,14 +1405,39 @@ const PaymentDialog = ({
   const handlePrintBill = useCallback(async () => {
     setIsPrintingBill(true);
     try {
-      await handlePrint({ forceBrowser: true });
+      const printed = await handlePrint({ forceBrowser: true });
+      if (!printed) return;
       try {
         await handleMarkPaymentPending();
       } catch (saveErr: any) {
+        const originatingSession = paymentAttemptRef.current;
         toast({
           title: "Bill printed, but status update failed",
           description: saveErr?.message || "Please retry marking payment pending.",
           variant: "destructive",
+          action: (
+            <ToastAction
+              altText="Retry status update"
+              onClick={async () => {
+                if (originatingSession !== paymentAttemptRef.current) return;
+                try {
+                  await handleMarkPaymentPending();
+                  if (originatingSession === paymentAttemptRef.current) {
+                    setCurrentStep("bill");
+                    onClose();
+                  }
+                } catch (retryErr: any) {
+                  toast({
+                    title: "Status update failed",
+                    description: retryErr?.message || "Please retry marking payment pending.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              Retry
+            </ToastAction>
+          ),
         });
         return;
       }
@@ -1653,6 +1754,14 @@ const PaymentDialog = ({
               prevSettlement.total !== finalAmount ||
               JSON.stringify(prevSettlement.splitPayload) !== JSON.stringify(splitPayload);
             if (changed) {
+              if (prevSettlement.txnInserted) {
+                toast({
+                  title: "Payment Already Recorded",
+                  description: `A ${prevSettlement.method.toUpperCase()} transaction for ${currencySymbol}${prevSettlement.total.toFixed(2)} was already recorded. Retry with the original details or reconcile the transaction first.`,
+                  variant: "destructive",
+                });
+                return;
+              }
               prevSettlement.orderUpdated = false;
               prevSettlement.method = finalMethod;
               prevSettlement.total = finalAmount;
@@ -1662,22 +1771,6 @@ const PaymentDialog = ({
           }
           const settlement = onlineSettlementRef.current;
 
-          // 1. Sync CRM customer details & deduct loyalty points (once per settlement)
-          if (customerMobile.trim() && targetRestaurantId && !settlement.crmSynced) {
-            try {
-              await syncCustomerToCRM({
-                customerName: customerName.trim() || customerMobile.trim(),
-                customerPhone: customerMobile.trim(),
-                orderTotal: finalAmount,
-                orderId: orderId,
-                source: "pos",
-              });
-              settlement.crmSynced = true;
-            } catch (err) {
-              console.warn("CRM Sync warning:", err);
-            }
-          }
-
           if (
             customerMobile.trim() &&
             targetRestaurantId &&
@@ -1685,8 +1778,9 @@ const PaymentDialog = ({
             customerProfile?.id &&
             !settlement.loyaltyDone
           ) {
-            try {
-              await supabase.rpc("redeem_loyalty_points_atomic" as never, {
+            const { error: loyaltyErr } = await supabase.rpc(
+              "redeem_loyalty_points_atomic" as never,
+              {
                 p_tx_id: `${settlement.txnId}_loyalty`,
                 p_restaurant_id: targetRestaurantId,
                 p_customer_id: customerProfile.id,
@@ -1697,11 +1791,20 @@ const PaymentDialog = ({
                 p_source_id: linkedOrderId || orderId || null,
                 p_notes: `Redeemed ${redeemedLoyaltyPoints} points for ${currencySymbol}${loyaltyDiscountRupees.toFixed(2)} discount`,
                 p_created_by: authUser?.id || null,
-              } as never);
-              settlement.loyaltyDone = true;
-            } catch (err) {
-              console.warn("Loyalty redemption error:", err);
+              } as never,
+            );
+            if (attemptId !== paymentAttemptRef.current) return;
+            if (loyaltyErr) {
+              toast({
+                title: "Loyalty Redemption Failed",
+                description:
+                  loyaltyErr.message ||
+                  "Could not redeem loyalty points. Retry or remove the discount.",
+                variant: "destructive",
+              });
+              return;
             }
+            settlement.loyaltyDone = true;
           }
 
           // 2. Update kitchen order and orders in DB if orderId exists
@@ -1796,7 +1899,7 @@ const PaymentDialog = ({
           }
 
           // 3. Room Charge handler (only when orderId exists; !orderId delegates to parent after order creation)
-          if (orderId && method === "room" && detectedReservation && !onlineSettlementRef.current?.roomInserted) {
+          if (orderId && method === "room" && detectedReservation && !settlement.roomInserted) {
             const { error: roomErr } = await supabase.from("room_food_orders").insert({
               room_id: detectedReservation.room_id,
               order_id: resolvedOrderId,
@@ -1806,13 +1909,26 @@ const PaymentDialog = ({
               status: "pending",
             });
             if (roomErr) throw roomErr;
-            if (onlineSettlementRef.current) {
-              onlineSettlementRef.current.roomInserted = true;
-            }
             if (attemptId !== paymentAttemptRef.current) return;
+            settlement.roomInserted = true;
           }
-          if (onlineSettlementRef.current?.attemptId === attemptId) {
-            onlineSettlementRef.current = null;
+
+          // Sync CRM customer details only after loyalty redemption & payment writes succeed
+          if (customerMobile.trim() && targetRestaurantId && !settlement.crmSynced) {
+            try {
+              await syncCustomerToCRM({
+                customerName: customerName.trim() || customerMobile.trim(),
+                customerPhone: customerMobile.trim(),
+                orderTotal: finalAmount,
+                orderId: orderId,
+                source: "pos",
+              });
+              if (attemptId !== paymentAttemptRef.current) return;
+              settlement.crmSynced = true;
+            } catch (err) {
+              if (attemptId !== paymentAttemptRef.current) return;
+              console.warn("CRM Sync warning:", err);
+            }
           }
         }
 
@@ -1900,6 +2016,9 @@ const PaymentDialog = ({
             tableNumber: tableNumber || undefined,
             currencySymbol,
           });
+        }
+        if (onlineSettlementRef.current?.attemptId === attemptId) {
+          onlineSettlementRef.current = null;
         }
 
         // 6. Auto-print bill (forceBrowser: true ensures browser print dialog fires when no thermal printer is connected)
@@ -2030,8 +2149,21 @@ const PaymentDialog = ({
         handleQuickPay("cash");
       } else if (e.key.toLowerCase() === "u") {
         e.preventDefault();
-        generateQRCode();
-        setCurrentStep("qr");
+        const reqSession = paymentAttemptRef.current;
+        const reqQrSeq = ++qrRequestSeqRef.current;
+        const reqStep = currentStepRef.current;
+        const reqTotal = total;
+        generateQRCode().then((ok) => {
+          if (
+            ok &&
+            reqSession === paymentAttemptRef.current &&
+            reqQrSeq === qrRequestSeqRef.current &&
+            currentStepRef.current === reqStep &&
+            Math.abs(latestTotalRef.current - reqTotal) < 0.005
+          ) {
+            setCurrentStep("qr");
+          }
+        });
       } else if (e.key.toLowerCase() === "c") {
         e.preventDefault();
         handleQuickPay("card");
@@ -2138,6 +2270,11 @@ const PaymentDialog = ({
               <div className="flex flex-col items-center justify-center p-4 bg-slate-100/80 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800">
                 {qrCodeUrl ? (
                   <img src={qrCodeUrl} alt="UPI QR Code" className="w-56 h-56 rounded-xl shadow-md bg-white p-2" />
+                ) : qrError ? (
+                  <div className="w-56 h-56 flex flex-col items-center justify-center gap-2 p-4 text-center text-rose-500">
+                    <QrCode className="w-8 h-8 opacity-60" />
+                    <span className="text-xs font-medium">{qrError}</span>
+                  </div>
                 ) : (
                   <div className="w-56 h-56 flex flex-col items-center justify-center gap-2 text-slate-400">
                     <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
@@ -2156,7 +2293,7 @@ const PaymentDialog = ({
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   onClick={() => handleQuickPay("upi")}
-                  disabled={isProcessingPayment}
+                  disabled={isProcessingPayment || !qrCodeUrl || !!qrError}
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11"
                 >
                   {isProcessingPayment ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
@@ -3140,9 +3277,21 @@ const PaymentDialog = ({
 
                           {/* UPI / QR BUTTON */}
                           <button
-                            onClick={() => {
-                              generateQRCode();
-                              setCurrentStep("qr");
+                            onClick={async () => {
+                              const reqSession = paymentAttemptRef.current;
+                              const reqQrSeq = ++qrRequestSeqRef.current;
+                              const reqStep = currentStepRef.current;
+                              const reqTotal = total;
+                              const ok = await generateQRCode();
+                              if (
+                                ok &&
+                                reqSession === paymentAttemptRef.current &&
+                                reqQrSeq === qrRequestSeqRef.current &&
+                                currentStepRef.current === reqStep &&
+                                Math.abs(latestTotalRef.current - reqTotal) < 0.005
+                              ) {
+                                setCurrentStep("qr");
+                              }
                             }}
                             disabled={isProcessingPayment}
                             className="flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-md shadow-indigo-500/20 active:scale-[0.98] transition-all disabled:opacity-50 group cursor-pointer"
@@ -3175,13 +3324,19 @@ const PaymentDialog = ({
                         {/* Secondary Quick Action Row - Conditioned on Hotel Plan */}
                         <div className={`grid gap-1.5 pt-0.5 ${hasRoomsPlan ? "grid-cols-3" : "grid-cols-2"}`}>
                           <button
-                            onClick={() => setCurrentStep("split")}
+                            onClick={() => {
+                              qrRequestSeqRef.current += 1;
+                              setCurrentStep("split");
+                            }}
                             className="py-1.5 px-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-center active:scale-95 transition-all cursor-pointer shadow-2xs"
                           >
                             ✂️ Split Bill
                           </button>
                           <button
-                            onClick={() => setCurrentStep("pay_later")}
+                            onClick={() => {
+                              qrRequestSeqRef.current += 1;
+                              setCurrentStep("pay_later");
+                            }}
                             className="py-1.5 px-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-center active:scale-95 transition-all cursor-pointer shadow-2xs"
                           >
                             ⏳ Pay Later

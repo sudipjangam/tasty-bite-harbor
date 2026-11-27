@@ -43,8 +43,11 @@ const createdIds = {
 let supabase: SupabaseClient;
 let session: Session | null = null;
 
+const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
+
 // --- SETUP & TEARDOWN ---
 beforeAll(async () => {
+  if (!runIntegration) return;
   // Initialize Supabase client
   supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -62,6 +65,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!runIntegration || !supabase) return;
   // --- CLEANUP: Delete all test data in reverse order of dependencies ---
 
   // Delete expenses
@@ -111,7 +115,7 @@ afterAll(async () => {
 // =============================================================================
 // OPERATIONS TESTS
 // =============================================================================
-describe('Operations', () => {
+describe.skipIf(!runIntegration)('Operations', () => {
   
   // ---------------------------------------------------------------------------
   // POS: Order Creation
@@ -350,7 +354,7 @@ describe('Operations', () => {
 // =============================================================================
 // GUEST SERVICES TESTS
 // =============================================================================
-describe('Guest Services', () => {
+describe.skipIf(!runIntegration)('Guest Services', () => {
 
   // ---------------------------------------------------------------------------
   // Rooms CRUD
@@ -630,7 +634,7 @@ describe('Guest Services', () => {
 // =============================================================================
 // MANAGEMENT TESTS
 // =============================================================================
-describe('Management', () => {
+describe.skipIf(!runIntegration)('Management', () => {
 
   // ---------------------------------------------------------------------------
   // Customers CRUD
@@ -830,7 +834,7 @@ describe('Management', () => {
 // =============================================================================
 // ADMIN READ-ONLY TESTS
 // =============================================================================
-describe('Admin Modules (Read-Only)', () => {
+describe.skipIf(!runIntegration)('Admin Modules (Read-Only)', () => {
 
   // ---------------------------------------------------------------------------
   // User Management

@@ -263,7 +263,7 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
     .filter(
       (order) =>
         order.orderType !== "non-chargeable" &&
-        order.paymentStatus !== "pending",
+        order.paymentStatus === "paid",
     )
     .reduce((sum, order) => sum + order.total, 0);
 

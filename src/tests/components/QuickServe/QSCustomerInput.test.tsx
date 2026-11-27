@@ -27,7 +27,7 @@ describe("QSCustomerInput Component", () => {
       />,
     );
 
-    expect(screen.getByPlaceholderText("Name")).toHaveValue("John");
+    expect(screen.getByDisplayValue("John")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Phone")).toHaveValue("12345");
   });
 

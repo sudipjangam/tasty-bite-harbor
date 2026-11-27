@@ -5,6 +5,7 @@ import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/toaster';
+import * as CurrencyContextModule from '@/contexts/CurrencyContext';
 
 // ============================================
 // Types
@@ -152,16 +153,43 @@ const AllProviders: React.FC<AllProvidersProps> = ({
   const RouterComponent = useMemoryRouter ? MemoryRouter : BrowserRouter;
   const routerProps = useMemoryRouter ? { initialEntries: [initialRoute] } : {};
 
+  let CurrencyContextObj: typeof CurrencyContextModule.CurrencyContext | undefined;
+  try {
+    CurrencyContextObj = CurrencyContextModule.CurrencyContext;
+  } catch {
+    CurrencyContextObj = undefined;
+  }
+  const defaultCurrencyValue = {
+    currency: { id: 'default', symbol: '₹', code: 'INR', name: 'Indian Rupee' },
+    loading: false,
+    symbol: '₹',
+    code: 'INR',
+    formatCurrency: (amount: number) => `₹${Number(amount || 0).toFixed(2)}`,
+    formatCurrencyCompact: (amount: number) => `₹${Number(amount || 0)}`,
+    refreshCurrency: async () => {},
+  };
+
+  const withCurrency = (node: ReactNode) =>
+    CurrencyContextObj ? (
+      <CurrencyContextObj.Provider value={defaultCurrencyValue}>
+        {node}
+      </CurrencyContextObj.Provider>
+    ) : (
+      node
+    );
+
   return (
     <ThemeProvider attribute="class" defaultTheme={theme} enableSystem={false}>
       <QueryClientProvider client={queryClient}>
         <MockAuthProvider user={user} permissions={permissions} roles={roles}>
-          <TooltipProvider>
-            <RouterComponent {...routerProps}>
-              {children}
-            </RouterComponent>
-            <Toaster />
-          </TooltipProvider>
+          {withCurrency(
+            <TooltipProvider>
+              <RouterComponent {...routerProps}>
+                {children}
+              </RouterComponent>
+              <Toaster />
+            </TooltipProvider>
+          )}
         </MockAuthProvider>
       </QueryClientProvider>
     </ThemeProvider>

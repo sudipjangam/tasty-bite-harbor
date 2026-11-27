@@ -7,6 +7,9 @@ import { PastOrder } from "@/hooks/usePastOrders";
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({
     user: { id: "test-user", role: "admin" },
+    isRole: () => true,
+    hasPermission: () => true,
+    hasAnyPermission: () => true,
   }),
 }));
 

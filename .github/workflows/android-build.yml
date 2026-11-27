@@ -17,9 +17,20 @@ jobs:
           
       - name: Install dependencies
         run: npm install
-        
+
+      - name: Typecheck
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+      - name: Run unit tests
+        run: npx vitest run
+
       - name: Build web project
         run: npm run build
+        env:
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN || '' }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN || '' }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG || '' }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT || '' }}
         
       - name: Setup Java
         uses: actions/setup-java@v4

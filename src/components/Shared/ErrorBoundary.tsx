@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { captureException } from '@/lib/sentry';
 
 interface Props {
   children: ReactNode;
@@ -36,8 +37,10 @@ class ErrorBoundary extends Component<Props, State> {
     
     this.setState({ errorInfo });
     
-    // In production, you could send this to an error reporting service
-    // Example: errorReportingService.log({ error, errorInfo });
+    captureException(error, {
+      componentStack: errorInfo.componentStack,
+      boundary: 'SharedErrorBoundary',
+    });
   }
 
   private handleReset = (): void => {

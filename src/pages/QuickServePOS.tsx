@@ -297,7 +297,6 @@ const QuickServePOS: React.FC = () => {
             lo.status === "deleted" ||
             lo.status === "held" ||
             lo.status === "new" ||
-            lo.status === "cancelled" ||
             lo.orderType === "nc" ||
             lo.paymentStatus === "nc"
           ) {
@@ -330,7 +329,6 @@ const QuickServePOS: React.FC = () => {
                 lo.status !== "deleted" &&
                 lo.status !== "held" &&
                 lo.status !== "new" &&
-                lo.status !== "cancelled" &&
                 lo.orderType !== "nc" &&
                 lo.paymentStatus !== "nc",
             )
@@ -423,7 +421,6 @@ const QuickServePOS: React.FC = () => {
             lo.status === "deleted" ||
             lo.status === "held" ||
             lo.status === "new" ||
-            lo.status === "cancelled" ||
             lo.orderType === "nc" ||
             lo.paymentStatus === "nc"
           ) {
@@ -451,7 +448,6 @@ const QuickServePOS: React.FC = () => {
               lo.status !== "deleted" &&
               lo.status !== "held" &&
               lo.status !== "new" &&
-              lo.status !== "cancelled" &&
               lo.orderType !== "nc" &&
               lo.paymentStatus !== "nc",
           ).length;
@@ -853,10 +849,11 @@ const QuickServePOS: React.FC = () => {
             localExisting?.paymentStatus === "nc" ||
             localExisting?.orderType === "nc";
           const rawDiscountVal = Number(localExisting?.discount) || 0;
+          const extraFixedDiscount = Number(localExisting?.fixedDiscountAmount) || 0;
           const existingDiscount =
             localExisting?.discountType === "percentage"
-              ? (fullTotal * rawDiscountVal) / 100
-              : rawDiscountVal;
+              ? (fullTotal * rawDiscountVal) / 100 + extraFixedDiscount
+              : rawDiscountVal + extraFixedDiscount;
           const adjustedTotal = isNonChargeable
             ? 0
             : Math.max(0, fullTotal - existingDiscount);
@@ -956,8 +953,6 @@ const QuickServePOS: React.FC = () => {
                 updated_at: nowIso,
               },
             });
-
-            printOfflineKot(orderNum, newKitchenItems, true);
           }
 
           await commitLocalOrderAndWritesAtomic(
@@ -990,6 +985,10 @@ const QuickServePOS: React.FC = () => {
             },
             queuedWrites,
           );
+
+          if (newKitchenItems.length > 0) {
+            printOfflineKot(orderNum, newKitchenItems, true);
+          }
 
           const newItemCount = newKitchenItems.reduce(
             (s, i) => s + i.quantity,
@@ -1039,12 +1038,23 @@ const QuickServePOS: React.FC = () => {
               total: orderTotal,
               subtotal: itemsSubtotal,
               paidAmount: 0,
-              discount: effectiveDiscountPct || totalDiscountAmount || undefined,
-              discountType: effectiveDiscountPct
-                ? "percentage"
-                : totalDiscountAmount
-                ? "amount"
-                : undefined,
+              discount:
+                discountPercentage > 0
+                  ? discountPercentage
+                  : totalDiscountAmount > 0
+                  ? totalDiscountAmount
+                  : undefined,
+              discountType:
+                discountPercentage > 0
+                  ? "percentage"
+                  : totalDiscountAmount > 0
+                  ? "amount"
+                  : undefined,
+              fixedDiscountAmount:
+                discountPercentage > 0 &&
+                couponDiscountAmount + (loyaltyDiscountAmount || 0) > 0
+                  ? couponDiscountAmount + (loyaltyDiscountAmount || 0)
+                  : undefined,
               customerName: finalCustomerName,
               customerPhone: customerPhone || undefined,
               attendant: attendantName,

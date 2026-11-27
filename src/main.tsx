@@ -1,6 +1,9 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import { initSentry, captureException } from '@/lib/sentry'
+
+initSentry();
 
 // Polyfill crypto.randomUUID for contexts where crypto.getRandomValues exists but randomUUID is not exposed (e.g. non-secure HTTP LAN access)
 if (typeof window !== 'undefined') {
@@ -31,6 +34,9 @@ window.addEventListener('unhandledrejection', (event) => {
 
 window.addEventListener('error', (event) => {
   console.error('Global error captured:', event.error || event.message);
+  captureException(event.error || new Error(event.message || 'Global window error'), {
+    source: 'window.error',
+  });
 });
 
 createRoot(document.getElementById("root")!).render(<App />);

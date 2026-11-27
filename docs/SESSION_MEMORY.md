@@ -21,7 +21,7 @@
 ## 2. Monolith Map (Jump Directly to Line Ranges)
 
 | File (Lines) | Key Sections & Line Ranges |
-|---|---|
+| --- | --- |
 | `src/components/QSR/QSRPosMain.tsx` (~3195) | Refs `L120-150` · `todaysRevenue` `L340-430` · `handleModeChange` `L478-505` · `handleSelectTable` `L510-630` · `handleToggleItemCompletion` `L775-860` · `handleSendToKitchen` `L875-1410` · `handleHoldOrder` `L1425-1730` · `handleRecallOrder` `L1732-1800` · `handleProceedToPayment` `L1800-1865` · `handlePaymentSuccess` + `persistPrePayOffline` `L1875-2645` · `executeDeleteOrder` `L2665-2750` · `AdaptivePaymentDialog` props `L3170-3195` |
 | `src/components/Orders/POS/PaymentDialog.tsx` (~2965) | Refs/reset `L118-265` · Legacy queue drain `L275-350` · Queries (`restaurant-info-pos`, `payment-settings-pos`) `L355-460` · `checkForActiveReservation` `L558-605` · `fetchOrder` `L610-650` · `generateQRCode` `L800-830` · `handleMarkPaymentPending` `L1080-1185` · `handleQuickPay` (offline `L1275-1505`, online `L1515-1735`, UI `L1850-1870`) |
 | `src/components/Orders/POS/MobilePaymentDialog.tsx` (~2730) | `calcTotal` `L94-105` · Refs/queries `L325-445` · `loadOrderDetails` `L710-780` · Reset/attempt invalidation `L785-860` · `handleMarkPaymentPending` + `handlePrint` `L965-1125` · `processPayment` (offline `L1290-1490`, online `L1491-1640`) · `handleSplitPay` `L1640-1670` · Discount UI `L2020-2070` · Success UI `L2450-2550` |

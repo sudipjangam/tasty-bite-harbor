@@ -2,6 +2,7 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "./button";
 import { AlertTriangle, RefreshCw, Home, ChevronDown, ChevronUp } from "lucide-react";
+import { captureException } from "@/lib/sentry";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -40,7 +41,10 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     // Call custom error handler if provided
     this.props.onError?.(error, errorInfo);
     
-    // TODO: Send to error monitoring service (Sentry, LogRocket, etc.)
+    captureException(error, {
+      componentStack: errorInfo.componentStack,
+      moduleName: this.props.moduleName,
+    });
   }
 
   handleRetry = (): void => {

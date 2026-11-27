@@ -127,6 +127,7 @@ export interface OfflineQsrOrder {
   subtotal?: number;
   discount?: number;
   discountType?: "percentage" | "amount";
+  fixedDiscountAmount?: number;
   customerName?: string;
   customerPhone?: string;
   attendant?: string;
@@ -198,6 +199,32 @@ function emitEvent(name: string, detail?: Record<string, unknown>) {
 }
 
 let inMemQueueSeq = 0;
+let queueSeqFloorPromise: Promise<void> | null = null;
+
+export async function ensureQueueSeqFloor(): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  if (!queueSeqFloorPromise) {
+    queueSeqFloorPromise = (async () => {
+      try {
+        const db = await getDB();
+        const items = await db.getAll("writeQueue");
+        let maxSeq = 0;
+        for (const item of items) {
+          if (typeof item.seq === "number" && item.seq > maxSeq) {
+            maxSeq = item.seq;
+          }
+        }
+        if (maxSeq > inMemQueueSeq) {
+          inMemQueueSeq = maxSeq;
+        }
+      } catch {
+        /* ignore IDB floor recovery errors */
+      }
+    })();
+  }
+  await queueSeqFloorPromise;
+}
+
 export function allocateQueueSeq(): number {
   let persisted = 0;
   try {
@@ -489,6 +516,7 @@ export async function commitLocalOrderAndWritesAtomic(
     if (writes.length === 0 && !mirror) return [];
     throw new Error("IndexedDB is unavailable");
   }
+  await ensureQueueSeqFloor();
   const db = await getDB();
   const tx = db.transaction(["writeQueue", "localOrders"], "readwrite");
   const writeStore = tx.objectStore("writeQueue");

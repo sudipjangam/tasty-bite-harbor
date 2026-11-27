@@ -14,6 +14,7 @@
 import { v4 as uuidv4 } from "uuid";
 import {
   allocateQueueSeq,
+  ensureQueueSeqFloor,
   getDB,
   QueuedWrite,
   ConflictRecord,
@@ -44,6 +45,9 @@ export async function enqueueWrite(
   payload: Record<string, unknown>,
   operation: QueuedWrite["operation"] = "upsert",
 ): Promise<string> {
+  if (typeof ensureQueueSeqFloor === "function") {
+    await ensureQueueSeqFloor();
+  }
   const db = await getDB();
   const id = uuidv4();
   const item: QueuedWrite = {
@@ -170,9 +174,21 @@ export async function flushQueue(
     const db = await getDB();
     // Fetch all items sorted by durable sequence (fallback to timestamp)
     const rawItems = await db.getAllFromIndex("writeQueue", "by-timestamp");
-    const items = [...rawItems].sort(
-      (a, b) => (a.seq ?? a.timestamp) - (b.seq ?? b.timestamp),
-    );
+    const items = [...rawItems].sort((a, b) => {
+      const aHasSeq = a.seq !== undefined;
+      const bHasSeq = b.seq !== undefined;
+      if (aHasSeq !== bHasSeq) {
+        return aHasSeq ? 1 : -1;
+      }
+      if (aHasSeq && bHasSeq) {
+        return (
+          (a.seq as number) - (b.seq as number) ||
+          a.timestamp - b.timestamp ||
+          a.id.localeCompare(b.id)
+        );
+      }
+      return a.timestamp - b.timestamp || a.id.localeCompare(b.id);
+    });
 
     for (const item of items) {
       const currentItem = await db.get("writeQueue", item.id);

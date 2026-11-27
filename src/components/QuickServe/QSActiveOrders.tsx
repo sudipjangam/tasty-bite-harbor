@@ -34,6 +34,7 @@ import { QSPaymentSheet } from "./QSPaymentSheet";
 import {
   commitLocalOrderAndWritesAtomic,
   deleteLocalOrder,
+  getDB,
   getLocalOrder,
   getLocalOrdersByRestaurant,
   LOCAL_ORDERS_EVENT,
@@ -193,19 +194,64 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
       const dayEndMs = dayEnd.getTime();
       const cacheKey = `qs_active_orders_snapshot_${restaurantId}`;
 
-      let localOrders: OfflineQsrOrder[] = [];
-      try {
-        localOrders = (await getLocalOrdersByRestaurant(restaurantId)).filter(
-          (lo) => {
+      const readLocalSnapshot = async (): Promise<{
+        localOrders: OfflineQsrOrder[];
+        queuedPaymentTsById: Map<string, number>;
+      }> => {
+        let localOrders: OfflineQsrOrder[] = [];
+        const queuedPaymentTsById = new Map<string, number>();
+        try {
+          const db = await getDB();
+          const tx = db.transaction(["localOrders", "writeQueue"], "readonly");
+          const [rawLocalOrders, queuedWrites] = await Promise.all([
+            tx.objectStore("localOrders").getAll(),
+            tx.objectStore("writeQueue").getAll(),
+          ]);
+          localOrders = (rawLocalOrders as OfflineQsrOrder[]).filter((lo) => {
+            if (lo.restaurantId !== restaurantId) return false;
             const src = (lo.source || "").toLowerCase();
             if (src && src !== "quickserve" && src !== "pos") return false;
             const ts = new Date(lo.createdAt).getTime();
             return ts >= dayStartMs && ts <= dayEndMs;
-          },
-        );
-      } catch {
-        localOrders = [];
-      }
+          });
+          for (const w of queuedWrites) {
+            const p = w.payload || {};
+            const isPaymentWrite =
+              w.type === "pos_transaction" ||
+              (w.type === "order" &&
+                (p.payment_status !== undefined || p.payment_method !== undefined));
+            if (isPaymentWrite) {
+              const ts = typeof w.timestamp === "number" ? w.timestamp : 0;
+              if (typeof p.order_id === "string") {
+                queuedPaymentTsById.set(
+                  p.order_id,
+                  Math.max(queuedPaymentTsById.get(p.order_id) ?? 0, ts),
+                );
+              }
+              if (typeof p.id === "string") {
+                queuedPaymentTsById.set(
+                  p.id,
+                  Math.max(queuedPaymentTsById.get(p.id) ?? 0, ts),
+                );
+              }
+            }
+          }
+        } catch {
+          try {
+            localOrders = (await getLocalOrdersByRestaurant(restaurantId)).filter(
+              (lo) => {
+                const src = (lo.source || "").toLowerCase();
+                if (src && src !== "quickserve" && src !== "pos") return false;
+                const ts = new Date(lo.createdAt).getTime();
+                return ts >= dayStartMs && ts <= dayEndMs;
+              },
+            );
+          } catch {
+            localOrders = [];
+          }
+        }
+        return { localOrders, queuedPaymentTsById };
+      };
 
       const mapLocalToActiveOrder = (lo: OfflineQsrOrder): ActiveOrder => ({
         id: lo.orderId || lo.id,
@@ -244,6 +290,8 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
 
       const mergeOrders = (
         baseRows: ActiveOrder[],
+        localOrders: OfflineQsrOrder[],
+        queuedPaymentTsById: Map<string, number>,
         serverSucceeded = false,
       ): ActiveOrder[] => {
         const merged = new Map<string, ActiveOrder>();
@@ -277,16 +325,22 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
           if (existingTs > localTs && lo.synced) {
             continue;
           }
-          const hasQueuedPayment = Boolean(
-            lo.paymentMethod ||
-              (lo.paymentStatus && lo.paymentStatus !== "pending"),
+          const queuedPaymentTs = Math.max(
+            queuedPaymentTsById.get(mapped.id) ?? 0,
+            lo.id ? (queuedPaymentTsById.get(lo.id) ?? 0) : 0,
           );
+          const hasQueuedPayment =
+            queuedPaymentTsById.has(mapped.id) ||
+            (Boolean(lo.id) && queuedPaymentTsById.has(lo.id));
+          const localPaymentTs = Math.max(queuedPaymentTs, localTs);
+          const serverPaymentNewer =
+            Boolean(existing.payment_status) &&
+            existing.payment_status !== "pending" &&
+            (!hasQueuedPayment || (existingTs > 0 && existingTs > localPaymentTs));
           merged.set(mapped.id, {
             ...existing,
             ...mapped,
-            ...(!hasQueuedPayment &&
-            existing.payment_status &&
-            existing.payment_status !== "pending"
+            ...(serverPaymentNewer
               ? {
                   payment_status: existing.payment_status,
                   payment_method: existing.payment_method,
@@ -301,7 +355,8 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
       };
 
       if (isOfflineNow()) {
-        return mergeOrders(loadSnapshot(), false);
+        const snap = await readLocalSnapshot();
+        return mergeOrders(loadSnapshot(), snap.localOrders, snap.queuedPaymentTsById, false);
       }
 
       try {
@@ -324,11 +379,13 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
         } catch {
           /* ignore storage quota */
         }
-        return mergeOrders(rows, true);
+        const snap = await readLocalSnapshot();
+        return mergeOrders(rows, snap.localOrders, snap.queuedPaymentTsById, true);
       } catch (err) {
-        const snap = loadSnapshot();
-        if (snap.length > 0 || localOrders.some((lo) => lo.status !== "deleted")) {
-          return mergeOrders(snap, false);
+        const snapRows = loadSnapshot();
+        const localSnap = await readLocalSnapshot();
+        if (snapRows.length > 0 || localSnap.localOrders.some((lo) => lo.status !== "deleted")) {
+          return mergeOrders(snapRows, localSnap.localOrders, localSnap.queuedPaymentTsById, false);
         }
         throw err;
       }
