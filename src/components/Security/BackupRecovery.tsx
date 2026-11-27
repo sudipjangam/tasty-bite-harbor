@@ -33,6 +33,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { invalidateCurrencyCache } from "@/contexts/CurrencyContext";
 
 interface BackupRecord {
   id: string;
@@ -331,6 +332,8 @@ export const BackupRecovery = () => {
       if (invokeError) throw invokeError;
       if (edgeData?.error) throw new Error(edgeData.error);
 
+      invalidateCurrencyCache(user?.restaurant_id);
+
       toast({
         title: "Restore Completed",
         description: "Your data has been restored successfully."
@@ -339,6 +342,8 @@ export const BackupRecovery = () => {
       await fetchBackups();
     } catch (error: any) {
       console.error('Error restoring backup:', error);
+      // Invalidate in case restaurant_settings committed before a subsequent table failed
+      invalidateCurrencyCache(user?.restaurant_id);
       toast({
         title: "Error",
         description: error.message || "Failed to restore backup",

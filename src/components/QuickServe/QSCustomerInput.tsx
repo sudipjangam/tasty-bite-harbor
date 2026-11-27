@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { useNetworkStatus } from "@/contexts/NetworkStatusContext";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
@@ -78,6 +79,9 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
 }) => {
   const { restaurantId } = useRestaurantId();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { isOnline } = useNetworkStatus();
+  const isOfflineNow =
+    !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
   const [foundCustomer, setFoundCustomer] = useState<LoyaltyCustomerInfo | null>(null);
   const [lastOrder, setLastOrder] = useState<LastOrderInfo | null>(null);
   const [isLastOrderExpanded, setIsLastOrderExpanded] = useState(false);
@@ -95,6 +99,7 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
 
   // Abort controller for cancelling in-flight requests
   const abortRef = useRef<AbortController | null>(null);
+  const lastLookupKeyRef = useRef<string | null>(null);
 
   // Lookup customer by phone — only when 10 digits entered
   useEffect(() => {
@@ -106,7 +111,9 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
 
     // Only search at exactly 10 digits
     if (customerPhone.length !== 10 || !restaurantId) {
+      setIsSearching(false);
       if (customerPhone.length < 10) {
+        lastLookupKeyRef.current = null;
         setFoundCustomer(null);
         onCustomerFoundRef.current?.(null);
       }
@@ -121,6 +128,8 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
     // Check cache first — skip DB entirely if hit
     const cachedEntry = getCached(cacheKey);
     if (cachedEntry !== undefined) {
+      lastLookupKeyRef.current = cacheKey;
+      setIsSearching(false);
       const cachedCustomer = cachedEntry.customer;
       setFoundCustomer(cachedCustomer);
       setLastOrder(cachedEntry.lastOrder);
@@ -130,6 +139,16 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
       if (cachedCustomer && !customerNameRef.current && cachedCustomer.name) {
         onNameChangeRef.current(cachedCustomer.name);
       }
+      return;
+    }
+
+    // Offline: skip network CRM lookup and allow immediate manual name entry
+    if (isOfflineNow) {
+      lastLookupKeyRef.current = null;
+      setIsSearching(false);
+      setFoundCustomer(null);
+      onCustomerFoundRef.current?.(null);
+      setLookupDone(true);
       return;
     }
 
@@ -194,6 +213,7 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
             visit_count: data.visit_count || 0,
             total_spent: data.total_spent || 0,
           };
+          lastLookupKeyRef.current = cacheKey;
           setFoundCustomer(customerInfo);
           setLastOrder(lastOrderData);
           onCustomerFoundRef.current?.(customerInfo);
@@ -205,6 +225,7 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
           }
         } else {
           // Phone not in DB — new customer
+          lastLookupKeyRef.current = cacheKey;
           setFoundCustomer(null);
           onCustomerFoundRef.current?.(null);
           setIsNewCustomer(true);
@@ -228,7 +249,7 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
       clearTimeout(timer);
       abortRef.current?.abort();
     };
-  }, [customerPhone, restaurantId]);
+  }, [customerPhone, restaurantId, isOfflineNow]);
 
   // Parse order items for display and reordering
   const parseOrderItems = (items: any) => {
@@ -255,10 +276,29 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
       </p>
       <div className="flex gap-2">
         <div className="relative flex-1">
-          {/* Lock icon when name disabled, user icon otherwise */}
+          {/* Lock icon when name matches CRM customer cleanly; keep editable if offline-entered name conflicts */}
           {(() => {
-            // Name locked: as soon as phone has digits, until lookup confirms NEW customer
-            const nameDisabled = customerPhone.length > 0 && (!lookupDone || isSearching || !!foundCustomer);
+            const crmName = (foundCustomer?.name || "").trim();
+            const currentName = customerName.trim();
+            const isCurrentLookup =
+              !!restaurantId &&
+              customerPhone.length === 10 &&
+              lastLookupKeyRef.current === `${restaurantId}:${customerPhone}`;
+            const hasNameConflict =
+              isCurrentLookup &&
+              !!foundCustomer &&
+              crmName.length > 0 &&
+              currentName.length > 0 &&
+              currentName.toLowerCase() !== crmName.toLowerCase();
+            // Name locked while online lookup resolves at 10 digits or matches non-empty CRM name cleanly; unlocked if CRM name is empty, user is editing, or offline
+            const nameDisabled =
+              !isOfflineNow &&
+              customerPhone.length === 10 &&
+              (isSearching ||
+                (!!foundCustomer &&
+                  crmName.length > 0 &&
+                  !hasNameConflict &&
+                  currentName.toLowerCase() === crmName.toLowerCase()));
             return (
               <>
                 {nameDisabled ? (
@@ -274,9 +314,20 @@ export const QSCustomerInput: React.FC<QSCustomerInputProps> = ({
                   className={cn(
                     "pl-8 bg-white/70 dark:bg-white/5 backdrop-blur-sm border-gray-200/50 dark:border-white/[0.08] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/20 h-9 rounded-xl text-xs focus:border-orange-300 dark:focus:border-orange-500/40 focus:ring-orange-400/20 transition-all",
                     nameDisabled && "opacity-60 cursor-not-allowed bg-gray-100/80 dark:bg-white/[0.03]",
-                    lookupDone && foundCustomer && "border-green-300/60 dark:border-green-500/30",
+                    hasNameConflict && "pr-24 border-amber-400/70 dark:border-amber-500/50",
+                    lookupDone && foundCustomer && !hasNameConflict && "border-green-300/60 dark:border-green-500/30",
                   )}
                 />
+                {hasNameConflict && (
+                  <button
+                    type="button"
+                    onClick={() => onNameChange(crmName)}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 text-[10px] font-medium text-amber-800 dark:text-amber-200 truncate max-w-[84px]"
+                    title={`Use CRM name: ${crmName}`}
+                  >
+                    Use {crmName}
+                  </button>
+                )}
               </>
             );
           })()}

@@ -45,7 +45,8 @@ export const CustomDynamicWidget: React.FC<CustomDynamicWidgetProps> = ({
     queryKey: ["custom-widget-data", widget.id, restaurantId, widget.query_config],
     enabled: !!restaurantId,
     queryFn: () => fetchWidgetData(widget, restaurantId!),
-    refetchInterval: 60000, // auto-refresh every 60s
+    staleTime: 120000,
+    refetchInterval: 300000, // auto-refresh every 5m
   });
 
   const getDomainColor = (domain: string) => {

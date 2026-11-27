@@ -208,7 +208,7 @@ export const useAnalyticsData = (dateRange?: DateRange) => {
     if (!restaurantId) return;
 
     const ordersChannel = supabase
-      .channel("analytics-orders-changes")
+      .channel(`analytics-orders-${restaurantId}`)
       .on(
         "postgres_changes",
         {

@@ -774,7 +774,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
   useEffect(() => {
     if (demoMode || !dbData?.org?.id) return;
     const channel = supabase
-      .channel("franchise-approvals-channel")
+      .channel(`franchise-approvals-${dbData.org.id}`)
       .on(
         "postgres_changes",
         {

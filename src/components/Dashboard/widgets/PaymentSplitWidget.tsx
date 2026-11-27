@@ -51,7 +51,8 @@ const PaymentSplitWidget: React.FC = () => {
         .filter((d) => d.value > 0)
         .sort((a, b) => b.value - a.value);
     },
-    refetchInterval: 60000,
+    staleTime: 120000,
+    refetchInterval: 300000, // 5 minutes
   });
 
   if (isLoading) {

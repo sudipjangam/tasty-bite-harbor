@@ -58,7 +58,8 @@ const OwnerNotificationBell: React.FC = () => {
   const { data: notifications = [] } = useQuery<OwnerNotification[]>({
     queryKey: ['owner-notifications', restaurantId],
     enabled: !!restaurantId && isOwnerOrAdmin,
-    refetchInterval: 30000, // refresh every 30s
+    staleTime: 60000,
+    refetchInterval: isOpen ? 15000 : 180000, // 15s refresh while open, 3-min low-frequency fallback while closed
     queryFn: async () => {
       const { data, error } = await supabase
         .from('owner_notifications')

@@ -100,11 +100,40 @@ class _OrdersScreenState extends State<OrdersScreen> {
           query = query.eq('source', _sourceFilter);
         }
 
-        final res = await query.order('created_at', ascending: false).limit(100);
+        var revenueQuery = SupabaseConfig.client
+            .from('orders')
+            .select('status, order_type, total')
+            .eq('restaurant_id', restaurantId);
+        if (_dateFilter == 'today') {
+          revenueQuery = revenueQuery.gte('created_at', startOfTodayUtc);
+        } else if (_dateFilter == 'yesterday') {
+          final yday = now.subtract(const Duration(days: 1));
+          final startYdayUtc = DateTime(yday.year, yday.month, yday.day).toUtc().toIso8601String();
+          revenueQuery = revenueQuery.gte('created_at', startYdayUtc).lt('created_at', startOfTodayUtc);
+        } else if (_dateFilter == '7days') {
+          final sevenDaysAgoUtc = now.subtract(const Duration(days: 7)).toUtc().toIso8601String();
+          revenueQuery = revenueQuery.gte('created_at', sevenDaysAgoUtc);
+        }
+        if (_sourceFilter != 'all') {
+          revenueQuery = revenueQuery.eq('source', _sourceFilter);
+        }
+
+        final results = await Future.wait([
+          query.order('created_at', ascending: false).limit(100),
+          revenueQuery,
+        ]);
+        final res = results[0];
+        final revRows = List<Map<String, dynamic>>.from(results[1]);
+        final rangeRevenue = revRows.where((o) {
+          final s = (o['status'] ?? '').toString().toLowerCase();
+          final type = (o['order_type'] ?? '').toString().toLowerCase();
+          return s == 'completed' && type != 'nc' && type != 'non-chargeable';
+        }).fold(0.0, (sum, o) => sum + ((o['total'] is num) ? (o['total'] as num).toDouble() : 0.0));
 
         if (mounted) {
           setState(() {
             _orders = List<Map<String, dynamic>>.from(res);
+            _totalRevenueRange = rangeRevenue;
             _isLoading = false;
           });
           return;
@@ -173,13 +202,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
         return s == 'pending' || s == 'preparing' || s == 'ready' || s == 'held';
       }).length;
 
+  double _totalRevenueRange = 0.0;
+
   int get _completedCount => _orders.where((o) => (o['status'] ?? '').toString().toLowerCase() == 'completed').length;
 
-  double get _totalRevenue => _orders.where((o) {
-        final s = (o['status'] ?? '').toString().toLowerCase();
-        final type = (o['order_type'] ?? '').toString().toLowerCase();
-        return s == 'completed' && type != 'nc' && type != 'non-chargeable';
-      }).fold(0.0, (sum, o) => sum + ((o['total'] is num) ? (o['total'] as num).toDouble() : 0.0));
+  double get _totalRevenue => _totalRevenueRange;
 
   // ─── Order Actions ─────────────────────────────────────────────────────────
 
@@ -348,9 +375,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 const SizedBox(width: 8),
                 _buildKpiCard('Done', '$_completedCount', const Color(0xFF16A34A), const Color(0xFF22C55E)),
                 const SizedBox(width: 8),
-                _buildKpiCard('Latest 100', '${_orders.length}', const Color(0xFF2563EB), const Color(0xFF3B82F6)),
-                const SizedBox(width: 8),
-                _buildKpiCard('Revenue', currencyFormatter.format(_totalRevenue), const Color(0xFF8B5CF6), const Color(0xFFA855F7)),
+                // Revenue is only visible to admin / owner / manager — not plain staff
+                if (AccessController().isAdmin)
+                  _buildKpiCard('Revenue', currencyFormatter.format(_totalRevenue), const Color(0xFF8B5CF6), const Color(0xFFA855F7))
+                else
+                  _buildKpiCard('Latest (≤100)', '${_orders.length}', const Color(0xFF2563EB), const Color(0xFF3B82F6)),
               ],
             ),
           ),

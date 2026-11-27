@@ -19,7 +19,8 @@ import {
   Calendar,
   CheckCircle2,
   XCircle,
-  Sparkles
+  Sparkles,
+  RotateCcw
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -62,7 +63,13 @@ interface Budget {
 }
 
 export const BudgetManagement = () => {
-  const { data: financialData, isLoading } = useFinancialData();
+  const {
+    data: financialData,
+    isLoading,
+    isError,
+    error: financialError,
+    refetch,
+  } = useFinancialData();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -143,6 +150,28 @@ export const BudgetManagement = () => {
     );
   }
 
+  if (isError && !financialData) {
+    return (
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
+            <div>
+              <p className="font-semibold text-sm text-destructive">Failed to load budget data</p>
+              <p className="text-xs text-muted-foreground">
+                {(financialError as Error)?.message || "A network or server error occurred."}
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RotateCcw className="mr-2 h-3.5 w-3.5" />
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const budgets = (financialData?.budgets || []) as Budget[];
   
   // Calculate totals from actual budget data
@@ -202,6 +231,20 @@ export const BudgetManagement = () => {
 
   return (
     <div className="space-y-6">
+      {isError && (
+        <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive flex items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold text-sm">Failed to refresh budget data</p>
+            <p className="text-xs text-muted-foreground">
+              Showing cached data. {(financialError as Error)?.message || "Please retry."}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RotateCcw className="mr-2 h-3.5 w-3.5" />
+            Retry
+          </Button>
+        </div>
+      )}
       {/* Modern Header */}
       <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 dark:from-emerald-900/30 dark:via-teal-900/30 dark:to-cyan-900/30 rounded-2xl p-6 border border-emerald-200/50 dark:border-emerald-800/50">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

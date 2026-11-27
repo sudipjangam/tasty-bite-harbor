@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Banknote,
@@ -13,6 +13,7 @@ import {
   Share2,
   WifiOff,
   Clock,
+  Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
@@ -23,17 +24,29 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCRMSync } from "@/hooks/useCRMSync";
 import { useToast } from "@/hooks/use-toast";
 import { formatOrderItemString } from "@/lib/order-utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   formatBillText,
   generateWhatsAppUrl,
-  generateSmsUrl,
 } from "@/utils/billFormatter";
 import { Button } from "@/components/ui/button";
 import QRCodeLib from "qrcode";
 import { useBillSharing } from "@/hooks/useBillSharing";
 import { useNetworkStatus } from "@/contexts/NetworkStatusContext";
-import { enqueueWrite, generateOfflineOrderNumber } from "@/utils/syncManager";
+import {
+  allocateOfflineQuickServeToken,
+  enqueueWrite,
+  recordQuickServeOrderNumber,
+} from "@/utils/syncManager";
+import {
+  getCachedPaymentSettings,
+  getCachedRestaurant,
+  getLocalOrder,
+  commitLocalOrderAndWritesAtomic,
+  saveLocalOrder,
+} from "@/utils/offlineDB";
+import { thermalPrinterService } from "@/services/thermalPrinterService";
+import { nativePrinterBridge } from "@/services/nativePrinterBridge";
 import { resolveInvoiceTemplate } from "@/utils/resolveInvoiceTemplate";
 
 interface QSPaymentSheetProps {
@@ -54,6 +67,8 @@ interface QSPaymentSheetProps {
     id: string;
     total: number;
     orderNumber: number | null;
+    itemCompletionStatus?: boolean[];
+    paidAmount?: number;
   };
   editingOrderItems?: QSOrderItem[];
 }
@@ -99,14 +114,14 @@ const allPaymentMethods = [
     label: "UPI",
     icon: Smartphone,
     color: "from-purple-500 to-indigo-600",
-    offlineOk: false,
+    offlineOk: true,
   },
   {
     id: "card",
     label: "Card",
     icon: CreditCard,
     color: "from-blue-500 to-cyan-600",
-    offlineOk: false,
+    offlineOk: true,
   },
   {
     id: "nc",
@@ -159,34 +174,70 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   const [isOfflineOrder, setIsOfflineOrder] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const pendingOfflineIdsRef = useRef<{
+    fingerprint: string;
+    orderId: string;
+    kitchenOrderId: string;
+    orderNumber: number;
+  } | null>(null);
+  const pendingSplitLinkRef = useRef<{
+    fingerprint: string;
+    orderId: string;
+    kitchenOrderId: string;
+    orderNumber: number;
+    splitPayments: Array<{ method: string; amount: number }>;
+  } | null>(null);
+  const pendingOnlineLinkRef = useRef<{
+    fingerprint: string;
+    orderId: string;
+    kitchenOrderId: string;
+    orderNumber: number;
+    method: string;
+  } | null>(null);
   // Split payment state
   const [showSplitUI, setShowSplitUI] = useState(false);
   const [splitCash, setSplitCash] = useState("");
   const [splitUpi, setSplitUpi] = useState("");
   const [splitCard, setSplitCard] = useState("");
   const { symbol: currencySymbol } = useCurrencyContext();
-  const { restaurantId } = useRestaurantId();
+  const { restaurantId, restaurantName: hookRestaurantName } = useRestaurantId();
   const { isOnline } = useNetworkStatus();
+  const queryClient = useQueryClient();
   const [alreadyPaid, setAlreadyPaid] = useState(0);
   const [alreadyPaidLoading, setAlreadyPaidLoading] = useState(false);
+  const [isPrintingBill, setIsPrintingBill] = useState(false);
+
+  const isOfflineNow =
+    !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
 
   // When offline, only show offline-capable payment methods
-  const paymentMethods = isOnline
+  const paymentMethods = !isOfflineNow
     ? allPaymentMethods
     : allPaymentMethods.filter((m) => m.offlineOk);
 
-  // Fetch restaurant details for the PDF bill
+  // Fetch restaurant details for bills & receipts (with IDB offline fallback)
   const { data: restaurantDetails } = useQuery({
     queryKey: ["restaurant", restaurantId],
+    networkMode: "always",
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("restaurants" as any)
-        .select("*")
-        .eq("id", restaurantId)
-        .single();
+      if (!restaurantId) return null;
+      if (isOfflineNow) {
+        return (await getCachedRestaurant(restaurantId)) || null;
+      }
+      try {
+        const { data, error } = await supabase
+          .from("restaurants" as any)
+          .select("*")
+          .eq("id", restaurantId)
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        const cached = await getCachedRestaurant(restaurantId);
+        if (cached) return cached;
+        throw err;
+      }
     },
     enabled: !!restaurantId,
   });
@@ -195,25 +246,41 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   const { toast } = useToast();
   const { getBillUrl } = useBillSharing();
 
-  const restaurantName = restaurantDetails?.name || "Restaurant";
+  const restaurantName = restaurantDetails?.name || hookRestaurantName || "Restaurant";
 
-  // Fetch payment settings for UPI ID
+  // Fetch payment settings for UPI ID (with IDB offline fallback)
   const { data: paymentSettings } = useQuery({
     queryKey: ["payment-settings", restaurantId],
+    networkMode: "always",
     queryFn: async () => {
       if (!restaurantId) return null;
-      const { data, error } = await supabase
-        .from("payment_settings")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .eq("is_active", true)
-        .maybeSingle();
-      if (error) return null;
-      return data;
+      if (isOfflineNow) {
+        return (await getCachedPaymentSettings(restaurantId)) || null;
+      }
+      try {
+        const { data, error } = await supabase
+          .from("payment_settings")
+          .select("*")
+          .eq("restaurant_id", restaurantId)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (error) return (await getCachedPaymentSettings(restaurantId)) || null;
+        return data;
+      } catch {
+        return (await getCachedPaymentSettings(restaurantId)) || null;
+      }
     },
     enabled: !!restaurantId,
     staleTime: 1000 * 60 * 30,
   });
+
+  useEffect(() => {
+    if (!isOpen) {
+      pendingOfflineIdsRef.current = null;
+      pendingSplitLinkRef.current = null;
+      pendingOnlineLinkRef.current = null;
+    }
+  }, [isOpen]);
 
   // When in edit mode (existingOrder + editingOrderItems), compute total from current items
   // not from existingOrder.total (which is now just the cart total passed in)
@@ -238,35 +305,140 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   // Amount still due after prior payments (for "add items to paid order" flow)
   const additionalDue = Math.max(0, subtotal - alreadyPaid);
 
-  // Fetch already-paid amount when opening with an existing order
+  // Fetch already-paid amount when opening with an existing order (supports offline mirror)
   useEffect(() => {
     if (!existingOrder?.id || !isOpen) {
       setAlreadyPaid(0);
       setAlreadyPaidLoading(false);
       return;
     }
+    let cancelled = false;
     setAlreadyPaidLoading(true);
     (async () => {
       try {
-        const { data: paidTxns } = await supabase
+        if (isOfflineNow) {
+          const local = await getLocalOrder(existingOrder.id);
+          if (cancelled) return;
+          const passedPaid = (existingOrder as any).paidAmount;
+          const paid =
+            typeof local?.paidAmount === "number"
+              ? local.paidAmount
+              : typeof passedPaid === "number"
+              ? passedPaid
+              : local?.paymentStatus === "paid"
+              ? Number(local.total) || 0
+              : 0;
+          setAlreadyPaid(paid);
+          return;
+        }
+        const { data: paidTxns, error } = await supabase
           .from("pos_transactions")
           .select("amount")
           .eq("order_id", existingOrder.id)
           .eq("status", "completed");
-        const paid = (paidTxns || []).reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+        if (error) throw error;
+        if (cancelled) return;
+        const paid = (paidTxns || []).reduce(
+          (s: number, t: any) => s + (Number(t.amount) || 0),
+          0,
+        );
         setAlreadyPaid(paid);
       } catch (err) {
-        console.error("Failed to fetch paid amount:", err);
-        setAlreadyPaid(0);
+        if (!cancelled) {
+          console.error("Failed to fetch paid amount:", err);
+          const local = await getLocalOrder(existingOrder.id).catch(() => null);
+          if (cancelled) return;
+          setAlreadyPaid(
+            typeof local?.paidAmount === "number" ? local.paidAmount : 0,
+          );
+        }
       } finally {
-        setAlreadyPaidLoading(false);
+        if (!cancelled) {
+          setAlreadyPaidLoading(false);
+        }
       }
     })();
-  }, [existingOrder?.id, isOpen]);
+    return () => {
+      cancelled = true;
+    };
+  }, [existingOrder?.id, isOpen, isOfflineNow]);
 
-
-  const upiId = paymentSettings?.upi_id || null;
+  const upiId = paymentSettings?.upi_id || (restaurantDetails as any)?.upi_id || null;
   const upiName = (paymentSettings as any)?.upi_name || restaurantName;
+
+  const handlePrintBill = async (explicitOrderNumber?: number | string | null) => {
+    if (isPrintingBill) return;
+    setIsPrintingBill(true);
+    try {
+      const cachedRestaurant =
+        !restaurantDetails && restaurantId
+          ? await getCachedRestaurant(restaurantId)
+          : undefined;
+      const meta: any = restaurantDetails || cachedRestaurant;
+      const attendantName = user
+        ? `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+          user.email
+        : "Staff";
+      const isComp = selectedMethod === "nc";
+      const baseAmount = itemsSubtotal > 0 ? itemsSubtotal : subtotal;
+      const totalDiscount =
+        discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
+      const effectivePrintDiscount = isComp
+        ? baseAmount
+        : totalDiscount > 0
+        ? totalDiscount
+        : Math.max(0, itemsSubtotal - subtotal);
+      const resolvedOrderNumber =
+        explicitOrderNumber !== undefined ? explicitOrderNumber : orderNumber;
+      const billNo =
+        typeof resolvedOrderNumber === "number"
+          ? `#${String(resolvedOrderNumber).padStart(3, "0")}`
+          : resolvedOrderNumber
+          ? `#${String(resolvedOrderNumber).slice(-4)}`
+          : `#${Date.now().toString().slice(-6)}`;
+      const now = new Date();
+      await thermalPrinterService.printReceipt({
+        restaurantName: meta?.name || restaurantName,
+        address: meta?.address,
+        phone: meta?.phone,
+        gstin: meta?.gstin || undefined,
+        billNumber: billNo,
+        date: now.toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+        time: now.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        customerName: customerName.trim() || undefined,
+        customerMobile: customerPhone.trim() || undefined,
+        serverName: attendantName,
+        items: items.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        subtotal: baseAmount,
+        cgst: 0,
+        sgst: 0,
+        discount: effectivePrintDiscount,
+        netAmount: isComp ? 0 : subtotal,
+        currencySymbol,
+        upiId: upiId || undefined,
+      });
+      toast({ title: "Bill printed ✓" });
+    } catch (err: any) {
+      toast({
+        title: "Print Failed",
+        description: err?.message || "Could not print bill",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPrintingBill(false);
+    }
+  };
 
   // Build UPI deep link — uses additionalDue so QR is for the correct amount
   const getUpiLink = () => {
@@ -275,16 +447,16 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${formattedAmount}&cu=INR&tn=${encodeURIComponent(`Order payment - ${restaurantName}`)}`;
   };
 
-  // Generate UPI QR code when payment succeeds — always show QR
+  // Generate UPI QR code when payment succeeds — only show QR when UPI ID is configured
   useEffect(() => {
     if (status === "success") {
       const upiLink = getUpiLink();
-      // If UPI ID configured, use UPI deep link; otherwise generate a basic payment info QR
-      const qrContent =
-        upiLink ||
-        `Pay ${currencySymbol}${subtotal.toFixed(2)} to ${restaurantName}`;
+      if (!upiLink) {
+        setQrCodeUrl("");
+        return;
+      }
 
-      QRCodeLib.toDataURL(qrContent, {
+      QRCodeLib.toDataURL(upiLink, {
         width: 300,
         margin: 3,
         errorCorrectionLevel: "H",
@@ -294,7 +466,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         .catch((err) => console.error("QR generation error:", err));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, upiId]);
+  }, [status, upiId, additionalDue, subtotal]);
 
   // Build bill text for WhatsApp sharing
   const getBillTextForOrder = () => {
@@ -349,28 +521,47 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       return;
     }
 
+    // M-27: Capture state snapshots synchronously before async execution so dialog close doesn't clear them
+    const methodSnapshot = selectedMethod || "cash";
+    const subtotalSnapshot = subtotal;
+    const itemsSubtotalSnapshot = itemsSubtotal;
+    const itemsSnapshot = items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+    }));
+    const discountPctSnapshot = discountPercentage;
+    const discountValueSnapshot = discountValue;
+    const couponDiscountSnapshot = couponDiscountAmount;
+    const loyaltyDiscountSnapshot = loyaltyDiscountAmount;
+    const loyaltyPointsUsedSnapshot = loyaltyPointsUsed;
+    const customerNameSnapshot = customerName.trim() || undefined;
+    const customerPhoneSnapshot = customerPhone;
+    const restaurantDetailsSnapshot = restaurantDetails;
+    const restaurantIdSnapshot = restaurantId;
+
     // Instant UI feedback - show loading state
     setIsSendingBill(true);
     setBillSent(true);
     toast({
       title: "Sending Bill...",
-      description: `Bill is being sent to ${customerPhone} via WhatsApp.`,
+      description: `Bill is being sent to ${customerPhoneSnapshot} via WhatsApp.`,
     });
 
     // Fire-and-forget: run API call in background
     (async () => {
       try {
-        const restaurantNameForMsg = restaurantDetails?.name || "Restaurant";
+        const restaurantNameForMsg = restaurantDetailsSnapshot?.name || "Restaurant";
 
         // Calculate expected points earned for this order
         let pointsEarned = 0;
         let totalLoyaltyPoints: number | undefined;
-        if (subtotal > 0 && restaurantId) {
+        if (subtotalSnapshot > 0 && restaurantIdSnapshot) {
           try {
             const { data: loyaltyProgram } = await supabase
               .from("loyalty_programs")
               .select("is_enabled, points_per_amount, spend_threshold")
-              .eq("restaurant_id", restaurantId)
+              .eq("restaurant_id", restaurantIdSnapshot)
               .maybeSingle();
 
             if (loyaltyProgram?.is_enabled !== false) {
@@ -380,12 +571,12 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
 
               // Try to get customer's tier multiplier if they exist
               let fetchedLoyaltyPoints = 0;
-              if (customerPhone) {
+              if (customerPhoneSnapshot) {
                 const { data: customerRows } = await supabase
                   .from("customers")
                   .select("loyalty_tier_id, loyalty_points")
-                  .eq("restaurant_id", restaurantId)
-                  .eq("phone", customerPhone.trim())
+                  .eq("restaurant_id", restaurantIdSnapshot)
+                  .eq("phone", customerPhoneSnapshot.trim())
                   .limit(1);
 
                 fetchedLoyaltyPoints = customerRows?.[0]?.loyalty_points || 0;
@@ -402,9 +593,9 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                 }
               }
 
-              pointsEarned = Math.floor((subtotal / spendThreshold) * pointsPerAmount * multiplier);
-              if (customerPhone) {
-                totalLoyaltyPoints = fetchedLoyaltyPoints - (loyaltyPointsUsed || 0) + pointsEarned;
+              pointsEarned = Math.floor((subtotalSnapshot / spendThreshold) * pointsPerAmount * multiplier);
+              if (customerPhoneSnapshot) {
+                totalLoyaltyPoints = fetchedLoyaltyPoints - (loyaltyPointsUsedSnapshot || 0) + pointsEarned;
               }
             }
           } catch (err) {
@@ -413,39 +604,36 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         }
 
         const billParams = {
-          restaurantId,
+          restaurantId: restaurantIdSnapshot,
           restaurantName: restaurantNameForMsg,
-          restaurantAddress: (restaurantDetails as any)?.address,
-          restaurantPhone: (restaurantDetails as any)?.phone,
+          restaurantAddress: (restaurantDetailsSnapshot as any)?.address,
+          restaurantPhone: (restaurantDetailsSnapshot as any)?.phone,
           logoUrl:
-            restaurantDetails?.logo_url ||
+            restaurantDetailsSnapshot?.logo_url ||
             (() => {
               try {
-                return (restaurantId ? localStorage.getItem(`restaurant_logo_url_${restaurantId}`) : null) || undefined;
+                return (restaurantIdSnapshot ? localStorage.getItem(`restaurant_logo_url_${restaurantIdSnapshot}`) : null) || undefined;
               } catch {
                 return undefined;
               }
             })(),
-          items: items.map((item) => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-          subtotal: itemsSubtotal,
+          items: itemsSnapshot,
+          subtotal: itemsSubtotalSnapshot,
           discount:
-            discountValue + loyaltyDiscountAmount + couponDiscountAmount,
+            discountValueSnapshot + loyaltyDiscountSnapshot + couponDiscountSnapshot,
+          // M-25: Use tenant currencySymbol instead of hardcoded ₹
           discountNotes: (() => {
             const parts: string[] = [];
-            if (discountPercentage > 0) {
-              parts.push(`${discountPercentage}% off (₹${discountValue.toFixed(2)})`);
-            } else if (discountValue > 0) {
-              parts.push(`Manual discount ₹${discountValue.toFixed(2)}`);
+            if (discountPctSnapshot > 0) {
+              parts.push(`${discountPctSnapshot}% off (${currencySymbol}${discountValueSnapshot.toFixed(2)})`);
+            } else if (discountValueSnapshot > 0) {
+              parts.push(`Manual discount ${currencySymbol}${discountValueSnapshot.toFixed(2)}`);
             }
-            if (couponDiscountAmount > 0) {
-              parts.push(`Coupon (₹${couponDiscountAmount.toFixed(2)})`);
+            if (couponDiscountSnapshot > 0) {
+              parts.push(`Coupon (${currencySymbol}${couponDiscountSnapshot.toFixed(2)})`);
             }
-            if (loyaltyDiscountAmount > 0) {
-              parts.push(`${loyaltyPointsUsed} pts redeemed (₹${loyaltyDiscountAmount.toFixed(2)})`);
+            if (loyaltyDiscountSnapshot > 0) {
+              parts.push(`${loyaltyPointsUsedSnapshot} pts redeemed (${currencySymbol}${loyaltyDiscountSnapshot.toFixed(2)})`);
             }
             return parts.length > 0 ? parts.join(' + ') : undefined;
           })(),
@@ -453,11 +641,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           totalLoyaltyPoints: totalLoyaltyPoints,
           cgst: 0,
           sgst: 0,
-          total: subtotal,
-          paymentMethod: selectedMethod || "cash",
+          total: subtotalSnapshot,
+          paymentMethod: methodSnapshot,
           orderType: "quickserve",
-          customerName: customerName.trim() || undefined,
-          customerPhone,
+          customerName: customerNameSnapshot,
+          customerPhone: customerPhoneSnapshot,
           currencySymbol,
         };
 
@@ -540,7 +728,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   };
 
   const handleCloseSuccess = () => {
+    if (status === "idle") return;
     const savedOrderNum = orderNumber;
+    pendingOfflineIdsRef.current = null;
+    pendingSplitLinkRef.current = null;
+    pendingOnlineLinkRef.current = null;
     setStatus("idle");
     setSelectedMethod(null);
     setBillSent(false);
@@ -555,6 +747,455 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     setSplitCard("");
     onSuccess(typeof savedOrderNum === "number" ? savedOrderNum : undefined);
     onClose();
+  };
+
+  /** Shared offline enqueue helper for all payment methods (single, split, new, or existing order) */
+  const enqueueQuickServeOfflinePayment = async (
+    method: string,
+    splitPaymentsData?: Array<{ method: string; amount: number }>,
+    ncReason?: string | null,
+  ) => {
+    if (!restaurantId) throw new Error("No restaurant ID");
+    const isNC = method === "nc";
+    const orderTotal = isNC ? 0 : subtotal;
+    const nowIso = new Date().toISOString();
+    const attendantName = user
+      ? `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+        user.email
+      : "Staff";
+    const finalCustomerName = customerName.trim() || "Walk-in Customer";
+    const isDeferredOfflineUpi = !isNC && method === "upi";
+    const finalPaymentStatus = isNC
+      ? "nc"
+      : method === "pay_later" || isDeferredOfflineUpi
+      ? "pending"
+      : "paid";
+    const txnStatus =
+      method === "pay_later" || isDeferredOfflineUpi ? "pending" : "completed";
+    const finalMethod = isNC ? "nc" : method;
+
+    const kitchenItems = items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      menuItemId: item.menuItemId,
+      notes: item.notes ? [item.notes] : [],
+      priority: item.priority || "normal",
+    }));
+    const formattedItems = items.map((item) =>
+      formatOrderItemString(item.quantity, item.name, item.price, item.notes),
+    );
+    const totalDiscountAmount =
+      discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
+    const discountNotesParts: string[] = [];
+    if (discountPercentage > 0) {
+      discountNotesParts.push(
+        `${discountPercentage}% off (${currencySymbol}${discountValue.toFixed(2)})`,
+      );
+    } else if (discountValue > 0) {
+      discountNotesParts.push(`Manual discount ${currencySymbol}${discountValue.toFixed(2)}`);
+    }
+    if (couponDiscountAmount > 0) {
+      discountNotesParts.push(`Coupon (${currencySymbol}${couponDiscountAmount.toFixed(2)})`);
+    }
+    if (loyaltyDiscountAmount > 0) {
+      discountNotesParts.push(
+        `${loyaltyPointsUsed} pts redeemed (${currencySymbol}${loyaltyDiscountAmount.toFixed(2)})`,
+      );
+    }
+    const discountNotes = discountNotesParts.join(" + ");
+    const effectiveDiscountPct =
+      itemsSubtotal > 0 && totalDiscountAmount > 0
+        ? Math.round((totalDiscountAmount / itemsSubtotal) * 100)
+        : 0;
+
+    let resolvedOrderNumberForPrint: number | string | null = null;
+
+    if (existingOrder) {
+      const localExisting = await getLocalOrder(existingOrder.id);
+      const passedCompletion = (existingOrder as any).itemCompletionStatus as
+        | boolean[]
+        | undefined;
+      const existingCompletionStatus =
+        (localExisting?.itemCompletionStatus &&
+        localExisting.itemCompletionStatus.length > 0
+          ? localExisting.itemCompletionStatus
+          : passedCompletion) || [];
+      const preciseCompletionStatus = isEditMode
+        ? (() => {
+            const consumedIndices = new Set<number>();
+            return items.map((item) => {
+              const matchIdx = editingOrderItems.findIndex((orig, origIdx) => {
+                if (consumedIndices.has(origIdx)) return false;
+                return (
+                  orig.name === item.name &&
+                  orig.price === item.price &&
+                  (orig.notes || "") === (item.notes || "")
+                );
+              });
+              if (matchIdx !== -1) {
+                consumedIndices.add(matchIdx);
+                return existingCompletionStatus[matchIdx] ?? false;
+              }
+              return false;
+            });
+          })()
+        : items.map((_, idx) => existingCompletionStatus[idx] ?? false);
+
+      await enqueueWrite(
+        "order",
+        {
+          id: existingOrder.id,
+          payment_status: finalPaymentStatus,
+          payment_method: finalMethod,
+          ...(splitPaymentsData && { split_payments: splitPaymentsData }),
+          items: formattedItems,
+          total: orderTotal,
+          status: "preparing",
+          item_completion_status: preciseCompletionStatus,
+          updated_at: nowIso,
+        },
+        "update",
+      );
+
+      if (isEditMode && editingOrderItems.length > 0) {
+        const originalMap = new Map<string, number>();
+        editingOrderItems.forEach((item) => {
+          const key = `${item.name}@@${item.price}@@${item.notes || ""}`;
+          originalMap.set(key, (originalMap.get(key) || 0) + item.quantity);
+        });
+        const currentMap = new Map<
+          string,
+          {
+            name: string;
+            price: number;
+            quantity: number;
+            notes?: string;
+            menuItemId?: string;
+          }
+        >();
+        items.forEach((item) => {
+          const key = `${item.name}@@${item.price}@@${item.notes || ""}`;
+          const existing = currentMap.get(key);
+          if (existing) existing.quantity += item.quantity;
+          else {
+            currentMap.set(key, {
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+              notes: item.notes,
+              menuItemId: item.menuItemId,
+            });
+          }
+        });
+        const newKitchenItems: any[] = [];
+        currentMap.forEach((current, key) => {
+          const netNew = current.quantity - (originalMap.get(key) || 0);
+          if (netNew > 0) {
+            newKitchenItems.push({
+              name: current.name,
+              quantity: netNew,
+              price: current.price,
+              menuItemId: current.menuItemId,
+              notes: current.notes ? [current.notes] : [],
+              is_addition: true,
+              parent_order_number: existingOrder.orderNumber || 0,
+            });
+          }
+        });
+        if (newKitchenItems.length > 0) {
+          const additionKoId =
+            (pendingOfflineIdsRef.current as any)?.additionKitchenOrderId ||
+            crypto.randomUUID();
+          if (pendingOfflineIdsRef.current) {
+            (pendingOfflineIdsRef.current as any).additionKitchenOrderId =
+              additionKoId;
+          }
+          await enqueueWrite(
+            "kitchen_order",
+            {
+              id: additionKoId,
+              order_id: existingOrder.id,
+              restaurant_id: restaurantId,
+              source: "QuickServe",
+              status: "preparing",
+              items: newKitchenItems,
+              order_type: isNC ? "non-chargeable" : "takeaway",
+              customer_name: finalCustomerName,
+              server_name: attendantName,
+              priority: "normal",
+              _deductInventory: true,
+              created_at: nowIso,
+              updated_at: nowIso,
+            },
+            "insert",
+          );
+        }
+      }
+
+      await enqueueWrite(
+        "pos_transaction_clear_pending",
+        { order_id: existingOrder.id },
+        "delete",
+      );
+
+      const txnAmount = isNC ? 0 : additionalDue;
+      await enqueueWrite(
+        "pos_transaction",
+        {
+          restaurant_id: restaurantId,
+          order_id: existingOrder.id,
+          amount: txnAmount,
+          payment_method: finalMethod,
+          ...(splitPaymentsData && { split_payments: splitPaymentsData }),
+          status: txnStatus,
+          customer_name: finalCustomerName,
+          customer_phone: customerPhone || null,
+          staff_id: user?.id || null,
+          discount_amount: 0,
+          created_at: nowIso,
+          updated_at: nowIso,
+        },
+        "insert",
+      );
+
+      if (
+        loyaltyPointsUsed > 0 &&
+        (loyaltyCustomerId || customerPhone.trim())
+      ) {
+        await enqueueWrite(
+          "loyalty_redemption",
+          {
+            restaurant_id: restaurantId,
+            customer_id: loyaltyCustomerId || null,
+            customer_phone: customerPhone.trim() || null,
+            transaction_type: "redeemed",
+            source: "quickserve_pos",
+            source_id: existingOrder.id,
+            points_redeemed: loyaltyPointsUsed,
+            notes: `Redeemed ${loyaltyPointsUsed} points for order discount`,
+            created_by: user?.id || null,
+          },
+          "insert",
+        );
+      }
+
+      const nextPaidTotal =
+        finalPaymentStatus === "paid"
+          ? alreadyPaid + txnAmount
+          : alreadyPaid;
+      await saveLocalOrder({
+        ...(localExisting || {
+          id: existingOrder.id,
+          orderId: existingOrder.id,
+          restaurant_id: restaurantId,
+          source: "quickserve",
+          orderType: isNC ? "nc" : "takeaway",
+          priority: "normal",
+          createdAt: nowIso,
+        }),
+        id: existingOrder.id,
+        orderId: existingOrder.id,
+        orderNumber: existingOrder.orderNumber ?? localExisting?.orderNumber ?? null,
+        status: "preparing",
+        items: kitchenItems,
+        formattedItems,
+        itemCompletionStatus: preciseCompletionStatus,
+        total: orderTotal,
+        subtotal: itemsSubtotal,
+        paidAmount: nextPaidTotal,
+        customerName: finalCustomerName,
+        customerPhone: customerPhone || undefined,
+        attendant: attendantName,
+        paymentMethod: finalMethod,
+        paymentStatus: finalPaymentStatus,
+        splitPayments: splitPaymentsData,
+        updatedAt: nowIso,
+        synced: false,
+      });
+
+      resolvedOrderNumberForPrint = existingOrder.orderNumber ?? null;
+      setOrderNumber(resolvedOrderNumberForPrint);
+      setCreatedOrderId(existingOrder.id);
+    } else {
+      const fingerprint = `${restaurantId}|${orderTotal}|${finalMethod}|${formattedItems.join(",")}`;
+      const reused =
+        (pendingOfflineIdsRef.current?.fingerprint === fingerprint
+          ? pendingOfflineIdsRef.current
+          : null);
+      const offlineOrderId = reused?.orderId || crypto.randomUUID();
+      const offlineKitchenOrderId =
+        reused?.kitchenOrderId || crypto.randomUUID();
+      const nextToken =
+        reused?.orderNumber || allocateOfflineQuickServeToken(restaurantId);
+      pendingOfflineIdsRef.current = {
+        fingerprint,
+        orderId: offlineOrderId,
+        kitchenOrderId: offlineKitchenOrderId,
+        orderNumber: nextToken,
+      };
+      const initialCompletion = items.map(() => false);
+
+      // Enqueue parent `order` BEFORE `kitchen_order` so replay satisfies FK constraint
+      const queuedWrites: Parameters<typeof commitLocalOrderAndWritesAtomic>[1] = [
+        {
+          type: "order",
+          operation: "insert",
+          payload: {
+            id: offlineOrderId,
+            restaurant_id: restaurantId,
+            customer_name: finalCustomerName,
+            items: formattedItems,
+            total: orderTotal,
+            status: "preparing",
+            payment_status: finalPaymentStatus,
+            payment_method: finalMethod,
+            ...(splitPaymentsData && { split_payments: splitPaymentsData }),
+            source: "quickserve",
+            order_type: isNC ? "non-chargeable" : "takeaway",
+            attendant: attendantName,
+            order_number: nextToken,
+            item_completion_status: initialCompletion,
+            ...(totalDiscountAmount > 0 && {
+              discount_amount: totalDiscountAmount,
+            }),
+            ...(effectiveDiscountPct > 0 && {
+              discount_percentage: effectiveDiscountPct,
+            }),
+            ...(discountNotes && { discount_notes: discountNotes }),
+            ...(ncReason && { nc_reason: ncReason }),
+            ...(customerPhone && { customer_phone: customerPhone }),
+            created_at: nowIso,
+            updated_at: nowIso,
+          },
+        },
+        {
+          type: "kitchen_order",
+          operation: "insert",
+          payload: {
+            id: offlineKitchenOrderId,
+            order_id: offlineOrderId,
+            restaurant_id: restaurantId,
+            source: "QuickServe",
+            status: "preparing",
+            items: kitchenItems,
+            order_type: isNC ? "non-chargeable" : "takeaway",
+            customer_name: finalCustomerName,
+            server_name: attendantName,
+            priority: "normal",
+            _deductInventory: true,
+            ...(ncReason && { nc_reason: ncReason }),
+            ...(customerPhone && { customer_phone: customerPhone }),
+            created_at: nowIso,
+            updated_at: nowIso,
+          },
+        },
+        {
+          type: "pos_transaction",
+          operation: "insert",
+          payload: {
+            restaurant_id: restaurantId,
+            order_id: offlineOrderId,
+            kitchen_order_id: offlineKitchenOrderId,
+            amount: orderTotal,
+            payment_method: finalMethod,
+            ...(splitPaymentsData && { split_payments: splitPaymentsData }),
+            status: txnStatus,
+            customer_name: finalCustomerName || null,
+            customer_phone: customerPhone || null,
+            staff_id: user?.id || null,
+            discount_amount: totalDiscountAmount,
+            created_at: nowIso,
+            updated_at: nowIso,
+          },
+        },
+      ];
+
+      if (
+        loyaltyPointsUsed > 0 &&
+        (loyaltyCustomerId || customerPhone.trim())
+      ) {
+        queuedWrites.push({
+          type: "loyalty_redemption",
+          operation: "insert",
+          payload: {
+            restaurant_id: restaurantId,
+            customer_id: loyaltyCustomerId || null,
+            customer_phone: customerPhone.trim() || null,
+            transaction_type: "redeemed",
+            source: "quickserve_pos",
+            source_id: offlineOrderId,
+            points_redeemed: loyaltyPointsUsed,
+            notes: `Redeemed ${loyaltyPointsUsed} points for order discount`,
+            created_by: user?.id || null,
+          },
+        });
+      }
+
+      await commitLocalOrderAndWritesAtomic(
+        {
+          id: offlineOrderId,
+          orderId: offlineOrderId,
+          restaurant_id: restaurantId,
+          source: "quickserve",
+          orderType: isNC ? "nc" : "takeaway",
+          status: "preparing",
+          priority: "normal",
+          orderNumber: nextToken,
+          items: kitchenItems,
+          formattedItems,
+          itemCompletionStatus: initialCompletion,
+          total: orderTotal,
+          subtotal: itemsSubtotal,
+          paidAmount: finalPaymentStatus === "paid" ? orderTotal : 0,
+          discount: effectiveDiscountPct || totalDiscountAmount || undefined,
+          discountType: effectiveDiscountPct
+            ? "percentage"
+            : totalDiscountAmount
+            ? "amount"
+            : undefined,
+          customerName: finalCustomerName,
+          customerPhone: customerPhone || undefined,
+          attendant: attendantName,
+          paymentMethod: finalMethod,
+          paymentStatus: finalPaymentStatus,
+          splitPayments: splitPaymentsData,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          synced: false,
+        },
+        queuedWrites,
+      );
+
+      pendingOfflineIdsRef.current = null;
+      resolvedOrderNumberForPrint = nextToken;
+      setOrderNumber(nextToken);
+      setCreatedOrderId(offlineOrderId);
+    }
+
+    setIsOfflineOrder(true);
+    setPaymentConfirmed(txnStatus === "completed");
+    setShowSplitUI(false);
+    setStatus("success");
+
+    queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+    queryClient.invalidateQueries({ queryKey: ["quickserve-order-history"] });
+    queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
+    queryClient.invalidateQueries({ queryKey: ["quickserve-todays-revenue"] });
+
+    // Auto-print only when a physical Bluetooth/LAN thermal printer is paired
+    if (
+      nativePrinterBridge.isConnected() ||
+      thermalPrinterService.isConnected()
+    ) {
+      handlePrintBill(resolvedOrderNumberForPrint).catch(() => {});
+    }
+
+    toast({
+      title: "Order Saved Locally ✓",
+      description:
+        "No internet — order queued and will sync automatically when online.",
+    });
   };
 
   const handlePay = async (method: string) => {
@@ -593,112 +1234,9 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     }
 
     // ─── OFFLINE PATH ───────────────────────────────────────────────────────
-    if (!isOnline) {
+    if (isOfflineNow) {
       try {
-        const isNC = method === "nc";
-        const orderTotal = isNC ? 0 : subtotal;
-        const attendantName = user
-          ? `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
-            user.email
-          : "Staff";
-        const finalCustomerName = customerName.trim() || "Walk-in Customer";
-        const kitchenItems = items.map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          menuItemId: item.menuItemId,
-          notes: [],
-        }));
-        const formattedItems = items.map(
-          (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
-        );
-
-        const offlineToken = generateOfflineOrderNumber();
-        const sharedPayload = {
-          restaurant_id: restaurantId,
-          customer_name: finalCustomerName,
-          server_name: attendantName,
-          order_type: isNC ? "non-chargeable" : "takeaway",
-          source: "QuickServe",
-          items: kitchenItems,
-          ...(ncReason && { nc_reason: ncReason }),
-          ...(customerPhone && { customer_phone: customerPhone }),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-
-        // Enqueue kitchen order
-        await enqueueWrite("kitchen_order", {
-          ...sharedPayload,
-          status: "preparing",
-          priority: "normal",
-        });
-
-        const totalDiscountAmount = discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
-
-        // Build discount notes for owner visibility
-        const discountNotesParts: string[] = [];
-        if (discountPercentage > 0) {
-          discountNotesParts.push(`${discountPercentage}% off (₹${discountValue.toFixed(2)})`);
-        } else if (discountValue > 0) {
-          discountNotesParts.push(`Manual discount ₹${discountValue.toFixed(2)}`);
-        }
-        if (couponDiscountAmount > 0) {
-          discountNotesParts.push(`Coupon (₹${couponDiscountAmount.toFixed(2)})`);
-        }
-        if (loyaltyDiscountAmount > 0) {
-          discountNotesParts.push(`${loyaltyPointsUsed} pts redeemed (₹${loyaltyDiscountAmount.toFixed(2)})`);
-        }
-        const discountNotes = discountNotesParts.join(' + ');
-        const effectiveDiscountPct = itemsSubtotal > 0 && totalDiscountAmount > 0
-          ? Math.round((totalDiscountAmount / itemsSubtotal) * 100)
-          : 0;
-
-        // Enqueue POS order
-        await enqueueWrite("order", {
-          restaurant_id: restaurantId,
-          customer_name: finalCustomerName,
-          items: formattedItems,
-          total: orderTotal,
-          status: "preparing",
-          payment_status: isNC ? "nc" : (method === "cash" ? "paid" : "pending"),
-          payment_method: isNC ? "nc" : method,
-          source: "quickserve",
-          order_type: isNC ? "non-chargeable" : "takeaway",
-          attendant: attendantName,
-          ...(totalDiscountAmount > 0 && { discount_amount: totalDiscountAmount }),
-          ...(effectiveDiscountPct > 0 && {
-            discount_percentage: effectiveDiscountPct,
-          }),
-          ...(discountNotes && { discount_notes: discountNotes }),
-          ...(ncReason && { nc_reason: ncReason }),
-          ...(customerPhone && { customer_phone: customerPhone }),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-
-        // Enqueue pos transaction to track offline revenue
-        await enqueueWrite("pos_transaction", {
-          restaurant_id: restaurantId,
-          amount: orderTotal,
-          payment_method: method,
-          status: method === "cash" || isNC ? "completed" : "pending",
-          customer_name: finalCustomerName || null,
-          customer_phone: customerPhone || null,
-          staff_id: user?.id || null,
-          discount_amount: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-
-        setIsOfflineOrder(true);
-        setOrderNumber(offlineToken);
-        setStatus("success");
-        toast({
-          title: "Order Saved Locally ✓",
-          description:
-            "No internet — order queued and will sync automatically when online.",
-        });
+        await enqueueQuickServeOfflinePayment(method, undefined, ncReason);
         return;
       } catch (offlineErr) {
         console.error("Offline enqueue error:", offlineErr);
@@ -754,7 +1292,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               return items.map((item) => {
                 const matchIdx = editingOrderItems.findIndex((orig, origIdx) => {
                   if (consumedIndices.has(origIdx)) return false;
-                  return orig.name === item.name && orig.price === item.price;
+                  return (
+                  orig.name === item.name &&
+                  orig.price === item.price &&
+                  (orig.notes || "") === (item.notes || "")
+                );
                 });
                 if (matchIdx !== -1) {
                   consumedIndices.add(matchIdx);
@@ -763,13 +1305,17 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                 return false; // New item — not served
               });
             })()
-          : items.map(() => false);
+          : items.map((_, idx) => existingCompletionStatus[idx] ?? false);
 
-        // 1. Update order: items, total, payment status, completion status
+        // 1. Update order: items, total, payment status, completion status (M-14: preserve "paid" if additionalDue === 0)
         const { error: updateError } = await supabase
           .from("orders")
           .update({
-            payment_status: isNC ? "nc" : "pending",
+            payment_status: isNC
+              ? "nc"
+              : alreadyPaid > 0 && additionalDue === 0
+              ? "paid"
+              : "pending",
             items: formattedItems,
             total: orderTotal,
             status: "preparing",
@@ -821,6 +1367,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               .from("kitchen_orders")
               .insert({
                 restaurant_id: restaurantId,
+                order_id: existingOrder.id,
                 source: "QuickServe",
                 status: "preparing",
                 items: newKitchenItems,
@@ -832,14 +1379,8 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               .select()
               .single();
 
-            if (!kitchenError && kitchenOrder?.id) {
-              // Link kitchen order → existing order (background)
-              supabase
-                .from("kitchen_orders")
-                .update({ order_id: existingOrder.id })
-                .eq("id", kitchenOrder.id)
-                .then(({ error }) => { if (error) console.error("Link kitchen→order error:", error); });
-
+            if (kitchenError) throw kitchenError;
+            if (kitchenOrder?.id) {
               // Deduct inventory for new items (background)
               (async () => {
                 try {
@@ -861,19 +1402,21 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           .eq("order_id", existingOrder.id)
           .eq("status", "pending");
 
-        // 4. Log payment transaction for ADDITIONAL amount only (not full total)
+        // 4. Log payment transaction for ADDITIONAL amount only (not full total) — skip for NC (M-15)
         const txnAmount = isNC ? 0 : additionalDue;
-        await supabase.from("pos_transactions").insert({
-          restaurant_id: restaurantId,
-          order_id: existingOrder.id,
-          amount: txnAmount,
-          payment_method: method,
-          status: "pending",
-          customer_name: finalCustomerName,
-          customer_phone: customerPhone || null,
-          staff_id: user?.id || null,
-          discount_amount: 0,
-        });
+        if (!isNC) {
+          await supabase.from("pos_transactions").insert({
+            restaurant_id: restaurantId,
+            order_id: existingOrder.id,
+            amount: txnAmount,
+            payment_method: method,
+            status: "pending",
+            customer_name: finalCustomerName,
+            customer_phone: customerPhone || null,
+            staff_id: user?.id || null,
+            discount_amount: 0,
+          });
+        }
 
         setOrderNumber(existingOrder.orderNumber || 0);
         setCreatedOrderId(existingOrder.id);
@@ -913,122 +1456,155 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
         notes: [],
       }));
 
-      // 0. Generate daily sequential order token
-      const today = new Date();
-      const todayStart = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate(),
-      ).toISOString();
-      const todayEnd = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate() + 1,
-      ).toISOString();
-      const { data: maxOrderRow } = await supabase
-        .from("orders")
-        .select("order_number")
-        .eq("restaurant_id", restaurantId)
-        .gte("created_at", todayStart)
-        .lt("created_at", todayEnd)
-        .not("order_number", "is", null)
-        .order("order_number", { ascending: false })
-        .limit(1);
-      const nextOrderNumber =
-        ((maxOrderRow?.[0]?.order_number as number) || 0) + 1;
+      const onlineFingerprint = `${restaurantId}|${orderTotal}|${method}|${formattedItems.join(",")}`;
+      const reusedOnlineLink =
+        pendingOnlineLinkRef.current?.fingerprint === onlineFingerprint
+          ? pendingOnlineLinkRef.current
+          : null;
 
-      // Initialize item completion status (all false)
-      const initialCompletionStatus = items.map(() => false);
+      let nextOrderNumber: number;
+      let kitchenOrder: any;
+      let order: any;
 
-      // 1. Create kitchen order (with total_amount + payment_method for dashboard)
-      const { data: kitchenOrder, error: kitchenError } = await supabase
-        .from("kitchen_orders")
-        .insert({
-          restaurant_id: restaurantId,
-          source: `QuickServe`,
-          status: "preparing",
-          items: kitchenItems,
-          order_type: isNC ? "non-chargeable" : "takeaway",
-          customer_name: finalCustomerName,
-          server_name: attendantName,
-          priority: "normal",
-          ...(ncReason && { nc_reason: ncReason }),
-        })
-        .select()
-        .single();
+      if (reusedOnlineLink) {
+        nextOrderNumber = reusedOnlineLink.orderNumber;
+        kitchenOrder = { id: reusedOnlineLink.kitchenOrderId };
+        order = { id: reusedOnlineLink.orderId };
+      } else {
+        // 0. Generate daily sequential order token
+        const today = new Date();
+        const todayStart = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate(),
+        ).toISOString();
+        const todayEnd = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate() + 1,
+        ).toISOString();
+        const { data: maxOrderRow } = await supabase
+          .from("orders")
+          .select("order_number")
+          .eq("restaurant_id", restaurantId)
+          .gte("created_at", todayStart)
+          .lt("created_at", todayEnd)
+          .not("order_number", "is", null)
+          .order("order_number", { ascending: false })
+          .limit(1);
+        nextOrderNumber =
+          ((maxOrderRow?.[0]?.order_number as number) || 0) + 1;
+        recordQuickServeOrderNumber(restaurantId, nextOrderNumber);
 
-      if (kitchenError) throw kitchenError;
+        // Initialize item completion status (all false)
+        const initialCompletionStatus = items.map(() => false);
 
-      const totalDiscountAmount = discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
+        // 1. Create kitchen order (with total_amount + payment_method for dashboard)
+        const { data: createdKitchenOrder, error: kitchenError } = await supabase
+          .from("kitchen_orders")
+          .insert({
+            restaurant_id: restaurantId,
+            source: `QuickServe`,
+            status: "preparing",
+            items: kitchenItems,
+            order_type: isNC ? "non-chargeable" : "takeaway",
+            customer_name: finalCustomerName,
+            server_name: attendantName,
+            priority: "normal",
+            ...(ncReason && { nc_reason: ncReason }),
+          })
+          .select()
+          .single();
 
-      // Build discount notes for owner visibility
-      const discountNotesParts: string[] = [];
-      if (discountPercentage > 0) {
-        discountNotesParts.push(`${discountPercentage}% off (₹${discountValue.toFixed(2)})`);
-      } else if (discountValue > 0) {
-        discountNotesParts.push(`Manual discount ₹${discountValue.toFixed(2)}`);
+        if (kitchenError) throw kitchenError;
+        kitchenOrder = createdKitchenOrder;
+        if (kitchenOrder?.id) {
+          pendingSplitLinkRef.current = {
+            fingerprint: splitFingerprint,
+            orderId: "",
+            kitchenOrderId: kitchenOrder.id,
+            orderNumber: nextOrderNumber,
+            splitPayments: splitPaymentsData,
+          };
+        }
+
+        const totalDiscountAmount = discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
+
+        // Build discount notes for owner visibility (M-25/M-26: dynamic currencySymbol)
+        const discountNotesParts: string[] = [];
+        if (discountPercentage > 0) {
+          discountNotesParts.push(`${discountPercentage}% off (${currencySymbol}${discountValue.toFixed(2)})`);
+        } else if (discountValue > 0) {
+          discountNotesParts.push(`Manual discount ${currencySymbol}${discountValue.toFixed(2)}`);
+        }
+        if (couponDiscountAmount > 0) {
+          discountNotesParts.push(`Coupon (${currencySymbol}${couponDiscountAmount.toFixed(2)})`);
+        }
+        if (loyaltyDiscountAmount > 0) {
+          discountNotesParts.push(`${loyaltyPointsUsed} pts redeemed (${currencySymbol}${loyaltyDiscountAmount.toFixed(2)})`);
+        }
+        const discountNotes = discountNotesParts.join(' + ');
+        const effectiveDiscountPct = itemsSubtotal > 0 && totalDiscountAmount > 0
+          ? Math.round((totalDiscountAmount / itemsSubtotal) * 100)
+          : 0;
+
+        // 2. Create order record with token and completion tracking
+        const { data: createdOrder, error: orderError } = await supabase
+          .from("orders")
+          .insert({
+            restaurant_id: restaurantId,
+            customer_name: finalCustomerName,
+            items: formattedItems,
+            total: orderTotal,
+            status: "preparing",
+            payment_status: isNC ? "nc" : "pending",
+            payment_method: isNC ? "nc" : method,
+            source: "quickserve",
+            order_type: isNC ? "non-chargeable" : "takeaway",
+            attendant: attendantName,
+            order_number: nextOrderNumber,
+            item_completion_status: initialCompletionStatus,
+            ...(totalDiscountAmount > 0 && { discount_amount: totalDiscountAmount }),
+            ...(effectiveDiscountPct > 0 && {
+              discount_percentage: effectiveDiscountPct,
+            }),
+            ...(discountNotes && { discount_notes: discountNotes }),
+            ...(ncReason && { nc_reason: ncReason }),
+            ...(customerPhone && { customer_phone: customerPhone }),
+          })
+          .select()
+          .single();
+
+        if (orderError) throw orderError;
+        order = createdOrder;
+
+        if (order?.id && kitchenOrder?.id) {
+          pendingOnlineLinkRef.current = {
+            fingerprint: onlineFingerprint,
+            orderId: order.id,
+            kitchenOrderId: kitchenOrder.id,
+            orderNumber: nextOrderNumber,
+            method,
+          };
+        }
+
+        // ✅ Log POS transaction SYNCHRONOUSLY to prevent race condition with "Mark as Paid" button (skip NC)
+        if (!isNC) {
+          const { error: txnError } = await supabase.from("pos_transactions").insert({
+            restaurant_id: restaurantId,
+            order_id: order?.id || null,
+            kitchen_order_id: kitchenOrder?.id || null,
+            amount: subtotal,
+            payment_method: method,
+            status: "pending",
+            customer_name: finalCustomerName || null,
+            customer_phone: customerPhone || null,
+            staff_id: user?.id || null,
+            discount_amount: 0,
+          });
+          if (txnError) throw txnError;
+        }
       }
-      if (couponDiscountAmount > 0) {
-        discountNotesParts.push(`Coupon (₹${couponDiscountAmount.toFixed(2)})`);
-      }
-      if (loyaltyDiscountAmount > 0) {
-        discountNotesParts.push(`${loyaltyPointsUsed} pts redeemed (₹${loyaltyDiscountAmount.toFixed(2)})`);
-      }
-      const discountNotes = discountNotesParts.join(' + ');
-      const effectiveDiscountPct = itemsSubtotal > 0 && totalDiscountAmount > 0
-        ? Math.round((totalDiscountAmount / itemsSubtotal) * 100)
-        : 0;
-
-      // 2. Create order record with token and completion tracking
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          restaurant_id: restaurantId,
-          customer_name: finalCustomerName,
-          items: formattedItems,
-          total: orderTotal,
-          status: "preparing",
-          payment_status: isNC ? "nc" : "pending",
-          payment_method: isNC ? "nc" : method,
-          source: "quickserve",
-          order_type: isNC ? "non-chargeable" : "takeaway",
-          attendant: attendantName,
-          order_number: nextOrderNumber,
-          item_completion_status: initialCompletionStatus,
-          ...(totalDiscountAmount > 0 && { discount_amount: totalDiscountAmount }),
-          ...(effectiveDiscountPct > 0 && {
-            discount_percentage: effectiveDiscountPct,
-          }),
-          ...(discountNotes && { discount_notes: discountNotes }),
-          ...(ncReason && { nc_reason: ncReason }),
-          ...(customerPhone && { customer_phone: customerPhone }),
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-      
-      // ✅ Log POS transaction SYNCHRONOUSLY to prevent race condition with "Mark as Paid" button
-      try {
-        await supabase.from("pos_transactions").insert({
-          restaurant_id: restaurantId,
-          order_id: order?.id || null,
-          kitchen_order_id: kitchenOrder?.id || null,
-          amount: subtotal,
-          payment_method: method,
-          status: "pending",
-          customer_name: finalCustomerName || null,
-          customer_phone: customerPhone || null,
-          staff_id: user?.id || null,
-          discount_amount: 0,
-        });
-      } catch (err) {
-        console.error("Synchronous POS transaction error:", err);
-      }
-
-      setOrderNumber(nextOrderNumber);
-      setCreatedOrderId(order?.id || null);
-      setPaymentConfirmed(isNC); // NC orders are auto-confirmed
 
       // ✅ CRITICAL: Link kitchen order → order SYNCHRONOUSLY before success
       // This MUST complete before showing success, otherwise order_id stays null
@@ -1040,8 +1616,14 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
           .eq("id", kitchenOrder.id);
         if (linkError) {
           console.error("❌ Critical: kitchen→order link failed:", linkError);
+          throw linkError;
         }
+        pendingOnlineLinkRef.current = null;
       }
+
+      setOrderNumber(nextOrderNumber);
+      setCreatedOrderId(order?.id || null);
+      setPaymentConfirmed(isNC); // NC orders are auto-confirmed
 
       setStatus("success");
       toast({
@@ -1091,7 +1673,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                 customerName: finalCustomerName,
                 customerPhone: customerPhone || undefined,
                 orderTotal: subtotal,
-                orderId: kitchenOrder?.id || undefined,
+                orderId: order?.id || undefined, // L-13: pass orders.id, not kitchen_orders.id
                 source: "quickserve",
               });
             } catch (crmErr) {
@@ -1161,11 +1743,13 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
   };
 
   const handlePaySplit = async () => {
+    if (status === "processing") return;
     const cashAmt = parseFloat(splitCash) || 0;
     const upiAmt = parseFloat(splitUpi) || 0;
     const cardAmt = parseFloat(splitCard) || 0;
+    if (cashAmt < 0 || upiAmt < 0 || cardAmt < 0) return;
     const splitSum = cashAmt + upiAmt + cardAmt;
-    if (Math.abs(subtotal - splitSum) >= 0.01 || splitSum <= 0) return;
+    if (Math.abs(additionalDue - splitSum) >= 0.01 || splitSum <= 0) return;
 
     const splitPaymentsData = [
       ...(cashAmt > 0 ? [{ method: "cash", amount: cashAmt }] : []),
@@ -1174,9 +1758,26 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
     ];
 
     // Use the main handlePay flow but override method to "split" after setting split data
-    // We'll directly invoke the DB writes here
+    // We'll directly invoke offline queue or DB writes here
     setSelectedMethod("split");
     setStatus("processing");
+    if (isOfflineNow) {
+      try {
+        await enqueueQuickServeOfflinePayment("split", splitPaymentsData);
+        return;
+      } catch (offlineErr) {
+        console.error("Offline split payment error:", offlineErr);
+        toast({
+          title: "Payment Failed",
+          description: "Could not save split payment locally.",
+          variant: "destructive",
+        });
+        setStatus("idle");
+        setSelectedMethod(null);
+        setShowSplitUI(false);
+        return;
+      }
+    }
     try {
       if (!restaurantId) throw new Error("No restaurant ID");
       const attendantName = user
@@ -1186,79 +1787,267 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
       const formattedItems = items.map(
         (item) => formatOrderItemString(item.quantity, item.name, item.price, item.notes)
       );
-      const kitchenItems = items.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-        menuItemId: item.menuItemId,
-        notes: [],
-      }));
-      const today = new Date();
-      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
-      const { data: maxOrderRow } = await supabase
-        .from("orders")
-        .select("order_number")
-        .eq("restaurant_id", restaurantId)
-        .gte("created_at", todayStart)
-        .lt("created_at", todayEnd)
-        .not("order_number", "is", null)
-        .order("order_number", { ascending: false })
-        .limit(1);
-      const nextOrderNumber = ((maxOrderRow?.[0]?.order_number as number) || 0) + 1;
-      const { data: kitchenOrder, error: kitchenError } = await supabase
-        .from("kitchen_orders")
-        .insert({
+
+      if (existingOrder) {
+        let existingCompletionStatus: boolean[] = [];
+        if (isEditMode) {
+          const { data: existingOrderData } = await supabase
+            .from("orders")
+            .select("item_completion_status")
+            .eq("id", existingOrder.id)
+            .single();
+          existingCompletionStatus = (existingOrderData?.item_completion_status as boolean[]) || [];
+        }
+
+        const preciseCompletionStatus = isEditMode
+          ? (() => {
+              const consumedIndices = new Set<number>();
+              return items.map((item) => {
+                const matchIdx = editingOrderItems.findIndex((orig, origIdx) => {
+                  if (consumedIndices.has(origIdx)) return false;
+                  return (
+                  orig.name === item.name &&
+                  orig.price === item.price &&
+                  (orig.notes || "") === (item.notes || "")
+                );
+                });
+                if (matchIdx !== -1) {
+                  consumedIndices.add(matchIdx);
+                  return existingCompletionStatus[matchIdx] ?? false;
+                }
+                return false;
+              });
+            })()
+          : items.map((_, idx) => existingCompletionStatus[idx] ?? false);
+
+        const { error: updateError } = await supabase
+          .from("orders")
+          .update({
+            payment_status: "pending",
+            payment_method: "split",
+            split_payments: splitPaymentsData,
+            items: formattedItems,
+            total: subtotal,
+            status: "preparing",
+            item_completion_status: preciseCompletionStatus,
+          })
+          .eq("id", existingOrder.id);
+
+        if (updateError) throw updateError;
+
+        if (isEditMode && editingOrderItems.length > 0) {
+          const originalMap = new Map<string, number>();
+          editingOrderItems.forEach((item) => {
+            const key = `${item.name}@@${item.price}@@${item.notes || ""}`;
+            originalMap.set(key, (originalMap.get(key) || 0) + item.quantity);
+          });
+
+          const currentMap = new Map<string, { name: string; price: number; quantity: number; notes?: string; menuItemId?: string }>();
+          items.forEach((item) => {
+            const key = `${item.name}@@${item.price}@@${item.notes || ""}`;
+            const existing = currentMap.get(key);
+            if (existing) existing.quantity += item.quantity;
+            else {
+              currentMap.set(key, { name: item.name, price: item.price, quantity: item.quantity, notes: item.notes, menuItemId: item.menuItemId });
+            }
+          });
+
+          const newKitchenItems: any[] = [];
+          currentMap.forEach((current, key) => {
+            const netNew = current.quantity - (originalMap.get(key) || 0);
+            if (netNew > 0) {
+              newKitchenItems.push({
+                name: current.name,
+                quantity: netNew,
+                price: current.price,
+                menuItemId: current.menuItemId,
+                notes: current.notes ? [current.notes] : [],
+                is_addition: true,
+                parent_order_number: existingOrder.orderNumber || 0,
+              });
+            }
+          });
+
+          if (newKitchenItems.length > 0) {
+            const { data: kitchenOrder, error: kitchenError } = await supabase
+              .from("kitchen_orders")
+              .insert({
+                restaurant_id: restaurantId,
+                order_id: existingOrder.id,
+                source: "QuickServe",
+                status: "preparing",
+                items: newKitchenItems,
+                order_type: "takeaway",
+                customer_name: finalCustomerName,
+                server_name: attendantName,
+                priority: "normal",
+              })
+              .select()
+              .single();
+
+            if (kitchenError) throw kitchenError;
+            if (kitchenOrder?.id) {
+              supabase.functions
+                .invoke("deduct-inventory-on-prep", {
+                  body: { order_id: kitchenOrder.id },
+                })
+                .catch((err) => console.error("Inventory deduction failed:", err));
+            }
+          }
+        }
+
+        await supabase
+          .from("pos_transactions")
+          .delete()
+          .eq("order_id", existingOrder.id)
+          .eq("status", "pending");
+
+        await supabase.from("pos_transactions").insert({
           restaurant_id: restaurantId,
-          source: "QuickServe",
-          status: "preparing",
-          items: kitchenItems,
-          order_type: "takeaway",
-          customer_name: finalCustomerName,
-          server_name: attendantName,
-          priority: "normal",
-        })
-        .select()
-        .single();
-      if (kitchenError) throw kitchenError;
-      const totalDiscountAmount = discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          restaurant_id: restaurantId,
-          customer_name: finalCustomerName,
-          items: formattedItems,
-          total: subtotal,
-          status: "preparing",
-          payment_status: "pending",
+          order_id: existingOrder.id,
+          amount: additionalDue,
           payment_method: "split",
           split_payments: splitPaymentsData,
-          source: "quickserve",
-          order_type: "takeaway",
-          attendant: attendantName,
-          order_number: nextOrderNumber,
-          item_completion_status: items.map(() => false),
-          ...(totalDiscountAmount > 0 && { discount_amount: totalDiscountAmount }),
-          ...(customerPhone && { customer_phone: customerPhone }),
-        })
-        .select()
-        .single();
-      if (orderError) throw orderError;
-      await supabase.from("pos_transactions").insert({
-        restaurant_id: restaurantId,
-        order_id: order?.id || null,
-        kitchen_order_id: kitchenOrder?.id || null,
-        amount: subtotal,
-        payment_method: "split",
-        split_payments: splitPaymentsData,
-        status: "pending",
-        customer_name: finalCustomerName || null,
-        customer_phone: customerPhone || null,
-        staff_id: user?.id || null,
-        discount_amount: 0,
-      });
+          status: "pending",
+          customer_name: finalCustomerName,
+          customer_phone: customerPhone || null,
+          staff_id: user?.id || null,
+          discount_amount: 0,
+        });
+
+        setOrderNumber(existingOrder.orderNumber || 0);
+        setCreatedOrderId(existingOrder.id);
+        setShowSplitUI(false);
+        setStatus("success");
+        toast({
+          title: "Order Updated — Awaiting Payment",
+          description: splitPaymentsData
+            .map(s => `${currencySymbol}${s.amount.toFixed(2)} ${s.method.toUpperCase()}`)
+            .join(" + "),
+        });
+        return;
+      }
+
+      const splitFingerprint = `${restaurantId}|${subtotal}|split|${JSON.stringify(splitPaymentsData)}|${formattedItems.join(",")}`;
+      const reusedSplit =
+        pendingSplitLinkRef.current?.fingerprint === splitFingerprint
+          ? pendingSplitLinkRef.current
+          : null;
+
+      let nextOrderNumber: number;
+      let kitchenOrder: any;
+      let order: any;
+
+      if (reusedSplit) {
+        nextOrderNumber = reusedSplit.orderNumber;
+        kitchenOrder = { id: reusedSplit.kitchenOrderId };
+        order = { id: reusedSplit.orderId };
+      } else {
+        const kitchenItems = items.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          menuItemId: item.menuItemId,
+          notes: [],
+        }));
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+        const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+        const { data: maxOrderRow } = await supabase
+          .from("orders")
+          .select("order_number")
+          .eq("restaurant_id", restaurantId)
+          .gte("created_at", todayStart)
+          .lt("created_at", todayEnd)
+          .not("order_number", "is", null)
+          .order("order_number", { ascending: false })
+          .limit(1);
+        nextOrderNumber = ((maxOrderRow?.[0]?.order_number as number) || 0) + 1;
+        recordQuickServeOrderNumber(restaurantId, nextOrderNumber);
+        const { data: createdKitchenOrder, error: kitchenError } = await supabase
+          .from("kitchen_orders")
+          .insert({
+            restaurant_id: restaurantId,
+            source: "QuickServe",
+            status: "preparing",
+            items: kitchenItems,
+            order_type: "takeaway",
+            customer_name: finalCustomerName,
+            server_name: attendantName,
+            priority: "normal",
+          })
+          .select()
+          .single();
+        if (kitchenError) throw kitchenError;
+        kitchenOrder = createdKitchenOrder;
+        if (kitchenOrder?.id) {
+          pendingSplitLinkRef.current = {
+            fingerprint: splitFingerprint,
+            orderId: "",
+            kitchenOrderId: kitchenOrder.id,
+            orderNumber: nextOrderNumber,
+            splitPayments: splitPaymentsData,
+          };
+        }
+        const totalDiscountAmount = discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
+        const { data: createdOrder, error: orderError } = await supabase
+          .from("orders")
+          .insert({
+            restaurant_id: restaurantId,
+            customer_name: finalCustomerName,
+            items: formattedItems,
+            total: subtotal,
+            status: "preparing",
+            payment_status: "pending",
+            payment_method: "split",
+            split_payments: splitPaymentsData,
+            source: "quickserve",
+            order_type: "takeaway",
+            attendant: attendantName,
+            order_number: nextOrderNumber,
+            item_completion_status: items.map(() => false),
+            ...(totalDiscountAmount > 0 && { discount_amount: totalDiscountAmount }),
+            ...(customerPhone && { customer_phone: customerPhone }),
+          })
+          .select()
+          .single();
+        if (orderError) throw orderError;
+        order = createdOrder;
+        if (kitchenOrder?.id && order?.id) {
+          pendingSplitLinkRef.current = {
+            fingerprint: splitFingerprint,
+            orderId: order.id,
+            kitchenOrderId: kitchenOrder.id,
+            orderNumber: nextOrderNumber,
+            splitPayments: splitPaymentsData,
+          };
+        }
+        const { error: splitTxnError } = await supabase.from("pos_transactions").insert({
+          restaurant_id: restaurantId,
+          order_id: order?.id || null,
+          kitchen_order_id: kitchenOrder?.id || null,
+          amount: subtotal,
+          payment_method: "split",
+          split_payments: splitPaymentsData,
+          status: "pending",
+          customer_name: finalCustomerName || null,
+          customer_phone: customerPhone || null,
+          staff_id: user?.id || null,
+          discount_amount: 0,
+        });
+        if (splitTxnError) throw splitTxnError;
+      }
+
       if (kitchenOrder?.id && order?.id) {
-        supabase.from("kitchen_orders").update({ order_id: order.id }).eq("id", kitchenOrder.id);
+        const { error: linkError } = await supabase
+          .from("kitchen_orders")
+          .update({ order_id: order.id })
+          .eq("id", kitchenOrder.id);
+        if (linkError) {
+          console.error("❌ Critical: split kitchen→order link failed:", linkError);
+          throw linkError;
+        }
+        pendingSplitLinkRef.current = null;
       }
       setOrderNumber(nextOrderNumber);
       setCreatedOrderId(order?.id || null);
@@ -1342,9 +2131,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                   {isOfflineOrder ? "Offline Token" : "Token Number"}
                 </p>
                 <p className="text-3xl font-black text-center tracking-wider">
-                  {isOfflineOrder
-                    ? `#${String(orderNumber).slice(-4)}`
-                    : `#${String(orderNumber).padStart(3, "0")}`}
+                  #{String(orderNumber).padStart(3, "0")}
                 </p>
                 {isOfflineOrder && (
                   <p className="text-[10px] text-white/60 text-center mt-0.5">
@@ -1354,8 +2141,10 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               </div>
             )}
 
-            {/* UPI QR Code — show on success (skip for pay_later) */}
-            {!isOfflineOrder && selectedMethod !== "pay_later" && (
+            {/* UPI QR Code — show on success online & offline pending UPI (skip for pay_later / nc / confirmed offline) */}
+            {selectedMethod !== "pay_later" &&
+              selectedMethod !== "nc" &&
+              (!isOfflineOrder || !paymentConfirmed) && (
               <div className="w-full bg-gradient-to-b from-purple-50 to-white dark:from-purple-500/10 dark:to-gray-900 border border-purple-200 dark:border-purple-500/20 rounded-xl p-4 mb-4">
                 <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 text-center uppercase tracking-wider mb-3">
                   {upiId ? "Customer can scan to pay" : "Payment QR Code"}
@@ -1367,6 +2156,11 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                       alt="UPI Payment QR"
                       className="w-full h-full object-contain"
                     />
+                  </div>
+                ) : !upiId ? (
+                  <div className="w-56 h-56 mx-auto bg-white rounded-lg flex flex-col items-center justify-center p-4 text-center mb-2">
+                    <QrCode className="h-12 w-12 text-gray-300 mb-2" />
+                    <p className="text-xs text-gray-500">UPI ID not configured</p>
                   </div>
                 ) : (
                   <div className="w-56 h-56 mx-auto bg-white rounded-lg flex items-center justify-center mb-2">
@@ -1404,33 +2198,101 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
             )}
 
             {/* ─── Mark as Paid Button (above bill sharing) ─── */}
-            {!isOfflineOrder && !paymentConfirmed && selectedMethod !== "pay_later" && (
+            {!paymentConfirmed &&
+              selectedMethod !== "pay_later" &&
+              selectedMethod !== "nc" && (
               <button
                 onClick={async () => {
                   if (!createdOrderId) return;
                   // ✅ Prevent double-click: disable immediately
                   setPaymentConfirmed(true);
                   try {
-                    const { error } = await supabase
-                      .from("orders")
-                      .update({ payment_status: "paid" })
-                      .eq("id", createdOrderId);
-                    if (error) throw error;
+                    if (isOfflineOrder || isOfflineNow) {
+                      if (!restaurantId) throw new Error("No restaurant ID");
+                      const nowIso = new Date().toISOString();
+                      const local = await getLocalOrder(createdOrderId);
 
-                    // Also update ONLY pending pos_transactions status to completed
-                    await supabase
-                      .from("pos_transactions")
-                      .update({ status: "completed" })
-                      .eq("order_id", createdOrderId)
-                      .eq("status", "pending");
+                      await enqueueWrite(
+                        "order",
+                        {
+                          id: createdOrderId,
+                          payment_status: "paid",
+                          payment_method: selectedMethod || "upi",
+                          updated_at: nowIso,
+                        },
+                        "update",
+                      );
+                      await enqueueWrite(
+                        "pos_transaction_clear_pending",
+                        { order_id: createdOrderId },
+                        "delete",
+                      );
+                      await enqueueWrite(
+                        "pos_transaction",
+                        {
+                          id: `${createdOrderId}_markpaid`,
+                          restaurant_id: restaurantId,
+                          order_id: createdOrderId,
+                          amount: additionalDue,
+                          payment_method: selectedMethod || "upi",
+                          status: "completed",
+                          customer_name: customerName.trim() || "Walk-in Customer",
+                          customer_phone: customerPhone || null,
+                          staff_id: user?.id || null,
+                          discount_amount: 0,
+                          ...(selectedMethod === "split" && {
+                            split_payments: [
+                              ...(parseFloat(splitCash) > 0 ? [{ method: "cash", amount: parseFloat(splitCash) }] : []),
+                              ...(parseFloat(splitUpi) > 0 ? [{ method: "upi", amount: parseFloat(splitUpi) }] : []),
+                              ...(parseFloat(splitCard) > 0 ? [{ method: "card", amount: parseFloat(splitCard) }] : []),
+                            ],
+                          }),
+                          created_at: nowIso,
+                          updated_at: nowIso,
+                        },
+                        "insert",
+                      );
+
+                      if (local) {
+                        const basePaid =
+                          typeof local.paidAmount === "number"
+                            ? local.paidAmount
+                            : alreadyPaid;
+                        await saveLocalOrder({
+                          ...local,
+                          paymentStatus: "paid",
+                          paidAmount: basePaid + additionalDue,
+                          updatedAt: nowIso,
+                          synced: false,
+                        });
+                      }
+
+                      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+                      queryClient.invalidateQueries({ queryKey: ["quickserve-order-history"] });
+                      queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
+                      queryClient.invalidateQueries({ queryKey: ["quickserve-todays-revenue"] });
+                    } else {
+                      const { error } = await supabase
+                        .from("orders")
+                        .update({ payment_status: "paid" })
+                        .eq("id", createdOrderId);
+                      if (error) throw error;
+
+                      // Also update ONLY pending pos_transactions status to completed
+                      await supabase
+                        .from("pos_transactions")
+                        .update({ status: "completed" })
+                        .eq("order_id", createdOrderId)
+                        .eq("status", "pending");
+                    }
 
                     toast({
                       title: "Payment Confirmed ✓",
                       description: `${currencySymbol}${additionalDue.toFixed(2)} marked as paid via ${selectedMethod?.toUpperCase()}`,
                     });
 
-                    // Fire WhatsApp bill in background if customer phone exists
-                    if (customerPhone && restaurantDetails) {
+                    // Fire WhatsApp bill in background if customer phone exists (online only)
+                    if (!isOfflineOrder && !isOfflineNow && customerPhone && restaurantDetails) {
                       handleSendWhatsAppBill();
                     }
 
@@ -1455,6 +2317,16 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                 </span>
               </button>
             )}
+
+            {/* Thermal / Browser Bill Print Button (works online & offline) */}
+            <Button
+              onClick={() => handlePrintBill()}
+              disabled={isPrintingBill}
+              className="w-full max-w-xs h-11 rounded-xl font-bold text-sm transition-all active:scale-95 mt-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md"
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              {isPrintingBill ? "Printing..." : "Print Bill"}
+            </Button>
 
             {/* Actions Container - Updated for MSG91 Integration */}
             {customerPhone && !isOfflineOrder && (
@@ -1590,7 +2462,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
               const upiAmt = parseFloat(splitUpi) || 0;
               const cardAmt = parseFloat(splitCard) || 0;
               const splitSum = cashAmt + upiAmt + cardAmt;
-              const remaining = parseFloat((subtotal - splitSum).toFixed(2));
+              const remaining = parseFloat((additionalDue - splitSum).toFixed(2));
               const isValid = Math.abs(remaining) < 0.01 && splitSum > 0;
               return (
                 <div className="p-5 space-y-3">
@@ -1601,7 +2473,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                     >
                       ← Back
                     </button>
-                    <p className="text-xs uppercase tracking-wider text-orange-600 dark:text-orange-400 font-bold">Split Payment — {currencySymbol}{subtotal.toFixed(2)}</p>
+                    <p className="text-xs uppercase tracking-wider text-orange-600 dark:text-orange-400 font-bold">Split Payment — {currencySymbol}{additionalDue.toFixed(2)}</p>
                   </div>
 
                   {/* Cash */}
@@ -1678,7 +2550,7 @@ export const QSPaymentSheet: React.FC<QSPaymentSheetProps> = ({
                   >
                     {status === "processing"
                       ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Processing...</span>
-                      : `Confirm Split — ${currencySymbol}${subtotal.toFixed(2)}`
+                      : `Confirm Split — ${currencySymbol}${additionalDue.toFixed(2)}`
                     }
                   </button>
                 </div>

@@ -200,17 +200,18 @@ export const useKitchenTVOrders = (restaurantId: string | null, pin: string | nu
 
     fetchOrders(false);
 
-    // Polling fallback
+    // Polling fallback: 60s for direct query (handled by realtime), 30s for PIN mode
+    const pollTime = useDirectQuery ? 60000 : 30000;
     const interval = setInterval(() => {
       fetchOrders(true);
-    }, 5000);
+    }, pollTime);
 
     // Realtime subscription (Direct query mode only!)
     // If using PIN, user lacks RLS permissions to subscribe to the table
     let channel: any = null;
     if (useDirectQuery) {
       channel = supabase
-        .channel("tv_kitchen_orders_changes")
+        .channel(`tv_kitchen_orders_${restaurantId}`)
         .on(
           "postgres_changes",
           {

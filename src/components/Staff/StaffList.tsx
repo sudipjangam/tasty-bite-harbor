@@ -66,7 +66,7 @@ const StaffList: React.FC<StaffListProps> = ({
     if (!restaurantId) return;
 
     const channel = supabase
-      .channel('staff-changes')
+      .channel(`staff-changes-${restaurantId}`)
       .on(
         'postgres_changes',
         {

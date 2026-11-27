@@ -148,8 +148,6 @@ const Routes = () => {
         <Route path="/shipping" element={<ShippingPolicy />} />
         <Route path="/delete-account" element={<DeleteAccount />} />
         <Route path="/order/:encodedData" element={<CustomerOrder />} />
-      <Route path="/qr/:restaurantSlug/:tableIdentifier" element={<CustomerOrder />} />
-      <Route path="/qr/:restaurantSlug" element={<CustomerOrder />} />
         <Route path="/qr/:restaurantSlug/:tableIdentifier" element={<CustomerOrder />} />
         <Route path="/qr/:restaurantSlug" element={<CustomerOrder />} />
         <Route path="/bill/:encodedData" element={<PublicBillPage />} />

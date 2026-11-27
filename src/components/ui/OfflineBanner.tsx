@@ -50,14 +50,14 @@ export function OfflineBanner() {
         )}
       </div>
 
-      {!isOnline && (
+      {pendingCount > 0 && (
         <button
           onClick={triggerSync}
-          className="flex items-center gap-1 text-xs underline underline-offset-2 opacity-80 hover:opacity-100"
-          title="Retry sync"
+          className="flex items-center gap-1 text-xs underline underline-offset-2 opacity-90 hover:opacity-100"
+          title="Sync pending orders now"
         >
           <RefreshCw className="h-3 w-3" />
-          Retry
+          {isOnline ? "Sync Now" : "Retry"}
         </button>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Search,
@@ -32,6 +32,7 @@ import {
 import type { OrderItem as GlobalOrderItem } from "@/types/orders";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
 import AdaptivePaymentDialog from "./POS/AdaptivePaymentDialog";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -54,6 +55,7 @@ interface ActiveOrder {
   updated_at?: string;
   discount_amount?: number;
   discount_percentage?: number;
+  discount_unavailable?: boolean;
   item_completion_status?: boolean[];
 }
 
@@ -120,6 +122,8 @@ const ActiveOrdersList = ({
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
   const { user } = useAuth();
+  const { restaurantId: hookRestaurantId, restaurantName: hookRestaurantName } =
+    useRestaurantId();
 
   // Check if user has admin/manager/owner role
   const canViewSensitiveData =
@@ -127,222 +131,1034 @@ const ActiveOrdersList = ({
     user?.role?.toLowerCase() === "manager" ||
     user?.role?.toLowerCase() === "owner";
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const enrichmentSeq = useRef(0);
+  const orderVersions = useRef(new Map<string, number>());
+  const manualRetryRef = useRef<(() => void) | null>(null);
+  const selectedOrderIdRef = useRef<string | null>(null);
+  selectedOrderIdRef.current = selectedOrder?.id ?? null;
+  const dialogRefreshSeqRef = useRef(0);
+
   useEffect(() => {
-    const fetchActiveOrders = async () => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("restaurant_id")
-        .eq("id", (await supabase.auth.getUser()).data.user?.id)
-        .maybeSingle();
+    let isCancelled = false;
+    let channel: any = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let postSubSyncTimer: ReturnType<typeof setTimeout> | null = null;
+    const activeOrderVersions = orderVersions.current;
+    activeOrderVersions.clear();
+    setActiveOrders([]);
+    setSelectedOrder(null);
+    if (hookRestaurantName) {
+      setRestaurantName(hookRestaurantName);
+    }
 
-      if (!profile?.restaurant_id) return;
-
-      // Fetch restaurant name
-      const { data: restaurant } = await supabase
-        .from("restaurants")
-        .select("name")
-        .eq("id", profile.restaurant_id)
-        .maybeSingle();
-
-      if (restaurant?.name) {
-        setRestaurantName(restaurant.name);
-      }
-
-      // Build query based on status filter
-      let query = supabase
-        .from("kitchen_orders")
-        .select(
-          `
-          *,
-          orders!kitchen_orders_order_id_fkey (
-            discount_amount,
-            discount_percentage
-          )
-        `,
-        )
-        .eq("restaurant_id", profile.restaurant_id);
-
-      // Apply status filter - "all" shows everything, otherwise filter by specific status
-      if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
-      }
-      // Note: When statusFilter is "all", no status filter is applied - shows all orders
-
-      const { data: orders } = await query.order("created_at", {
-        ascending: false,
-      });
-
-      if (orders) {
-        const formattedOrders: ActiveOrder[] = orders.map((order) => {
-          const orderData = order.orders as any;
-          return {
-            id: order.id,
-            source: order.source,
-            status: order.status as
-              | "new"
-              | "preparing"
-              | "ready"
-              | "completed"
-              | "held",
-            priority: (order.priority as "normal" | "rush" | "vip") || "normal",
-            items: parseOrderItems(order.items),
-            created_at: order.created_at,
-            updated_at: order.updated_at,
-            discount_amount: orderData?.discount_amount || 0,
-            discount_percentage: orderData?.discount_percentage || 0,
-            item_completion_status: Array.isArray(order.item_completion_status)
-              ? order.item_completion_status
-              : [],
-          };
-        });
-
-        setActiveOrders(formattedOrders);
+    const clearRetryTimer = () => {
+      if (retryTimer !== null) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
       }
     };
 
-    fetchActiveOrders();
+    const clearPostSubTimer = () => {
+      if (postSubSyncTimer !== null) {
+        clearTimeout(postSubSyncTimer);
+        postSubSyncTimer = null;
+      }
+    };
 
-    // Real-time subscription for kitchen order changes
+    const issueOrderToken = (orderId: string): number => {
+      enrichmentSeq.current += 1;
+      const token = enrichmentSeq.current;
+      activeOrderVersions.set(orderId, token);
+      return token;
+    };
 
-    const channel = supabase
-      .channel("kitchen-orders-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "kitchen_orders",
-        },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
+    const consumeOrderToken = (orderId: string, token: number): boolean => {
+      if (isCancelled || activeOrderVersions.get(orderId) !== token) {
+        return false;
+      }
+      activeOrderVersions.delete(orderId);
+      return true;
+    };
+
+    const supersedeOrderToken = (orderId: string) => {
+      activeOrderVersions.delete(orderId);
+    };
+
+    const fetchOrderDiscounts = async (
+      orderIdRef: string,
+      kitchenRowId?: string,
+      maxAttempts = 2,
+    ): Promise<{
+      discount_amount?: number;
+      discount_percentage?: number;
+      discount_unavailable?: boolean;
+      items?: Json;
+      item_completion_status?: boolean[] | null;
+    } | null> => {
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        // H-16: Read kitchen_orders items/completion and linked order discount from same query revision
+        if (kitchenRowId) {
+          const { data, error } = await supabase
+            .from("kitchen_orders")
+            .select(
+              "order_id, items, item_completion_status, orders!kitchen_orders_order_id_fkey(discount_amount, discount_percentage)",
+            )
+            .eq("id", kitchenRowId)
+            .maybeSingle();
+          if (!error) {
+            const ord = (data as any)?.orders;
+            const unavailable = Boolean((data as any)?.order_id && !ord);
+            return {
+              items: data?.items,
+              item_completion_status: Array.isArray(data?.item_completion_status)
+                ? (data.item_completion_status as boolean[])
+                : undefined,
+              discount_amount: unavailable ? undefined : (ord?.discount_amount ?? 0),
+              discount_percentage: unavailable ? undefined : (ord?.discount_percentage ?? 0),
+              discount_unavailable: unavailable,
+            };
+          }
+          lastError = error;
+        } else {
+          const { data, error } = await supabase
+            .from("orders")
+            .select("discount_amount, discount_percentage")
+            .eq("id", orderIdRef)
+            .maybeSingle();
+          if (!error) return data;
+          lastError = error;
+        }
+        if (attempt + 1 < maxAttempts) {
+          await new Promise((res) => setTimeout(res, 250 * (attempt + 1)));
+        }
+      }
+      throw lastError;
+    };
+
+    const fetchActiveOrders = async () => {
+      let resolvedRestaurantId: string | null = hookRestaurantId || null;
+      let snapshotInFlight = false;
+      let activeSnapshotPromise: Promise<void> | null = null;
+      let queuedReload = false;
+      let bufferedEvents: any[] = [];
+      let retryAttempt = 0;
+      const MAX_LOAD_RETRIES = 3;
+      let sawPostgresReady = false;
+
+      const scheduleDiscountUpdate = (
+        rowId: string,
+        linkedOrderId: string,
+        rawItems: Json,
+        token: number,
+      ) => {
+        fetchOrderDiscounts(linkedOrderId, rowId)
+          .then((revData) => {
+            if (!consumeOrderToken(rowId, token)) return;
+            const resolvedItems =
+              revData?.items !== undefined ? revData.items : rawItems;
+            const isUnavailable = Boolean(revData?.discount_unavailable);
+            setActiveOrders((prev) =>
+              prev.map((order) =>
+                order.id === rowId
+                  ? {
+                      ...order,
+                      items: parseOrderItems(resolvedItems),
+                      ...(revData && {
+                        item_completion_status:
+                          revData.item_completion_status ?? [],
+                      }),
+                      discount_amount: isUnavailable
+                        ? undefined
+                        : (revData?.discount_amount ?? 0),
+                      discount_percentage: isUnavailable
+                        ? undefined
+                        : (revData?.discount_percentage ?? 0),
+                      discount_unavailable: isUnavailable,
+                    }
+                  : order,
+              ),
+            );
+          })
+          .catch(() => {
+            if (!consumeOrderToken(rowId, token)) return;
+            setActiveOrders((prev) =>
+              prev.map((order) =>
+                order.id === rowId
+                  ? {
+                      ...order,
+                      items: parseOrderItems(rawItems),
+                      discount_amount: undefined,
+                      discount_percentage: undefined,
+                      discount_unavailable: true,
+                    }
+                  : order,
+              ),
+            );
+          });
+      };
+
+      const scheduleNewOrderEnrichment = (
+        newOrder: any,
+        token: number,
+      ) => {
+        const publishInserted = (
+          orderData?: {
+            discount_amount?: number;
+            discount_percentage?: number;
+            discount_unavailable?: boolean;
+            items?: Json;
+            item_completion_status?: boolean[] | null;
+          } | null,
+          discountUnavailable = false,
+        ) => {
+          const isUnavailable = discountUnavailable || Boolean(orderData?.discount_unavailable);
+          const resolvedItems =
+            orderData?.items !== undefined
+              ? parseOrderItems(orderData.items)
+              : parseOrderItems(newOrder.items);
+          const resolvedCompletion = Array.isArray(orderData?.item_completion_status)
+            ? orderData.item_completion_status
+            : Array.isArray(newOrder.item_completion_status)
+              ? newOrder.item_completion_status
+              : [];
+          const formattedOrder: ActiveOrder = {
+            id: newOrder.id,
+            source: newOrder.source,
+            status: newOrder.status,
+            priority: (newOrder.priority as "normal" | "rush" | "vip") || "normal",
+            items: resolvedItems,
+            created_at: newOrder.created_at,
+            updated_at: newOrder.updated_at,
+            discount_amount: isUnavailable ? undefined : orderData?.discount_amount || 0,
+            discount_percentage: isUnavailable ? undefined : orderData?.discount_percentage || 0,
+            discount_unavailable: isUnavailable,
+            item_completion_status: resolvedCompletion,
+          };
+
+          setActiveOrders((prev) => {
+            if (prev.some((o) => o.id === formattedOrder.id)) {
+              return prev.map((o) => (o.id === formattedOrder.id ? formattedOrder : o));
+            }
+            return [formattedOrder, ...prev];
+          });
+        };
+
+        fetchOrderDiscounts(newOrder.order_id, newOrder.id)
+          .then((orderData) => {
+            if (!consumeOrderToken(newOrder.id, token)) return;
+            publishInserted(orderData, false);
+          })
+          .catch(() => {
+            if (!consumeOrderToken(newOrder.id, token)) return;
+            publishInserted(null, true);
+          });
+      };
+
+      const reconcileSnapshotWithEvents = (
+        snapshotOrders: ActiveOrder[],
+        events: any[],
+      ): ActiveOrder[] => {
+        let next = [...snapshotOrders];
+        for (const payload of events) {
+          if (payload.eventType === "INSERT" && payload.new) {
             const newOrder = payload.new;
-
-            const handleNewOrder = (orderData?: { discount_amount?: number; discount_percentage?: number } | null) => {
-              const formattedOrder: ActiveOrder = {
+            const matches = statusFilter === "all" || newOrder.status === statusFilter;
+            if (!matches) continue;
+            if (newOrder.order_id) {
+              const existingIdx = next.findIndex((o) => o.id === newOrder.id);
+              if (existingIdx === -1) {
+                const token = issueOrderToken(newOrder.id);
+                next = [
+                  {
+                    id: newOrder.id,
+                    source: newOrder.source,
+                    status: newOrder.status,
+                    priority: (newOrder.priority as "normal" | "rush" | "vip") || "normal",
+                    items: parseOrderItems(newOrder.items),
+                    created_at: newOrder.created_at,
+                    updated_at: newOrder.updated_at,
+                    discount_unavailable: true,
+                    item_completion_status: Array.isArray(newOrder.item_completion_status)
+                      ? newOrder.item_completion_status
+                      : [],
+                  },
+                  ...next,
+                ];
+                scheduleNewOrderEnrichment(newOrder, token);
+              }
+            } else {
+              const formatted: ActiveOrder = {
                 id: newOrder.id,
                 source: newOrder.source,
-                status: newOrder.status as
-                  | "new"
-                  | "preparing"
-                  | "ready"
-                  | "completed"
-                  | "held",
-                priority:
-                  (newOrder.priority as "normal" | "rush" | "vip") ||
-                  "normal",
+                status: newOrder.status,
+                priority: (newOrder.priority as "normal" | "rush" | "vip") || "normal",
                 items: parseOrderItems(newOrder.items),
                 created_at: newOrder.created_at,
                 updated_at: newOrder.updated_at,
-                discount_amount: orderData?.discount_amount || 0,
-                discount_percentage: orderData?.discount_percentage || 0,
-                item_completion_status: Array.isArray(
-                  newOrder.item_completion_status,
-                )
+                discount_amount: 0,
+                discount_percentage: 0,
+                discount_unavailable: false,
+                item_completion_status: Array.isArray(newOrder.item_completion_status)
                   ? newOrder.item_completion_status
                   : [],
               };
-
-              setActiveOrders((prev) => [formattedOrder, ...prev]);
-            };
-
-            // Fetch the discount information from orders table if linked
-            if (newOrder.order_id) {
-              supabase
-                .from("orders")
-                .select("discount_amount, discount_percentage")
-                .eq("id", newOrder.order_id)
-                .maybeSingle()
-                .then(({ data: orderData }) => {
-                  handleNewOrder(orderData);
-                });
-            } else {
-              handleNewOrder(null);
+              const idx = next.findIndex((o) => o.id === formatted.id);
+              if (idx === -1) next = [formatted, ...next];
             }
-          } else if (payload.eventType === "UPDATE") {
-            const updatedOrder = payload.new;
+          } else if (payload.eventType === "UPDATE" && payload.new) {
+            const u = payload.new;
+            const matches = statusFilter === "all" || u.status === statusFilter;
+            const idx = next.findIndex((o) => o.id === u.id);
+            // H-17: Preserve newer snapshot when an older buffered event arrives
+            if (idx >= 0) {
+              const existing = next[idx];
+              const existingTs = existing.updated_at ? new Date(existing.updated_at).getTime() : 0;
+              const eventTs = u.updated_at ? new Date(u.updated_at).getTime() : 0;
+              if (existingTs && eventTs && eventTs < existingTs) {
+                continue;
+              }
+            }
+            if (!matches) {
+              supersedeOrderToken(u.id);
+              next = next.filter((o) => o.id !== u.id);
+              continue;
+            }
+            if (idx >= 0) {
+              const existing = next[idx];
+              // H-18: Always keep items and item_completion_status from same revision
+              next[idx] = {
+                ...existing,
+                source: u.source,
+                status: u.status,
+                priority: (u.priority as any) || "normal",
+                items: parseOrderItems(u.items),
+                ...(u.order_id
+                  ? {
+                      discount_amount: undefined,
+                      discount_percentage: undefined,
+                      discount_unavailable: true,
+                    }
+                  : {
+                      discount_amount: 0,
+                      discount_percentage: 0,
+                      discount_unavailable: false,
+                    }),
+                created_at: u.created_at,
+                updated_at: u.updated_at,
+                item_completion_status: Array.isArray(u.item_completion_status)
+                  ? u.item_completion_status
+                  : [],
+              };
+            } else {
+              next = [
+                {
+                  id: u.id,
+                  source: u.source,
+                  status: u.status,
+                  priority: (u.priority as any) || "normal",
+                  items: parseOrderItems(u.items),
+                  created_at: u.created_at,
+                  updated_at: u.updated_at,
+                  ...(u.order_id
+                    ? { discount_unavailable: true }
+                    : {
+                        discount_amount: 0,
+                        discount_percentage: 0,
+                        discount_unavailable: false,
+                      }),
+                  item_completion_status: Array.isArray(u.item_completion_status)
+                    ? u.item_completion_status
+                    : [],
+                },
+                ...next,
+              ];
+            }
+            if (u.order_id) {
+              const token = issueOrderToken(u.id);
+              scheduleDiscountUpdate(u.id, u.order_id, u.items, token);
+            } else {
+              supersedeOrderToken(u.id);
+            }
+          } else if (payload.eventType === "DELETE" && payload.old?.id) {
+            supersedeOrderToken(payload.old.id);
+            next = next.filter((o) => o.id !== payload.old.id);
+          }
+        }
+        return next.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
+      };
 
-            const applyUpdate = (orderData?: { discount_amount?: number; discount_percentage?: number } | null) => {
-              setActiveOrders((prev) => {
-                const updatedOrders = prev.map((order) =>
-                  order.id === updatedOrder.id
-                    ? {
-                        ...order,
+      const ensureSubscription = () => {
+        if (channel || isCancelled || !resolvedRestaurantId) return;
+        channel = supabase
+          .channel(`kitchen-orders-active-${resolvedRestaurantId}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "kitchen_orders",
+              filter: `restaurant_id=eq.${resolvedRestaurantId}`,
+            },
+            (payload) => {
+              if (isCancelled) return;
+
+              if (
+                payload.eventType === "INSERT" &&
+                payload.new?.status === "new" &&
+                (statusFilter === "all" || payload.new.status === statusFilter)
+              ) {
+                toast({
+                  title: "New Order Received!",
+                  description: `Order from ${payload.new.source}`,
+                });
+              }
+
+              if (snapshotInFlight) {
+                bufferedEvents.push(payload);
+                return;
+              }
+
+              if (payload.eventType === "INSERT") {
+                const newOrder = payload.new;
+
+                if (statusFilter !== "all" && newOrder.status !== statusFilter) {
+                  return;
+                }
+
+                const handleNewOrder = (
+                  orderData?: {
+                    discount_amount?: number;
+                    discount_percentage?: number;
+                    discount_unavailable?: boolean;
+                    items?: Json;
+                    item_completion_status?: boolean[] | null;
+                  } | null,
+                ) => {
+                  if (isCancelled) return;
+                  const isUnavailable = Boolean(orderData?.discount_unavailable);
+                  const resolvedItems =
+                    orderData?.items !== undefined
+                      ? parseOrderItems(orderData.items)
+                      : parseOrderItems(newOrder.items);
+                  const resolvedCompletion = Array.isArray(
+                    orderData?.item_completion_status,
+                  )
+                    ? orderData.item_completion_status
+                    : Array.isArray(newOrder.item_completion_status)
+                      ? newOrder.item_completion_status
+                      : [];
+                  const formattedOrder: ActiveOrder = {
+                    id: newOrder.id,
+                    source: newOrder.source,
+                    status: newOrder.status as
+                      | "new"
+                      | "preparing"
+                      | "ready"
+                      | "completed"
+                      | "held",
+                    priority:
+                      (newOrder.priority as "normal" | "rush" | "vip") ||
+                      "normal",
+                    items: resolvedItems,
+                    created_at: newOrder.created_at,
+                    updated_at: newOrder.updated_at,
+                    discount_amount: isUnavailable
+                      ? undefined
+                      : orderData?.discount_amount || 0,
+                    discount_percentage: isUnavailable
+                      ? undefined
+                      : orderData?.discount_percentage || 0,
+                    discount_unavailable: isUnavailable,
+                    item_completion_status: resolvedCompletion,
+                  };
+
+                  setActiveOrders((prev) => {
+                    if (prev.some((o) => o.id === formattedOrder.id)) {
+                      return prev.map((o) =>
+                        o.id === formattedOrder.id ? formattedOrder : o,
+                      );
+                    }
+                    return [formattedOrder, ...prev];
+                  });
+                };
+
+                if (newOrder.order_id) {
+                  const insertToken = issueOrderToken(newOrder.id);
+                  fetchOrderDiscounts(newOrder.order_id, newOrder.id)
+                    .then((orderData) => {
+                      if (!consumeOrderToken(newOrder.id, insertToken)) return;
+                      handleNewOrder(orderData);
+                    })
+                    .catch(() => {
+                      if (!consumeOrderToken(newOrder.id, insertToken)) return;
+                      handleNewOrder({ discount_unavailable: true });
+                    });
+                } else {
+                  handleNewOrder();
+                }
+              } else if (payload.eventType === "UPDATE") {
+                const updatedOrder = payload.new;
+
+                if (
+                  statusFilter !== "all" &&
+                  updatedOrder.status !== statusFilter
+                ) {
+                  supersedeOrderToken(updatedOrder.id);
+                  setActiveOrders((prev) =>
+                    prev.filter((order) => order.id !== updatedOrder.id),
+                  );
+                  return;
+                }
+
+                setActiveOrders((prev) => {
+                  const existingIndex = prev.findIndex(
+                    (o) => o.id === updatedOrder.id,
+                  );
+
+                  if (existingIndex !== -1) {
+                    return prev.map((order) => {
+                      if (order.id !== updatedOrder.id) return order;
+                      return {
+                        id: updatedOrder.id,
                         source: updatedOrder.source,
-                        status: updatedOrder.status as
-                          | "new"
-                          | "preparing"
-                          | "ready"
-                          | "completed"
-                          | "held",
-                        priority:
-                          (updatedOrder.priority as
-                            | "normal"
-                            | "rush"
-                            | "vip") || "normal",
+                        status: updatedOrder.status as any,
+                        priority: (updatedOrder.priority as any) || "normal",
                         items: parseOrderItems(updatedOrder.items),
-                        discount_amount: orderData?.discount_amount ?? order.discount_amount,
-                        discount_percentage:
-                          orderData?.discount_percentage ?? order.discount_percentage,
+                        ...(updatedOrder.order_id
+                          ? {
+                              discount_amount: undefined,
+                              discount_percentage: undefined,
+                              discount_unavailable: true,
+                            }
+                          : {
+                              discount_amount: 0,
+                              discount_percentage: 0,
+                              discount_unavailable: false,
+                            }),
+                        created_at: updatedOrder.created_at,
+                        updated_at: updatedOrder.updated_at,
                         item_completion_status: Array.isArray(
                           updatedOrder.item_completion_status,
                         )
                           ? updatedOrder.item_completion_status
                           : [],
-                      }
-                    : order,
-                );
+                      };
+                    });
+                  }
 
-                // If status filter is not "all" and not "completed", filter out completed orders
-                if (
-                  statusFilter !== "all" &&
-                  statusFilter !== "completed"
-                ) {
-                  return updatedOrders.filter(
-                    (order) => order.status !== "completed",
+                  const formattedOrder: ActiveOrder = {
+                    id: updatedOrder.id,
+                    source: updatedOrder.source,
+                    status: updatedOrder.status as any,
+                    priority: (updatedOrder.priority as any) || "normal",
+                    items: parseOrderItems(updatedOrder.items),
+                    created_at: updatedOrder.created_at,
+                    updated_at: updatedOrder.updated_at,
+                    ...(updatedOrder.order_id
+                      ? { discount_unavailable: true }
+                      : {
+                          discount_amount: 0,
+                          discount_percentage: 0,
+                          discount_unavailable: false,
+                        }),
+                    item_completion_status: Array.isArray(
+                      updatedOrder.item_completion_status,
+                    )
+                      ? updatedOrder.item_completion_status
+                      : [],
+                  };
+                  return [formattedOrder, ...prev];
+                });
+
+                if (updatedOrder.order_id) {
+                  const currentVer = issueOrderToken(updatedOrder.id);
+                  scheduleDiscountUpdate(
+                    updatedOrder.id,
+                    updatedOrder.order_id,
+                    updatedOrder.items,
+                    currentVer,
                   );
+                } else {
+                  supersedeOrderToken(updatedOrder.id);
                 }
 
-                return updatedOrders;
-              });
-            };
+                if (updatedOrder.status === "ready") {
+                  toast({
+                    title: "Order Ready!",
+                    description: `Order from ${updatedOrder.source} is ready for pickup`,
+                  });
+                }
+              } else if (payload.eventType === "DELETE") {
+                if (isCancelled) return;
+                const deletedOrderId = payload.old?.id;
+                if (deletedOrderId) {
+                  supersedeOrderToken(deletedOrderId);
+                  setActiveOrders((prev) =>
+                    prev.filter((order) => order.id !== deletedOrderId),
+                  );
+                }
+              }
+            },
+          )
+          .on("system", {}, (sysPayload: any) => {
+            if (
+              sysPayload?.extension === "postgres_changes" &&
+              sysPayload?.status === "ok" &&
+              !isCancelled
+            ) {
+              sawPostgresReady = true;
+              clearPostSubTimer();
+              void loadOrders();
+            }
+          })
+          .subscribe((status) => {
+            if (status === "SUBSCRIBED" && !isCancelled) {
+              void loadOrders();
+              if (!sawPostgresReady && postSubSyncTimer === null) {
+                postSubSyncTimer = setTimeout(() => {
+                  postSubSyncTimer = null;
+                  if (!isCancelled) {
+                    void loadOrders();
+                  }
+                }, 350);
+              }
+            }
+          });
+      };
 
-            // Re-fetch discount data from the linked orders table
-            if (updatedOrder.order_id) {
-              supabase
-                .from("orders")
-                .select("discount_amount, discount_percentage")
-                .eq("id", updatedOrder.order_id)
-                .maybeSingle()
-                .then(({ data: orderData }) => {
-                  applyUpdate(orderData);
-                });
+      const loadOrders = async (): Promise<void> => {
+        if (snapshotInFlight && activeSnapshotPromise) {
+          queuedReload = true;
+          return activeSnapshotPromise;
+        }
+
+        clearRetryTimer();
+        snapshotInFlight = true;
+        bufferedEvents = [];
+
+        const run = async () => {
+          try {
+            // H-19: Resolve user/profile inside loadOrders so network failures retry & surface Retry UI
+            if (!resolvedRestaurantId) {
+              const userRes = await supabase.auth.getUser();
+              if (isCancelled) return;
+              const { data: profile, error: profileErr } = await supabase
+                .from("profiles")
+                .select("restaurant_id")
+                .eq("id", userRes.data.user?.id)
+                .maybeSingle();
+              if (profileErr) throw profileErr;
+              if (isCancelled) return;
+              if (!profile?.restaurant_id) {
+                throw new Error("No restaurant associated with this account");
+              }
+              resolvedRestaurantId = profile.restaurant_id;
+
+              const { data: restaurant } = await supabase
+                .from("restaurants")
+                .select("name")
+                .eq("id", resolvedRestaurantId)
+                .maybeSingle();
+              if (!isCancelled && restaurant?.name) {
+                setRestaurantName(restaurant.name);
+              }
+            }
+
+            // Build query based on status filter
+            let query = supabase
+              .from("kitchen_orders")
+              .select(
+                `
+            *,
+            orders!kitchen_orders_order_id_fkey (
+              discount_amount,
+              discount_percentage
+            )
+          `,
+              )
+              .eq("restaurant_id", resolvedRestaurantId);
+
+            // Apply status filter - "all" shows everything, otherwise filter by specific status
+            if (statusFilter !== "all") {
+              query = query.eq("status", statusFilter);
+            }
+
+            const { data: orders, error } = await query.order("created_at", {
+              ascending: false,
+            });
+            if (error) throw error;
+            if (isCancelled) return;
+
+            retryAttempt = 0;
+            setLoadError(null);
+            ensureSubscription();
+
+            // Invalidate any pending pre-snapshot enrichment lookups before accepting snapshot
+            activeOrderVersions.clear();
+
+            if (orders) {
+              const formattedOrders: ActiveOrder[] = orders.map((order) => {
+                const orderData = order.orders as any;
+                const discountUnavailable = Boolean(order.order_id && !orderData);
+                return {
+                  id: order.id,
+                  source: order.source,
+                  status: order.status as
+                    | "new"
+                    | "preparing"
+                    | "ready"
+                    | "completed"
+                    | "held",
+                  priority:
+                    (order.priority as "normal" | "rush" | "vip") || "normal",
+                  items: parseOrderItems(order.items),
+                  created_at: order.created_at,
+                  updated_at: order.updated_at,
+                  discount_amount: discountUnavailable ? undefined : orderData?.discount_amount || 0,
+                  discount_percentage: discountUnavailable ? undefined : orderData?.discount_percentage || 0,
+                  discount_unavailable: discountUnavailable,
+                  item_completion_status: Array.isArray(
+                    order.item_completion_status,
+                  )
+                    ? order.item_completion_status
+                    : [],
+                };
+              });
+
+              const eventsToReconcile = bufferedEvents;
+              bufferedEvents = [];
+
+              if (eventsToReconcile.length === 0) {
+                setActiveOrders(formattedOrders);
+              } else {
+                setActiveOrders(
+                  reconcileSnapshotWithEvents(formattedOrders, eventsToReconcile),
+                );
+              }
+            }
+          } catch (err) {
+            if (isCancelled) return;
+            console.error("[ActiveOrdersList] Failed to load orders:", err);
+            if (bufferedEvents.length > 0) {
+              const failedEvents = bufferedEvents;
+              bufferedEvents = [];
+              setActiveOrders((prev) =>
+                reconcileSnapshotWithEvents(prev, failedEvents),
+              );
             } else {
-              applyUpdate(null);
+              bufferedEvents = [];
+            }
+            retryAttempt += 1;
+            if (retryAttempt <= MAX_LOAD_RETRIES) {
+              const delayMs = 1000 * Math.pow(2, retryAttempt - 1);
+              retryTimer = setTimeout(() => {
+                retryTimer = null;
+                if (!isCancelled) {
+                  void loadOrders();
+                }
+              }, delayMs);
+            } else {
+              setLoadError("Unable to load active orders. Please retry.");
+            }
+          } finally {
+            snapshotInFlight = false;
+            bufferedEvents = [];
+            activeSnapshotPromise = null;
+            if (queuedReload && !isCancelled) {
+              queuedReload = false;
+              void loadOrders();
+            }
+          }
+        };
+
+        activeSnapshotPromise = run();
+        return activeSnapshotPromise;
+      };
+
+      manualRetryRef.current = () => {
+        if (isCancelled) return;
+        retryAttempt = 0;
+        setLoadError(null);
+        clearRetryTimer();
+        void loadOrders();
+      };
+
+      await loadOrders();
+      if (isCancelled || !resolvedRestaurantId) return;
+
+      // Real-time subscription scoped to restaurant_id (Egress & log optimization)
+      channel = supabase
+        .channel(`kitchen-orders-active-${resolvedRestaurantId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "kitchen_orders",
+            filter: `restaurant_id=eq.${resolvedRestaurantId}`,
+          },
+          (payload) => {
+            if (isCancelled) return;
+
+            if (snapshotInFlight) {
+              bufferedEvents.push(payload);
+              return;
             }
 
-            if (updatedOrder.status === "ready") {
-              toast({
-                title: "Order Ready!",
-                description: `Order from ${updatedOrder.source} is ready for pickup`,
+            if (payload.eventType === "INSERT") {
+              const newOrder = payload.new;
+
+              // If statusFilter is active, ignore new orders not matching current filter
+              if (statusFilter !== "all" && newOrder.status !== statusFilter) {
+                return;
+              }
+
+              const handleNewOrder = (
+                orderData?: {
+                  discount_amount?: number;
+                  discount_percentage?: number;
+                  discount_unavailable?: boolean;
+                  items?: Json;
+                  item_completion_status?: boolean[] | null;
+                } | null,
+              ) => {
+                if (isCancelled) return;
+                const isUnavailable = Boolean(orderData?.discount_unavailable);
+                const resolvedItems =
+                  orderData?.items !== undefined
+                    ? parseOrderItems(orderData.items)
+                    : parseOrderItems(newOrder.items);
+                const resolvedCompletion = Array.isArray(
+                  orderData?.item_completion_status,
+                )
+                  ? orderData.item_completion_status
+                  : Array.isArray(newOrder.item_completion_status)
+                    ? newOrder.item_completion_status
+                    : [];
+                const formattedOrder: ActiveOrder = {
+                  id: newOrder.id,
+                  source: newOrder.source,
+                  status: newOrder.status as
+                    | "new"
+                    | "preparing"
+                    | "ready"
+                    | "completed"
+                    | "held",
+                  priority:
+                    (newOrder.priority as "normal" | "rush" | "vip") ||
+                    "normal",
+                  items: resolvedItems,
+                  created_at: newOrder.created_at,
+                  updated_at: newOrder.updated_at,
+                  discount_amount: isUnavailable
+                    ? undefined
+                    : orderData?.discount_amount || 0,
+                  discount_percentage: isUnavailable
+                    ? undefined
+                    : orderData?.discount_percentage || 0,
+                  discount_unavailable: isUnavailable,
+                  item_completion_status: resolvedCompletion,
+                };
+
+                setActiveOrders((prev) => {
+                  if (prev.some((o) => o.id === formattedOrder.id)) {
+                    return prev.map((o) =>
+                      o.id === formattedOrder.id ? formattedOrder : o,
+                    );
+                  }
+                  return [formattedOrder, ...prev];
+                });
+              };
+
+              // Fetch the discount information from orders table if linked, guarded by per-order token
+              if (newOrder.order_id) {
+                const insertToken = issueOrderToken(newOrder.id);
+                fetchOrderDiscounts(newOrder.order_id, newOrder.id)
+                  .then((orderData) => {
+                    if (!consumeOrderToken(newOrder.id, insertToken)) return;
+                    handleNewOrder(orderData);
+                  })
+                  .catch(() => {
+                    if (!consumeOrderToken(newOrder.id, insertToken)) return;
+                    const formattedOrder: ActiveOrder = {
+                      id: newOrder.id,
+                      source: newOrder.source,
+                      status: newOrder.status as any,
+                      priority:
+                        (newOrder.priority as "normal" | "rush" | "vip") ||
+                        "normal",
+                      items: parseOrderItems(newOrder.items),
+                      created_at: newOrder.created_at,
+                      updated_at: newOrder.updated_at,
+                      discount_unavailable: true,
+                      item_completion_status: Array.isArray(
+                        newOrder.item_completion_status,
+                      )
+                        ? newOrder.item_completion_status
+                        : [],
+                    };
+                    setActiveOrders((prev) => {
+                      if (prev.some((o) => o.id === formattedOrder.id)) {
+                        return prev.map((o) =>
+                          o.id === formattedOrder.id ? formattedOrder : o,
+                        );
+                      }
+                      return [formattedOrder, ...prev];
+                    });
+                  });
+              } else {
+                supersedeOrderToken(newOrder.id);
+                handleNewOrder(null);
+              }
+            } else if (payload.eventType === "UPDATE") {
+              const updatedOrder = payload.new;
+              const matchesFilter =
+                statusFilter === "all" || updatedOrder.status === statusFilter;
+
+              if (!matchesFilter) {
+                supersedeOrderToken(updatedOrder.id);
+                setActiveOrders((prev) =>
+                  prev.filter((order) => order.id !== updatedOrder.id),
+                );
+                return;
+              }
+
+              // H-18: Apply items and item_completion_status together; mark discount unavailable while lookup resolves
+              setActiveOrders((prev) => {
+                const exists = prev.some(
+                  (order) => order.id === updatedOrder.id,
+                );
+                if (exists) {
+                  return prev.map((order) => {
+                    if (order.id !== updatedOrder.id) return order;
+                    return {
+                      ...order,
+                      source: updatedOrder.source,
+                      status: updatedOrder.status as any,
+                      priority: (updatedOrder.priority as any) || "normal",
+                      items: parseOrderItems(updatedOrder.items),
+                      ...(updatedOrder.order_id
+                        ? {
+                            discount_amount: undefined,
+                            discount_percentage: undefined,
+                            discount_unavailable: true,
+                          }
+                        : {
+                            discount_amount: 0,
+                            discount_percentage: 0,
+                            discount_unavailable: false,
+                          }),
+                      created_at: updatedOrder.created_at,
+                      updated_at: updatedOrder.updated_at,
+                      item_completion_status: Array.isArray(
+                        updatedOrder.item_completion_status,
+                      )
+                        ? updatedOrder.item_completion_status
+                        : [],
+                    };
+                  });
+                }
+
+                const formattedOrder: ActiveOrder = {
+                  id: updatedOrder.id,
+                  source: updatedOrder.source,
+                  status: updatedOrder.status as any,
+                  priority: (updatedOrder.priority as any) || "normal",
+                  items: parseOrderItems(updatedOrder.items),
+                  created_at: updatedOrder.created_at,
+                  updated_at: updatedOrder.updated_at,
+                  ...(updatedOrder.order_id
+                    ? { discount_unavailable: true }
+                    : {
+                        discount_amount: 0,
+                        discount_percentage: 0,
+                        discount_unavailable: false,
+                      }),
+                  item_completion_status: Array.isArray(
+                    updatedOrder.item_completion_status,
+                  )
+                    ? updatedOrder.item_completion_status
+                    : [],
+                };
+                return [formattedOrder, ...prev];
               });
-              // const audio = new Audio("/notification.mp3");
-              // audio.play().catch(console.error);
+
+              // Asynchronously enrich discount fields guarded by unique request token
+              if (updatedOrder.order_id) {
+                const currentVer = issueOrderToken(updatedOrder.id);
+                scheduleDiscountUpdate(
+                  updatedOrder.id,
+                  updatedOrder.order_id,
+                  updatedOrder.items,
+                  currentVer,
+                );
+              } else {
+                supersedeOrderToken(updatedOrder.id);
+              }
+
+              if (updatedOrder.status === "ready") {
+                toast({
+                  title: "Order Ready!",
+                  description: `Order from ${updatedOrder.source} is ready for pickup`,
+                });
+              }
+            } else if (payload.eventType === "DELETE") {
+              if (isCancelled) return;
+              const deletedOrderId = payload.old?.id;
+              if (deletedOrderId) {
+                supersedeOrderToken(deletedOrderId);
+                setActiveOrders((prev) =>
+                  prev.filter((order) => order.id !== deletedOrderId),
+                );
+              }
             }
-          } else if (payload.eventType === "DELETE") {
-            // Remove deleted order from UI immediately
-            const deletedOrderId = payload.old.id;
-            setActiveOrders((prev) =>
-              prev.filter((order) => order.id !== deletedOrderId),
-            );
+          },
+        )
+        .on("system", {}, (sysPayload: any) => {
+          if (
+            sysPayload?.extension === "postgres_changes" &&
+            sysPayload?.status === "ok" &&
+            !isCancelled
+          ) {
+            sawPostgresReady = true;
+            clearPostSubTimer();
+            void loadOrders();
           }
-        },
-      )
-      .subscribe();
+        })
+        .subscribe((status) => {
+          // Reconcile snapshot on SUBSCRIBED, plus a short post-join catch-up until Postgres Changes system ready confirms
+          if (status === "SUBSCRIBED" && !isCancelled) {
+            void loadOrders();
+            if (!sawPostgresReady && postSubSyncTimer === null) {
+              postSubSyncTimer = setTimeout(() => {
+                postSubSyncTimer = null;
+                if (!isCancelled) {
+                  void loadOrders();
+                }
+              }, 350);
+            }
+          }
+        });
+    };
+
+    fetchActiveOrders();
 
     return () => {
-      supabase.removeChannel(channel);
+      isCancelled = true;
+      clearRetryTimer();
+      clearPostSubTimer();
+      manualRetryRef.current = null;
+      orderVersions.current.clear();
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
-  }, [toast, statusFilter]);
+  }, [toast, statusFilter, hookRestaurantId, user?.id]);
 
   // Apply date filtering
   const getDateFilteredOrders = (orders: ActiveOrder[]) => {
@@ -387,8 +1203,11 @@ const ActiveOrdersList = ({
     }
   };
 
-  // Filter orders based on search term and date
+  // Filter orders based on status, search term and date (H-15: enforce statusFilter on cached/retained rows)
   const filteredOrders = getDateFilteredOrders(activeOrders).filter((order) => {
+    if (statusFilter !== "all" && order.status !== statusFilter) {
+      return false;
+    }
     // Filter by search term
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
@@ -490,13 +1309,19 @@ const ActiveOrdersList = ({
     }
 
     try {
-      // Calculate totals
-      const totalRevenue = filteredOrders.reduce(
+      const hasUnavailableDiscounts = filteredOrders.some(
+        (order) => order.discount_unavailable,
+      );
+      // Calculate totals only across orders with verified discount revisions
+      const verifiedOrders = filteredOrders.filter(
+        (order) => !order.discount_unavailable,
+      );
+      const totalRevenue = verifiedOrders.reduce(
         (sum, order) =>
           sum + calculateFinalTotal(order.items, order.discount_amount),
         0,
       );
-      const totalDiscount = filteredOrders.reduce(
+      const totalDiscount = verifiedOrders.reduce(
         (sum, order) => sum + (order.discount_amount || 0),
         0,
       );
@@ -509,14 +1334,18 @@ const ActiveOrdersList = ({
         [`Gross Total (${currencySymbol})`]: parseFloat(
           calculateOrderTotal(order.items).toFixed(2),
         ),
-        [`Discount (${currencySymbol})`]: order.discount_amount
-          ? `${order.discount_amount.toFixed(2)} (${
-              order.discount_percentage
-            }%)`
-          : "-",
-        [`Net Total (${currencySymbol})`]: parseFloat(
-          calculateFinalTotal(order.items, order.discount_amount).toFixed(2),
-        ),
+        [`Discount (${currencySymbol})`]: order.discount_unavailable
+          ? "Unavailable"
+          : order.discount_amount
+            ? `${order.discount_amount.toFixed(2)} (${
+                order.discount_percentage
+              }%)`
+            : "-",
+        [`Net Total (${currencySymbol})`]: order.discount_unavailable
+          ? "Unavailable"
+          : parseFloat(
+              calculateFinalTotal(order.items, order.discount_amount).toFixed(2),
+            ),
         Status: order.status as string,
         "Created Date": format(new Date(order.created_at), "yyyy-MM-dd"),
         "Created Time": format(new Date(order.created_at), "HH:mm:ss"),
@@ -541,8 +1370,12 @@ const ActiveOrdersList = ({
         Source: `Total Orders: ${filteredOrders.length}`,
         Items: "",
         [`Gross Total (${currencySymbol})`]: "" as any,
-        [`Discount (${currencySymbol})`]: parseFloat(totalDiscount.toFixed(2)),
-        [`Net Total (${currencySymbol})`]: parseFloat(totalRevenue.toFixed(2)),
+        [`Discount (${currencySymbol})`]: hasUnavailableDiscounts
+          ? "Partial (unavailable rows excluded)"
+          : parseFloat(totalDiscount.toFixed(2)),
+        [`Net Total (${currencySymbol})`]: hasUnavailableDiscounts
+          ? "Unavailable"
+          : parseFloat(totalRevenue.toFixed(2)),
         Status: "-",
         "Created Date": format(new Date(), "yyyy-MM-dd"),
         "Created Time": "",
@@ -683,6 +1516,19 @@ const ActiveOrdersList = ({
       </div>
 
       <div className="h-[calc(70vh-180px)] overflow-auto">
+        {loadError && (
+          <div className="mb-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive flex items-center justify-between gap-3 text-sm">
+            <span>{loadError}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => manualRetryRef.current?.()}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredOrders.length > 0 ? (
             filteredOrders.map((order) => {
@@ -694,7 +1540,10 @@ const ActiveOrdersList = ({
                     order.status,
                     allDelivered,
                   )}`}
-                  onClick={() => setSelectedOrder(order)}
+                  onClick={() => {
+                    dialogRefreshSeqRef.current += 1;
+                    setSelectedOrder(order);
+                  }}
                 >
                   <div className="flex flex-col h-full">
                     <div className="flex items-start justify-between mb-2">
@@ -766,11 +1615,17 @@ const ActiveOrdersList = ({
 
                     <div className="mt-2 pt-2 border-t flex justify-between items-center">
                       <div className="font-semibold text-sm">
-                        Total: {currencySymbol}
-                        {calculateFinalTotal(
-                          order.items,
-                          order.discount_amount,
-                        ).toFixed(2)}
+                        {order.discount_unavailable ? (
+                          <span className="text-amber-600">Total unavailable</span>
+                        ) : (
+                          <>
+                            Total: {currencySymbol}
+                            {calculateFinalTotal(
+                              order.items,
+                              order.discount_amount,
+                            ).toFixed(2)}
+                          </>
+                        )}
                       </div>
                       <div className="flex gap-1 flex-wrap">
                         {/* Priority Selector */}
@@ -871,7 +1726,10 @@ const ActiveOrdersList = ({
 
       <AdaptivePaymentDialog
         isOpen={!!selectedOrder}
-        onClose={() => setSelectedOrder(null)}
+        onClose={() => {
+          dialogRefreshSeqRef.current += 1;
+          setSelectedOrder(null);
+        }}
         orderItems={
           selectedOrder?.items
             ? selectedOrder.items.map((item) => ({
@@ -888,23 +1746,38 @@ const ActiveOrdersList = ({
           // Refresh orders - the realtime subscription will handle the list update,
           // but we can force a manual recall if needed, or close dialog.
           // Usually onSuccess means payment done or edits saved and finalized.
+          dialogRefreshSeqRef.current += 1;
           setSelectedOrder(null);
         }}
         onOrderUpdated={async () => {
           // When an item quantity is updated inside the dialog, we need to refresh
           // the current selectedOrder so the dialog doesn't close and shows waiting state.
           if (!selectedOrder) return;
+          const targetOrderId = selectedOrder.id;
+          dialogRefreshSeqRef.current += 1;
+          const refreshSeq = dialogRefreshSeqRef.current;
 
-          const { data: updatedOrder } = await supabase
+          const { data: updatedOrder, error: refreshErr } = await supabase
             .from("kitchen_orders")
             .select(
               "*, orders!kitchen_orders_order_id_fkey(discount_amount, discount_percentage)",
             )
-            .eq("id", selectedOrder.id)
+            .eq("id", targetOrderId)
             .maybeSingle();
+
+          if (
+            refreshErr ||
+            refreshSeq !== dialogRefreshSeqRef.current ||
+            selectedOrderIdRef.current !== targetOrderId
+          ) {
+            return;
+          }
 
           if (updatedOrder) {
             const orderData = updatedOrder.orders as any;
+            const discountUnavailable = Boolean(
+              updatedOrder.order_id && !orderData,
+            );
             const formattedOrder: ActiveOrder = {
               id: updatedOrder.id,
               source: updatedOrder.source,
@@ -912,8 +1785,13 @@ const ActiveOrdersList = ({
               items: parseOrderItems(updatedOrder.items),
               created_at: updatedOrder.created_at,
               updated_at: updatedOrder.updated_at,
-              discount_amount: orderData?.discount_amount || 0,
-              discount_percentage: orderData?.discount_percentage || 0,
+              discount_amount: discountUnavailable
+                ? undefined
+                : orderData?.discount_amount || 0,
+              discount_percentage: discountUnavailable
+                ? undefined
+                : orderData?.discount_percentage || 0,
+              discount_unavailable: discountUnavailable,
               item_completion_status: Array.isArray(
                 updatedOrder.item_completion_status,
               )

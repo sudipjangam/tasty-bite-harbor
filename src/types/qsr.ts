@@ -26,7 +26,7 @@ export interface QSRTable {
   id: string;
   name: string;
   capacity: number;
-  status: 'available' | 'occupied' | 'reserved' | 'maintenance';
+  status: 'available' | 'occupied' | 'reserved' | 'maintenance' | 'unknown';
   activeOrderId?: string;
   activeOrderTotal?: number;
   activeOrderItems?: number;
@@ -58,6 +58,8 @@ export interface ActiveKitchenOrder {
   paymentStatus?: string;
   customerName?: string;
   customerPhone?: string;
+  isOfflinePending?: boolean;
+  offlineToken?: string;
 }
 
 // QSR Order structure

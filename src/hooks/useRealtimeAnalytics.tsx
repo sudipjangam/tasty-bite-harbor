@@ -37,7 +37,7 @@ export const useRealtimeAnalytics = () => {
     // Create a single channel for all critical table subscriptions
     // Egress fix: each .on() now has filter: `restaurant_id=eq.${restaurantId}`
     const channel = supabase
-      .channel('realtime-analytics')
+      .channel(`realtime-analytics-${restaurantId}`)
       .on(
         'postgres_changes',
         {

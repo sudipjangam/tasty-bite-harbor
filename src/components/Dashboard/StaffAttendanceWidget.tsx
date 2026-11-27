@@ -38,7 +38,7 @@ const StaffAttendanceWidget: React.FC = () => {
   });
 
   // Fetch today's clock-ins
-  const { data: todayClockIns, isLoading, refetch } = useQuery({
+  const { data: todayClockIns, isLoading, isError, refetch } = useQuery({
     queryKey: ['today-attendance', restaurantId],
     queryFn: async () => {
       if (!restaurantId) return [];
@@ -56,29 +56,32 @@ const StaffAttendanceWidget: React.FC = () => {
         .gte('clock_in', `${today}T00:00:00`)
         .lte('clock_in', `${today}T23:59:59`);
       
-      if (error) {
-        console.error('Attendance query error:', error);
-        return []; // Return empty array instead of throwing
-      }
+      if (error) throw error;
       return data || [];
     },
     enabled: !!restaurantId,
-    refetchInterval: 60000,
+    staleTime: 120000,
+    refetchInterval: 300000,
   });
 
   // Auto clock-out mutation
   const autoClockOutMutation = useMutation({
     mutationFn: async (entryId: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('staff_time_clock')
         .update({ 
           clock_out: new Date().toISOString(),
           auto_clocked_out: true,
           notes: 'Auto clocked out by manager - exceeded 12 hours'
         })
-        .eq('id', entryId);
+        .eq('id', entryId)
+        .is('clock_out', null)
+        .select('id');
       
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Staff member is already clocked out.');
+      }
       return entryId;
     },
     onMutate: (entryId) => {
@@ -95,12 +98,13 @@ const StaffAttendanceWidget: React.FC = () => {
         return next;
       });
       queryClient.invalidateQueries({ queryKey: ['today-attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-active-clock'] });
       refetch();
     },
     onError: (error, entryId) => {
       toast({
         title: "Error",
-        description: "Failed to clock out staff member.",
+        description: error instanceof Error && error.message ? error.message : "Failed to clock out staff member.",
         variant: "destructive",
       });
       setClockingOutIds(prev => {
@@ -108,6 +112,7 @@ const StaffAttendanceWidget: React.FC = () => {
         next.delete(entryId);
         return next;
       });
+      queryClient.invalidateQueries({ queryKey: ['today-attendance'] });
     },
   });
 
@@ -259,6 +264,13 @@ const StaffAttendanceWidget: React.FC = () => {
           </div>
         </div>
 
+        {isError && (
+          <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/30 text-amber-800 dark:text-amber-200 text-xs flex items-center justify-between">
+            <span>Failed to refresh attendance data. Showing latest cached data.</span>
+            <button onClick={() => refetch()} className="font-semibold underline ml-2 hover:opacity-80">Retry</button>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {statCards.map((stat, i) => {
             const Icon = stat.icon;
@@ -346,7 +358,8 @@ const StaffAttendanceWidget: React.FC = () => {
                     {staff.isStale && (
                       <button
                         onClick={(e) => handleAutoClockOut(e, staff.id)}
-                        disabled={clockingOutIds.has(staff.id)}
+                        disabled={isError || clockingOutIds.has(staff.id)}
+                        title={isError ? "Auto-out unavailable while attendance failed to refresh" : "Auto clock out staff member"}
                         className="px-2 py-1 bg-red-100 text-red-600 rounded-lg text-xs font-medium hover:bg-red-200 disabled:opacity-50"
                       >
                         {clockingOutIds.has(staff.id) ? '...' : 'Auto-out'}

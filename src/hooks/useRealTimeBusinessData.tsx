@@ -200,6 +200,7 @@ export const useRealTimeBusinessData = () => {
       return metrics;
     },
     enabled: !!restaurantId && !isRestaurantLoading,
-    refetchInterval: 30000, // Refetch every 30 seconds for real-time data
+    staleTime: 60000,
+    refetchInterval: 120000, // Refetch every 2 minutes
   });
 };

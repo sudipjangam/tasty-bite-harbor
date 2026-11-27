@@ -77,16 +77,13 @@ export const useCurrentStaff = (): CurrentStaffData => {
           .order("clock_in", { ascending: false })
           .limit(1);
 
-        if (error) {
-          console.error("Error fetching active clock entry:", error);
-          return null;
-        }
+        if (error) throw error;
 
         return data && data.length > 0
           ? (data[0] as StaffTimeClockEntry)
           : null;
       },
-      refetchInterval: 30000, // Refresh every 30 seconds
+      refetchInterval: 120000, // Refresh every 2 minutes
     });
 
   // Fetch recent time clock entries (last 10)
@@ -104,10 +101,7 @@ export const useCurrentStaff = (): CurrentStaffData => {
           .order("clock_in", { ascending: false })
           .limit(10);
 
-        if (error) {
-          console.error("Error fetching time entries:", error);
-          return [];
-        }
+        if (error) throw error;
 
         return data as StaffTimeClockEntry[];
       },

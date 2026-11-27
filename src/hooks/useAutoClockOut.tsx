@@ -73,15 +73,21 @@ export const useAutoClockOut = (
       if (!activeClockEntry || !staffId) return;
 
       try {
-        const { error } = await supabase
+        const { data: updatedRows, error } = await supabase
           .from("staff_time_clock")
           .update({
             clock_out: new Date().toISOString(),
             notes: `${activeClockEntry.notes || ""} [${reason}]`.trim(),
           })
-          .eq("id", activeClockEntry.id);
+          .eq("id", activeClockEntry.id)
+          .is("clock_out", null)
+          .select("id");
 
         if (error) throw error;
+        if (!updatedRows || updatedRows.length === 0) {
+          queryClient.invalidateQueries({ queryKey: ["staff-active-clock"] });
+          return;
+        }
 
         // Update staff status
         await supabase

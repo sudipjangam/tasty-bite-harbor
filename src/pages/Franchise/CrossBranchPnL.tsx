@@ -6,9 +6,11 @@ import { TrendingUp, TrendingDown, Download, Calendar, Database } from "lucide-r
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { MockPnLBranch } from "@/data/franchiseMockData";
+import { useCurrencyContext } from "@/contexts/CurrencyContext";
 
 // ─── Helpers ─────────────────────────────────────────────────
-const fmt = (v: number) => `₹${Math.abs(v).toLocaleString("en-IN")}`;
+const formatPnLAmount = (v: number, symbol: string) =>
+  `${symbol}${Math.abs(v).toLocaleString("en-IN")}`;
 
 const EXPENSE_ROWS = [
   { key: "foodCost",  label: "Food Cost"  },
@@ -32,6 +34,8 @@ interface DivergeRow {
 }
 
 const DivertingBarChart: React.FC<{ rows: DivergeRow[] }> = ({ rows }) => {
+  const { symbol: currencySymbol } = useCurrencyContext();
+  const fmt = (v: number) => formatPnLAmount(v, currencySymbol);
   const maxRev = Math.max(...rows.map((r) => r.revenue), 1);
   const maxExp = Math.max(...rows.map((r) => r.expenses), 1);
 
@@ -169,6 +173,8 @@ const DivertingBarChart: React.FC<{ rows: DivergeRow[] }> = ({ rows }) => {
 // ─── Main Page ────────────────────────────────────────────────
 const CrossBranchPnL: React.FC = () => {
   const { currentBranch, allBranches, pnlBranches, kpis, demoMode } = useFranchise();
+  const { symbol: currencySymbol } = useCurrencyContext();
+  const fmt = (v: number) => formatPnLAmount(v, currencySymbol);
   const { toast } = useToast();
 
   // Dynamic period labels

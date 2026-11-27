@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useNetworkStatus } from "@/contexts/NetworkStatusContext";
 
 interface MenuItemVariant {
   id: string;
@@ -49,31 +50,69 @@ export const QSMenuGrid: React.FC<QSMenuGridProps> = ({
   const [showSoldOut, setShowSoldOut] = useState(false);
   const { symbol: currencySymbol } = useCurrencyContext();
   const { restaurantId } = useRestaurantId();
+  const { isOnline } = useNetworkStatus();
 
   // Variant state
   const [variantsMap, setVariantsMap] = useState<Record<string, MenuItemVariant[]>>({});
   const [variantPickerItem, setVariantPickerItem] = useState<QSRMenuItem | null>(null);
 
-  // Fetch all variants for this restaurant once
+  // Fetch all variants for this restaurant once (with localStorage offline fallback)
   useEffect(() => {
+    setVariantsMap({});
+    setVariantPickerItem(null);
     if (!restaurantId) return;
+    const cacheKey = `qs_menu_variants_${restaurantId}`;
+    const loadCachedVariants = () => {
+      try {
+        const raw = localStorage.getItem(cacheKey);
+        if (raw) setVariantsMap(JSON.parse(raw));
+      } catch {
+        /* ignore cache read error */
+      }
+    };
+
+    const offline =
+      !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
+    if (offline) {
+      loadCachedVariants();
+      return;
+    }
+
+    let cancelled = false;
+
     (async () => {
-      const { data } = await supabase
-        .from('menu_item_variants')
-        .select('id, menu_item_id, name, price, sort_order, is_available')
-        .eq('restaurant_id', restaurantId)
-        .eq('is_available', true)
-        .order('sort_order');
-      if (data && data.length > 0) {
+      try {
+        const { data, error } = await supabase
+          .from("menu_item_variants")
+          .select("id, menu_item_id, name, price, sort_order, is_available")
+          .eq("restaurant_id", restaurantId)
+          .eq("is_available", true)
+          .order("sort_order");
+        if (error) throw error;
+        if (cancelled) return;
+
         const map: Record<string, MenuItemVariant[]> = {};
-        data.forEach((v: any) => {
+        (data || []).forEach((v: any) => {
           if (!map[v.menu_item_id]) map[v.menu_item_id] = [];
           map[v.menu_item_id].push(v);
         });
         setVariantsMap(map);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(map));
+        } catch {
+          /* ignore storage quota */
+        }
+      } catch {
+        if (!cancelled) {
+          loadCachedVariants();
+        }
       }
     })();
-  }, [restaurantId]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [restaurantId, isOnline]);
 
   // Handle item tap — check for variants
   const handleItemTap = (item: QSRMenuItem) => {

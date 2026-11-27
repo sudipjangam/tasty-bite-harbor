@@ -16,13 +16,14 @@ import {
   DollarSign,
   Clock,
   AlertTriangle,
+  RotateCcw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 
 export const CashFlowManagement = () => {
-  const { data: financialData, isLoading } = useFinancialData();
+  const { data: financialData, isLoading, isError, error: financialError, refetch } = useFinancialData();
   const { toast } = useToast();
 
   const formatCurrency = (amount: number) => {
@@ -143,12 +144,48 @@ export const CashFlowManagement = () => {
     return <div>Loading cash flow data...</div>;
   }
 
+  if (isError && !financialData) {
+    return (
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
+            <div>
+              <p className="font-semibold text-sm text-destructive">Failed to load cash flow data</p>
+              <p className="text-xs text-muted-foreground">
+                {(financialError as Error)?.message || "A network or server error occurred."}
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RotateCcw className="mr-2 h-3.5 w-3.5" />
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const overdueInvoices = getOverdueInvoices();
   const totalReceivables = getTotalReceivables();
   const recentPayments = getRecentPayments();
 
   return (
     <div className="space-y-6">
+      {isError && (
+        <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive flex items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold text-sm">Failed to refresh cash flow data</p>
+            <p className="text-xs text-muted-foreground">
+              Showing cached data. {(financialError as Error)?.message || "Please retry."}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RotateCcw className="mr-2 h-3.5 w-3.5" />
+            Retry
+          </Button>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent">

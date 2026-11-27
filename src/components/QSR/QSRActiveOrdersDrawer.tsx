@@ -470,6 +470,11 @@ export const QSRActiveOrdersDrawer: React.FC<QSRActiveOrdersDrawerProps> = ({
                                   🕐 Pay Later {order.customerName ? `· ${order.customerName}` : ""}
                                 </span>
                               )}
+                              {order.isOfflinePending && (
+                                <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                                  Pending Sync
+                                </span>
+                              )}
                               {order.priority === "vip" && (
                                 <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-md flex items-center gap-1">
                                   <Star className="w-3 h-3" />

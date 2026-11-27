@@ -38,6 +38,21 @@ import { useRiderTracking } from "@/hooks/useRiderTracking";
 import { Quick86Modal } from "@/components/Menu/Quick86Modal";
 import { use86Cascade } from "@/hooks/use86Cascade";
 import { useOnlineDelivery } from "@/hooks/useOnlineDelivery";
+import { useNetworkStatus } from "@/contexts/NetworkStatusContext";
+import {
+  enqueueWrite,
+  generateOfflineOrderNumber,
+  hasPendingKitchenOrderInsert,
+  removeQueuedWritesForOrder,
+} from "@/utils/syncManager";
+import {
+  commitLocalOrderAndWritesAtomic,
+  deleteLocalOrder,
+  getLocalOrder,
+  getLocalOrdersByRestaurant,
+  LOCAL_ORDERS_EVENT,
+  saveLocalOrder,
+} from "@/utils/offlineDB";
 import { KitchenLoadGauge } from "@/components/Kitchen/KitchenLoadGauge";
 import {
   Clock,
@@ -101,6 +116,35 @@ export const QSRPosMain: React.FC = () => {
   const [itemCompletionStatus, setItemCompletionStatus] = useState<boolean[]>(
     [],
   );
+  const [checkoutSource, setCheckoutSource] = useState<"cart" | "drawer" | null>(
+    null,
+  );
+  const tableSelectReqRef = React.useRef(0);
+  const pendingOfflinePrePayRef = React.useRef<{
+    fingerprint: string;
+    orderId: string;
+    kitchenOrderId: string;
+    offlineToken: string;
+    txnId: string;
+  } | null>(null);
+  // C-1: Stable UUID cache for new-order path in handleSendToKitchen (prevents duplicate rows on retry)
+  const pendingNewKitchenOrderRef = React.useRef<{
+    fingerprint: string;
+    orderId: string;
+    kitchenOrderId: string;
+    offlineToken: string;
+  } | null>(null);
+  // H-6: Snapshot of POS state before opening drawer payment so closing without paying restores it
+  const drawerCheckoutSnapshotRef = React.useRef<{
+    orderMode: QSROrderMode;
+    selectedTable: QSRTable | null;
+    recalledKitchenOrderId: string | null;
+    pendingOrderId: string | null;
+    pendingKitchenOrderId: string | null;
+    paymentOrderItems: QSROrderItem[];
+  } | null>(null);
+  const acceptedCompletionRef = React.useRef<Map<string, boolean[]>>(new Map());
+  const workspaceGenRef = React.useRef(0);
   // Delete confirmation state
   const [orderToDelete, setOrderToDelete] = useState<{
     order: ActiveKitchenOrder | PastOrder | null;
@@ -152,15 +196,22 @@ export const QSRPosMain: React.FC = () => {
 
   // Hooks
   const { restaurantId, restaurantName } = useRestaurantId();
-  const { user } = useAuth();
+  const { isOnline } = useNetworkStatus();
+  const { user, isRole } = useAuth();
+  const canViewRevenue = Boolean(user?.role_has_full_access || isRole("admin") || isRole("manager") || isRole("owner"));
   const { toast } = useToast();
+
+  const isOfflineNow = useCallback(
+    () => !isOnline || (typeof navigator !== "undefined" && !navigator.onLine),
+    [isOnline],
+  );
 
   // Customer lookup by phone — auto-fills name if found in CRM
   const handleCustomerPhoneChange = useCallback(async (phone: string) => {
     setCustomerPhone(phone);
     const cleaned = phone.replace(/\D/g, "");
-    if (cleaned.length < 10) {
-      // Don't clear manually-typed name
+    if (cleaned.length < 10 || isOfflineNow()) {
+      // Don't clear manually-typed name; skip network CRM lookup when offline
       return;
     }
     setIsLookingUpCustomer(true);
@@ -186,7 +237,7 @@ export const QSRPosMain: React.FC = () => {
     } finally {
       setIsLookingUpCustomer(false);
     }
-  }, [restaurantId, toast]);
+  }, [restaurantId, isOfflineNow, toast]);
 
   // Printer toggle handler (shared between mobile kebab + desktop button)
   const handlePrinterToggle = useCallback(async () => {
@@ -279,61 +330,162 @@ export const QSRPosMain: React.FC = () => {
         appStateHandle.remove();
       }
     };
-  }, [refreshPrinterStatus]);
+  }, [refreshPrinterStatus, toast]);
 
-  // Query for today's revenue
+  // Query for today's revenue (includes unsynced offline completed bills)
   const queryClient = useQueryClient();
   const { data: todaysRevenue = 0 } = useQuery({
     queryKey: ["qsr-todays-revenue", restaurantId],
+    networkMode: "always",
     queryFn: async () => {
-      if (!restaurantId) return 0;
+      if (!restaurantId || !canViewRevenue) return 0;
 
       const today = new Date();
-      const { data: orders } = await supabase
-        .from("orders")
-        .select("total")
-        .eq("restaurant_id", restaurantId)
-        .eq("status", "completed")
-        .neq("order_type", "non-chargeable")
-        .gte("created_at", startOfDay(today).toISOString())
-        .lte("created_at", endOfDay(today).toISOString());
+      const dayStart = startOfDay(today);
+      const dayEnd = endOfDay(today);
+      const cacheKey = `qsr_todays_revenue_${restaurantId}_${dayStart.toISOString().slice(0, 10)}`;
 
-      if (!orders) return 0;
-      return orders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
+      const localOrders = await getLocalOrdersByRestaurant(restaurantId);
+      const deletedServerIds = new Set(
+        localOrders
+          .filter((lo) => lo.status === "deleted" && lo.orderId)
+          .map((lo) => lo.orderId as string),
+      );
+      const offlineRevenue = localOrders
+        .filter((lo) => {
+          // H-28: exclude synced local mirrors to avoid double-counting against server/cached totals
+          if (lo.synced) return false;
+          if (lo.status !== "completed" || lo.orderType === "nc") return false;
+          const ts = new Date(lo.completedAt || lo.createdAt).getTime();
+          return ts >= dayStart.getTime() && ts <= dayEnd.getTime();
+        })
+        .reduce((sum, lo) => sum + (Number(lo.total) || 0), 0);
+
+      const readCachedServerRevenue = (): number => {
+        try {
+          const raw = localStorage.getItem(cacheKey);
+          if (!raw) return offlineRevenue;
+          const parsed = JSON.parse(raw);
+          if (typeof parsed === "number") return parsed + offlineRevenue;
+          if (parsed && Array.isArray(parsed.serverOrders)) {
+            const totalsById = new Map<string, number>();
+            for (const o of parsed.serverOrders as Array<{ id: string; total: number }>) {
+              totalsById.set(o.id, Number(o.total) || 0);
+            }
+            for (const lo of localOrders) {
+              const targetId = lo.orderId || lo.id;
+              if (lo.status === "deleted" || lo.orderType === "nc" || lo.paymentStatus === "nc") {
+                totalsById.delete(targetId);
+                totalsById.delete(lo.id);
+                continue;
+              }
+              if (lo.synced) continue;
+              if (lo.status === "completed") {
+                const ts = new Date(lo.completedAt || lo.createdAt).getTime();
+                if (ts >= dayStart.getTime() && ts <= dayEnd.getTime()) {
+                  totalsById.set(targetId, Number(lo.total) || 0);
+                }
+              }
+            }
+            let sum = 0;
+            totalsById.forEach((v) => {
+              sum += v;
+            });
+            return sum;
+          }
+          return (Number(parsed?.serverRevenue) || 0) + offlineRevenue;
+        } catch {
+          return offlineRevenue;
+        }
+      };
+
+      const offline = isOfflineNow();
+      if (offline) {
+        return readCachedServerRevenue();
+      }
+
+      try {
+        const { data: orders, error } = await supabase
+          .from("orders")
+          .select("id, total")
+          .eq("restaurant_id", restaurantId)
+          .eq("status", "completed")
+          .neq("order_type", "non-chargeable")
+          .gte("created_at", dayStart.toISOString())
+          .lte("created_at", dayEnd.toISOString());
+
+        if (error) throw error;
+
+        const serverOrders = (orders || []).map((o: any) => ({
+          id: o.id as string,
+          total: Number(o.total) || 0,
+        }));
+        const serverOrderIds = new Set(serverOrders.map((o) => o.id));
+        const serverRevenue = serverOrders
+          .filter((o) => !deletedServerIds.has(o.id))
+          .reduce((sum, o) => sum + o.total, 0);
+        try {
+          localStorage.setItem(
+            cacheKey,
+            JSON.stringify({ serverRevenue, serverOrders }),
+          );
+        } catch {
+          /* ignore storage quota errors */
+        }
+
+        const unsyncedOfflineRevenue = localOrders
+          .filter((lo) => {
+            if (lo.synced) return false;
+            if (lo.status !== "completed" || lo.orderType === "nc") return false;
+            if (lo.orderId && serverOrderIds.has(lo.orderId)) return false;
+            const ts = new Date(lo.completedAt || lo.createdAt).getTime();
+            return ts >= dayStart.getTime() && ts <= dayEnd.getTime();
+          })
+          .reduce((sum, lo) => sum + (Number(lo.total) || 0), 0);
+
+        return serverRevenue + unsyncedOfflineRevenue;
+      } catch {
+        return readCachedServerRevenue();
+      }
     },
-    enabled: !!restaurantId,
-    refetchInterval: 30000,
+    enabled: !!restaurantId && canViewRevenue,
+    refetchInterval: 120000,
   });
-
-
 
   // Real-time subscription for revenue updates
   useEffect(() => {
-    if (!restaurantId) return;
+    if (!restaurantId || !canViewRevenue) return;
+
+    const handleLocalOrdersChange = () => {
+      queryClient.invalidateQueries({ queryKey: ["qsr-todays-revenue", restaurantId] });
+    };
+    window.addEventListener(LOCAL_ORDERS_EVENT, handleLocalOrdersChange);
 
     const channel = supabase
-      .channel("qsr-revenue-realtime")
+      .channel(`qsr-revenue-${restaurantId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "orders",
+          filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
           const newStatus = (payload.new as any)?.status;
           const oldStatus = (payload.old as any)?.status;
           if (newStatus === "completed" || oldStatus === "completed") {
-            queryClient.invalidateQueries({ queryKey: ["qsr-todays-revenue"] });
+            queryClient.invalidateQueries({ queryKey: ["qsr-todays-revenue", restaurantId] });
           }
         },
       )
       .subscribe();
 
     return () => {
+      window.removeEventListener(LOCAL_ORDERS_EVENT, handleLocalOrdersChange);
       supabase.removeChannel(channel);
     };
-  }, [restaurantId, queryClient]);
+  }, [restaurantId, canViewRevenue, queryClient]);
 
   // Calculations - No tax in QSR POS (per user request)
   const subtotal = useMemo(
@@ -360,7 +512,14 @@ export const QSRPosMain: React.FC = () => {
 
   // Memoized payment dialog items to prevent creating new array reference on every render
   const paymentDialogItems = useMemo(() => {
-    const sourceItems = orderItems.length > 0 ? orderItems : paymentOrderItems;
+    const sourceItems =
+      checkoutSource === "drawer"
+        ? paymentOrderItems
+        : checkoutSource === "cart"
+        ? orderItems
+        : orderItems.length > 0
+        ? orderItems
+        : paymentOrderItems;
     return sourceItems.map((item) => ({
       id: item.id,
       menuItemId: item.menuItemId,
@@ -370,11 +529,13 @@ export const QSRPosMain: React.FC = () => {
       notes: item.notes,
       modifiers: item.modifiers,
     }));
-  }, [orderItems, paymentOrderItems]);
+  }, [checkoutSource, orderItems, paymentOrderItems]);
 
   // Mode change handler - clear table and cart when switching modes
   const handleModeChange = useCallback(
     (mode: QSROrderMode) => {
+      // H-4: invalidate any in-flight handleSelectTable async recall from previous mode
+      tableSelectReqRef.current += 1;
       setOrderMode(mode);
       if (mode !== "dine_in") {
         setSelectedTable(null);
@@ -395,77 +556,135 @@ export const QSRPosMain: React.FC = () => {
     [orderItems.length],
   );
 
-  // Table selection handler
+  // Table selection handler (supports recalling offline table orders)
   const handleSelectTable = useCallback(
     async (table: QSRTable) => {
+      const reqId = ++tableSelectReqRef.current;
+
       if (table.status === "occupied" && table.activeOrderId) {
-        // Load existing order for this table
+        const restoreRecalledOrder = (
+          kitchenOrderId: string,
+          items: { name: string; quantity: number; price: number; notes?: string | string[]; printed_qty?: number }[],
+          completionStatus: boolean[],
+          linkedOrderId?: string | null,
+          cName?: string | null,
+          cPhone?: string | null,
+        ) => {
+          const mappedItems: QSROrderItem[] = items.map((item, idx) => {
+            const menuItem = menuItems.find(
+              (m) => m.name.toLowerCase() === item.name.toLowerCase(),
+            );
+            return {
+              id: `${kitchenOrderId}-${idx}`,
+              menuItemId: menuItem?.id || `custom-${idx}`,
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+              printed_qty: item.printed_qty || 0,
+              notes: Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
+              isCustom: !menuItem,
+            };
+          });
+
+          setOrderItems(mappedItems);
+          setRecalledKitchenOrderId(kitchenOrderId);
+          setItemCompletionStatus(completionStatus);
+          setPendingKitchenOrderId(kitchenOrderId);
+          setPaymentOrderItems(mappedItems);
+          setPendingOrderId(linkedOrderId || null);
+          setCustomerName(cName || "");
+          setCustomerPhone(cPhone || "");
+
+          toast({
+            title: "Order Recalled",
+            description: `Loaded existing order for ${table.name}`,
+          });
+        };
+
         try {
+          const localOrder = await getLocalOrder(table.activeOrderId).catch(
+            () => undefined,
+          );
+          if (tableSelectReqRef.current !== reqId) return;
+          if (
+            localOrder &&
+            (localOrder.status === "deleted" || localOrder.status === "completed")
+          ) {
+            refetchTables();
+            throw new Error("Active table order is no longer active");
+          }
+          if (
+            localOrder &&
+            (isOfflineNow() || localOrder.synced !== true)
+          ) {
+            restoreRecalledOrder(
+              localOrder.id,
+              localOrder.items || [],
+              localOrder.itemCompletionStatus || [],
+              localOrder.orderId,
+              localOrder.customerName,
+              localOrder.customerPhone,
+            );
+            setSelectedTable(table);
+            return;
+          }
+
+          const offline = isOfflineNow();
+          if (offline) {
+            const cachedActive = activeOrders.find(
+              (o) =>
+                o.id === table.activeOrderId &&
+                o.status !== "deleted" &&
+                o.status !== "completed",
+            );
+            if (cachedActive) {
+              restoreRecalledOrder(
+                cachedActive.id,
+                cachedActive.items || [],
+                cachedActive.itemCompletionStatus || [],
+                cachedActive.orderId,
+                cachedActive.customerName,
+                cachedActive.customerPhone,
+              );
+              setSelectedTable(table);
+              return;
+            }
+            throw new Error("Order details not cached for offline recall");
+          }
+
           const { data: kitchenOrder, error } = await supabase
             .from("kitchen_orders")
             .select("*")
             .eq("id", table.activeOrderId)
             .maybeSingle();
 
+          if (tableSelectReqRef.current !== reqId) return;
           if (error) throw error;
 
           if (kitchenOrder) {
-            const items =
-              (kitchenOrder.items as {
-                name: string;
-                quantity: number;
-                price: number;
-              }[]) || [];
-            const mappedItems: QSROrderItem[] = items.map((item, idx) => {
-              // Try to find matching menu item
-              const menuItem = menuItems.find(
-                (m) => m.name.toLowerCase() === item.name.toLowerCase(),
-              );
-              return {
-                id: `${kitchenOrder.id}-${idx}`,
-                menuItemId: menuItem?.id || `custom-${idx}`,
-                name: item.name,
-                price: item.price,
-                quantity: item.quantity,
-                isCustom: !menuItem,
-              };
-            });
-
-            setOrderItems(mappedItems);
-            setRecalledKitchenOrderId(kitchenOrder.id);
-            setItemCompletionStatus(
+            restoreRecalledOrder(
+              kitchenOrder.id,
+              (kitchenOrder.items as any[]) || [],
               (kitchenOrder.item_completion_status as boolean[]) || [],
+              kitchenOrder.order_id,
+              kitchenOrder.customer_name,
+              kitchenOrder.customer_phone,
             );
-
-            // Always set pendingKitchenOrderId so payment flow knows there's an existing kitchen order
-            setPendingKitchenOrderId(kitchenOrder.id);
-            setPaymentOrderItems(mappedItems);
-
-            // Restore linked order ID if it exists
-            if (kitchenOrder.order_id) {
-              setPendingOrderId(kitchenOrder.order_id);
-            }
-
-            // Restore customer details if present on order
-            setCustomerName(kitchenOrder.customer_name || "");
-            setCustomerPhone(kitchenOrder.customer_phone || "");
-
-            toast({
-              title: "Order Recalled",
-              description: `Loaded existing order for ${table.name}`,
-            });
+          } else {
+            refetchTables();
+            throw new Error("Active table order not found");
           }
         } catch (error) {
+          if (tableSelectReqRef.current !== reqId) return;
           console.error("Error loading table order:", error);
           toast({
             variant: "destructive",
             title: "Error",
             description: "Failed to load table order",
           });
+          return;
         }
       } else {
-        // Table is available - clear any existing order and customer data from previous table
-        // This prevents showing stale data when switching from an occupied table
         setOrderItems([]);
         setRecalledKitchenOrderId(null);
         setItemCompletionStatus([]);
@@ -476,9 +695,10 @@ export const QSRPosMain: React.FC = () => {
         setCustomerPhone("");
         setNcReason("");
       }
+      if (tableSelectReqRef.current !== reqId) return;
       setSelectedTable(table);
     },
-    [menuItems, toast],
+    [menuItems, activeOrders, isOfflineNow, toast],
   );
 
   // Add menu item to cart
@@ -610,44 +830,118 @@ export const QSRPosMain: React.FC = () => {
     });
   }, [toast]);
 
+  const orderMirrorLocksRef = React.useRef(new Map<string, Promise<void>>());
+  const runMirrorLocked = useCallback(
+    async <T,>(lockKey: string, fn: () => Promise<T>): Promise<T> => {
+      const prev = orderMirrorLocksRef.current.get(lockKey) || Promise.resolve();
+      const next = prev.then(fn, fn);
+      const settled = next.then(
+        () => undefined,
+        () => undefined,
+      );
+      orderMirrorLocksRef.current.set(lockKey, settled);
+      return next;
+    },
+    [],
+  );
+
   // Toggle item completion status in order pad (for recalled orders)
   const handleToggleItemCompletion = useCallback(
     async (index: number) => {
       const kitchenOrderId = recalledKitchenOrderId || pendingKitchenOrderId;
       if (!kitchenOrderId) return;
 
-      // Create a copy of current status or initialize new array
-      const newCompletionStatus = [...itemCompletionStatus];
-
-      // Ensure array is long enough
-      while (newCompletionStatus.length <= index) {
-        newCompletionStatus.push(false);
+      const gen = workspaceGenRef.current;
+      const accepted = acceptedCompletionRef.current.get(kitchenOrderId);
+      const previousValue =
+        accepted !== undefined
+          ? Boolean(accepted[index])
+          : Boolean(itemCompletionStatus[index]);
+      const nextValue = !Boolean(itemCompletionStatus[index]);
+      const optimisticCompletion = [...itemCompletionStatus];
+      while (optimisticCompletion.length <= index) {
+        optimisticCompletion.push(false);
       }
+      optimisticCompletion[index] = nextValue;
+      setItemCompletionStatus((prev) => {
+        const next = [...prev];
+        while (next.length <= index) next.push(false);
+        next[index] = nextValue;
+        return next;
+      });
 
-      // Toggle status
-      newCompletionStatus[index] = !newCompletionStatus[index];
-
-      // Update local state immediately
-      setItemCompletionStatus(newCompletionStatus);
-
-      // Update database
       try {
-        const { error } = await supabase
-          .from("kitchen_orders")
-          .update({ item_completion_status: newCompletionStatus })
-          .eq("id", kitchenOrderId);
+        await runMirrorLocked(kitchenOrderId, async () => {
+          const localExisting = await getLocalOrder(kitchenOrderId).catch(
+            () => undefined,
+          );
+          if (isOfflineNow() || localExisting) {
+            const baseCompletion =
+              localExisting?.itemCompletionStatus &&
+              localExisting.itemCompletionStatus.length > 0
+                ? [...localExisting.itemCompletionStatus]
+                : [...optimisticCompletion];
+            while (baseCompletion.length <= index) {
+              baseCompletion.push(false);
+            }
+            baseCompletion[index] = nextValue;
 
-        if (error) throw error;
+            const mirrorToSave = localExisting
+              ? {
+                  ...localExisting,
+                  itemCompletionStatus: baseCompletion,
+                  updatedAt: new Date().toISOString(),
+                }
+              : null;
+            await commitLocalOrderAndWritesAtomic(mirrorToSave, [
+              {
+                type: "kitchen_order",
+                operation: "update",
+                payload: {
+                  id: kitchenOrderId,
+                  item_completion_status: baseCompletion,
+                },
+              },
+            ]);
+            acceptedCompletionRef.current.set(kitchenOrderId, baseCompletion);
+            refetchTables();
+            return;
+          }
 
-        // Refetch tables to update pending items count immediately
-        refetchTables();
+          const { error } = await supabase
+            .from("kitchen_orders")
+            .update({ item_completion_status: optimisticCompletion })
+            .eq("id", kitchenOrderId);
+
+          if (error) throw error;
+          acceptedCompletionRef.current.set(kitchenOrderId, optimisticCompletion);
+          refetchTables();
+        });
       } catch (error) {
         console.error("Error toggling item completion:", error);
-        // Revert on error
-        setItemCompletionStatus(itemCompletionStatus);
+        if (
+          workspaceGenRef.current === gen &&
+          (recalledKitchenOrderId === kitchenOrderId ||
+            pendingKitchenOrderId === kitchenOrderId)
+        ) {
+          setItemCompletionStatus((prev) => {
+            const reverted = [...prev];
+            if (reverted.length > index) {
+              reverted[index] = previousValue;
+            }
+            return reverted;
+          });
+        }
       }
     },
-    [recalledKitchenOrderId, pendingKitchenOrderId, itemCompletionStatus, refetchTables],
+    [
+      recalledKitchenOrderId,
+      pendingKitchenOrderId,
+      itemCompletionStatus,
+      isOfflineNow,
+      refetchTables,
+      runMirrorLocked,
+    ],
   );
 
   // Send to kitchen
@@ -667,7 +961,7 @@ export const QSRPosMain: React.FC = () => {
     try {
       // Determine order source/customer name
       // Use actual customer name for takeaway/delivery/NC, fallback to mode-based defaults
-      let orderSource =
+      const orderSource =
         orderMode === "dine_in" && selectedTable
           ? tableLabel(selectedTable.name)
           : orderMode.charAt(0).toUpperCase() +
@@ -684,10 +978,275 @@ export const QSRPosMain: React.FC = () => {
           ? "Delivery Customer"
           : "Walk-in Customer");
 
-      let deltaItemsToPrint: any[] = [];
+      const deltaItemsToPrint: any[] = [];
       let finalKitchenItems: any[] = [];
       let currentRound = 1;
       let existingOrderId: string | null = null;
+      const offline = isOfflineNow();
+      const hasPendingInsert =
+        !offline && recalledKitchenOrderId
+          ? await hasPendingKitchenOrderInsert(recalledKitchenOrderId)
+          : false;
+      const shouldQueueWrite = offline || hasPendingInsert;
+
+      const orderTypeMap: Record<QSROrderMode, string> = {
+        dine_in: "dine_in",
+        takeaway: "takeaway",
+        delivery: "delivery",
+        nc: "nc",
+      };
+
+      const formattedOrderItems = orderItems.map((item) =>
+        formatOrderItemString(item.quantity, item.name, item.price, item.notes),
+      );
+
+      if (shouldQueueWrite) {
+        const nowIso = new Date().toISOString();
+
+        if (recalledKitchenOrderId) {
+          const localExisting = await getLocalOrder(recalledKitchenOrderId);
+          const activeMatch = activeOrders.find(
+            (o) => o.id === recalledKitchenOrderId,
+          );
+          const existingItems: any[] =
+            localExisting?.items || activeMatch?.items || [];
+          existingOrderId =
+            localExisting?.orderId || activeMatch?.orderId || pendingOrderId || null;
+          currentRound = (localExisting?.roundNumber || 1) + 1;
+
+          finalKitchenItems = orderItems.map((item) => {
+            const existingItem = existingItems.find(
+              (ei: any) => ei.name === item.name && ei.price === item.price,
+            );
+            const previouslyPrinted = existingItem?.printed_qty || 0;
+            const delta = item.quantity - previouslyPrinted;
+            if (delta > 0) {
+              deltaItemsToPrint.push({
+                name: item.name,
+                quantity: item.quantity,
+                printed_qty: previouslyPrinted,
+                price: item.price,
+                notes: item.notes,
+              });
+            }
+            return {
+              name: item.name,
+              quantity: item.quantity,
+              printed_qty: item.quantity,
+              price: item.price,
+              menuItemId: item.menuItemId,
+              notes: item.notes ? [item.notes] : [],
+              priority: item.priority || "normal",
+            };
+          });
+
+          await enqueueWrite(
+            "kitchen_order",
+            {
+              id: recalledKitchenOrderId,
+              items: finalKitchenItems,
+              status: "new",
+              source: `QSR-${orderSource}`,
+              round_number: currentRound,
+              started_at: null,
+              completed_at: null,
+              bumped_at: null,
+            },
+            "update",
+          );
+
+          if (existingOrderId) {
+            await enqueueWrite(
+              "order",
+              {
+                id: existingOrderId,
+                items: formattedOrderItems,
+                total,
+              },
+              "update",
+            );
+          }
+
+          await saveLocalOrder({
+            id: recalledKitchenOrderId,
+            orderId: existingOrderId,
+            restaurant_id: restaurantId,
+            source: `QSR-${orderSource}`,
+            tableId: selectedTable?.id || localExisting?.tableId || null,
+            tableName: selectedTable?.name || localExisting?.tableName || null,
+            orderType: orderMode,
+            status: "new",
+            priority: localExisting?.priority || "normal",
+            roundNumber: currentRound,
+            items: finalKitchenItems,
+            itemCompletionStatus:
+              localExisting?.itemCompletionStatus || activeMatch?.itemCompletionStatus || [],
+            total,
+            customerName: finalCustomerName,
+            customerPhone: customerPhone || undefined,
+            attendant: attendantName,
+            createdAt: localExisting?.createdAt || activeMatch?.createdAt || nowIso,
+            updatedAt: nowIso,
+            synced: false,
+          });
+        } else {
+          finalKitchenItems = orderItems.map((item) => {
+            deltaItemsToPrint.push({
+              name: item.name,
+              quantity: item.quantity,
+              printed_qty: 0,
+              price: item.price,
+              notes: item.notes,
+            });
+            return {
+              name: item.name,
+              quantity: item.quantity,
+              printed_qty: item.quantity,
+              price: item.price,
+              menuItemId: item.menuItemId,
+              notes: item.notes ? [item.notes] : [],
+              priority: item.priority || "normal",
+            };
+          });
+
+          // C-1: Reuse stable UUIDs across retries to prevent duplicate server rows
+          const newOrderFingerprint = `${restaurantId}|new|${total}|${formattedOrderItems.join(",")}`;
+          const reusedNew =
+            pendingNewKitchenOrderRef.current?.fingerprint === newOrderFingerprint
+              ? pendingNewKitchenOrderRef.current
+              : null;
+          const offlineOrderId = reusedNew?.orderId || crypto.randomUUID();
+          const offlineKitchenOrderId = reusedNew?.kitchenOrderId || crypto.randomUUID();
+          const offlineToken = reusedNew?.offlineToken || generateOfflineOrderNumber();
+          pendingNewKitchenOrderRef.current = { fingerprint: newOrderFingerprint, orderId: offlineOrderId, kitchenOrderId: offlineKitchenOrderId, offlineToken };
+
+          // Enqueue parent order + kitchen_order + local mirror atomically
+          await commitLocalOrderAndWritesAtomic(
+            {
+              id: offlineKitchenOrderId,
+              orderId: offlineOrderId,
+              restaurant_id: restaurantId,
+              source: `QSR-${orderSource}`,
+              tableId: selectedTable?.id || null,
+              tableName: selectedTable?.name || null,
+              orderType: orderMode,
+              status: "new",
+              priority: "normal",
+              roundNumber: 1,
+              items: finalKitchenItems,
+              itemCompletionStatus: orderItems.map(() => false),
+              total,
+              customerName: finalCustomerName,
+              customerPhone: customerPhone || undefined,
+              attendant: attendantName,
+              offlineToken,
+              createdAt: nowIso,
+              updatedAt: nowIso,
+              synced: false,
+            },
+            [
+              {
+                type: "order",
+                operation: "insert",
+                payload: {
+                  id: offlineOrderId,
+                  restaurant_id: restaurantId,
+                  customer_name: finalCustomerName,
+                  customer_phone: customerPhone || null,
+                  items: formattedOrderItems,
+                  total,
+                  status: "pending",
+                  source: "pos",
+                  order_type:
+                    orderMode === "nc"
+                      ? "non-chargeable"
+                      : orderMode.replace("_", "-"),
+                  nc_reason: orderMode === "nc" ? ncReason : null,
+                  attendant: attendantName,
+                  created_at: nowIso,
+                  updated_at: nowIso,
+                },
+              },
+              {
+                type: "kitchen_order",
+                operation: "insert",
+                payload: {
+                  id: offlineKitchenOrderId,
+                  order_id: offlineOrderId,
+                  restaurant_id: restaurantId,
+                  source: `QSR-${orderSource}`,
+                  status: "new",
+                  items: finalKitchenItems,
+                  order_type: orderTypeMap[orderMode],
+                  customer_name: finalCustomerName,
+                  customer_phone: customerPhone || null,
+                  server_name: attendantName,
+                  priority: "normal",
+                  round_number: 1,
+                  ...(selectedTable?.name && { table_number: selectedTable.name }),
+                  created_at: nowIso,
+                  updated_at: nowIso,
+                },
+              },
+            ],
+          );
+
+          setPendingOrderId(offlineOrderId);
+          setPendingKitchenOrderId(offlineKitchenOrderId);
+          setPaymentOrderItems([...orderItems]);
+        }
+
+        const itemsToPrint =
+          deltaItemsToPrint.length > 0 ? deltaItemsToPrint : orderItems;
+        if (itemsToPrint.length > 0) {
+          try {
+            await thermalPrinterService.printKOT({
+              tableName: selectedTable ? selectedTable.name : orderSource,
+              serverName: attendantName,
+              items: itemsToPrint,
+              isAddition: currentRound > 1,
+              roundNumber: currentRound,
+              orderType: orderMode,
+            });
+          } catch (printErr: any) {
+            console.error("[QSR POS] KOT print failed:", printErr);
+            toast({
+              variant: "destructive",
+              title: "KOT Print Failed",
+              description:
+                printErr?.message ||
+                "Order was queued, but the KOT could not be printed.",
+            });
+          }
+        }
+
+        if (orderMode === "dine_in" && selectedTable) {
+          await updateTableStatus(selectedTable.id, "occupied");
+        }
+        pendingNewKitchenOrderRef.current = null; // C-1: clear after table status succeeds
+
+        toast({
+          title: offline ? "Sent to Kitchen (Offline) ✓" : "Sent to Kitchen ✓",
+          description: offline
+            ? "Order queued locally and will sync automatically when connected."
+            : "Order queued behind pending local ticket — will sync automatically.",
+        });
+
+        setOrderItems([]);
+        setRecalledKitchenOrderId(null);
+        setShowMobileCart(false);
+        setSelectedTable(null);
+        setCustomerName("");
+        setCustomerPhone("");
+        setNcReason("");
+        refetchTables();
+
+        queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+        return;
+      }
 
       if (recalledKitchenOrderId) {
         // Fetch existing kitchen order to get previous items and round
@@ -929,7 +1488,14 @@ export const QSRPosMain: React.FC = () => {
     selectedTable,
     total,
     attendantName,
+    customerName,
+    customerPhone,
+    ncReason,
     recalledKitchenOrderId,
+    pendingOrderId,
+    activeOrders,
+    isOfflineNow,
+    queryClient,
     toast,
     updateTableStatus,
     refetchTables,
@@ -942,7 +1508,7 @@ export const QSRPosMain: React.FC = () => {
     setIsLoading(true);
     try {
       // Determine order source/customer name
-      let orderSource =
+      const orderSource =
         orderMode === "dine_in" && selectedTable
           ? tableLabel(selectedTable.name)
           : orderMode.charAt(0).toUpperCase() +
@@ -971,6 +1537,194 @@ export const QSRPosMain: React.FC = () => {
         (sum, item) => sum + item.price * item.quantity,
         0,
       );
+
+      const offline = isOfflineNow();
+      // H-2: also queue-write when a pending insert exists for a recalled order
+      const hasPendingHoldInsert =
+        !offline && recalledKitchenOrderId
+          ? await hasPendingKitchenOrderInsert(recalledKitchenOrderId)
+          : false;
+      if (offline || hasPendingHoldInsert) {
+        const nowIso = new Date().toISOString();
+        const formattedItems = orderItems.map((item) =>
+          formatOrderItemString(item.quantity, item.name, item.price, item.notes),
+        );
+
+        if (recalledKitchenOrderId) {
+          const localExisting = await getLocalOrder(recalledKitchenOrderId);
+          const existingItems: any[] =
+            localExisting?.items ||
+            activeOrders.find((o) => o.id === recalledKitchenOrderId)?.items ||
+            [];
+          const preservedKitchenItems = orderItems.map((item) => {
+            const existingItem = existingItems.find(
+              (ei: any) => ei.name === item.name && ei.price === item.price,
+            );
+            return {
+              name: item.name,
+              quantity: item.quantity,
+              printed_qty: existingItem?.printed_qty || 0,
+              price: item.price,
+              menuItemId: item.menuItemId,
+              notes: item.notes ? [item.notes] : [],
+            };
+          });
+          const preservedRound =
+            localExisting?.roundNumber ||
+            (activeOrders.find((o) => o.id === recalledKitchenOrderId) as any)
+              ?.roundNumber ||
+            1;
+          await enqueueWrite(
+            "kitchen_order",
+            {
+              id: recalledKitchenOrderId,
+              items: preservedKitchenItems,
+              status: "held",
+              source: `QSR-${orderSource}`,
+              round_number: preservedRound,
+            },
+            "update",
+          );
+          const resolvedHoldOrderId = localExisting?.orderId || pendingOrderId || null;
+          // H-3: Always enqueue parent order update (resolve from kitchen_order_id if localExisting was absent)
+          await enqueueWrite(
+            "order",
+            {
+              id: resolvedHoldOrderId || recalledKitchenOrderId,
+              ...(!resolvedHoldOrderId && {
+                _resolveOrderIdFromKitchenOrderId: recalledKitchenOrderId,
+              }),
+              items: formattedItems,
+              total,
+              status: "held",
+            },
+            "update",
+          );
+          await saveLocalOrder({
+            id: recalledKitchenOrderId,
+            orderId: localExisting?.orderId || pendingOrderId || null,
+            restaurant_id: restaurantId,
+            source: `QSR-${orderSource}`,
+            tableId: selectedTable?.id || localExisting?.tableId || null,
+            tableName: selectedTable?.name || localExisting?.tableName || null,
+            orderType: orderMode,
+            status: "held",
+            priority: localExisting?.priority || "normal",
+            roundNumber: preservedRound,
+            items: preservedKitchenItems,
+            ...(localExisting?.itemCompletionStatus && {
+              itemCompletionStatus: localExisting.itemCompletionStatus,
+            }),
+            ...(localExisting?.offlineToken && {
+              offlineToken: localExisting.offlineToken,
+            }),
+            total,
+            customerName: finalCustomerName,
+            customerPhone: customerPhone || undefined,
+            attendant: attendantName,
+            createdAt: localExisting?.createdAt || nowIso,
+            updatedAt: nowIso,
+            synced: false,
+          });
+        } else {
+          // H-1: Reuse stable UUIDs across hold-order retries to prevent duplicate rows
+          const holdFingerprint = `hold|${restaurantId}|${total}|${formattedItems.join(",")}`;
+          const reusedHold =
+            pendingNewKitchenOrderRef.current?.fingerprint === holdFingerprint
+              ? pendingNewKitchenOrderRef.current
+              : null;
+          const offlineOrderId = reusedHold?.orderId || crypto.randomUUID();
+          const offlineKitchenOrderId = reusedHold?.kitchenOrderId || crypto.randomUUID();
+          const holdOfflineToken = reusedHold?.offlineToken || generateOfflineOrderNumber();
+          if (!reusedHold) {
+            pendingNewKitchenOrderRef.current = { fingerprint: holdFingerprint, orderId: offlineOrderId, kitchenOrderId: offlineKitchenOrderId, offlineToken: holdOfflineToken };
+          }
+
+          await commitLocalOrderAndWritesAtomic(
+            {
+              id: offlineKitchenOrderId,
+              orderId: offlineOrderId,
+              restaurant_id: restaurantId,
+              source: `QSR-${orderSource}`,
+              tableId: selectedTable?.id || null,
+              tableName: selectedTable?.name || null,
+              orderType: orderMode,
+              status: "held",
+              priority: "normal",
+              items: kitchenItems,
+              total,
+              customerName: finalCustomerName,
+              customerPhone: customerPhone || undefined,
+              attendant: attendantName,
+              offlineToken: holdOfflineToken,
+              createdAt: nowIso,
+              updatedAt: nowIso,
+              synced: false,
+            },
+            [
+              {
+                type: "order",
+                operation: "insert",
+                payload: {
+                  id: offlineOrderId,
+                  restaurant_id: restaurantId,
+                  customer_name: finalCustomerName,
+                  customer_phone: customerPhone || null,
+                  items: formattedItems,
+                  total,
+                  status: "held",
+                  source: "pos",
+                  order_type:
+                    orderMode === "nc"
+                      ? "non-chargeable"
+                      : orderMode.replace("_", "-"),
+                  nc_reason: orderMode === "nc" ? ncReason : null,
+                  attendant: attendantName,
+                  created_at: nowIso,
+                  updated_at: nowIso,
+                },
+              },
+              {
+                type: "kitchen_order",
+                operation: "insert",
+                payload: {
+                  id: offlineKitchenOrderId,
+                  order_id: offlineOrderId,
+                  restaurant_id: restaurantId,
+                  source: `QSR-${orderSource}`,
+                  status: "held",
+                  items: kitchenItems,
+                  server_name: attendantName,
+                  order_type: orderMode,
+                  customer_name: finalCustomerName,
+                  customer_phone: customerPhone || null,
+                  created_at: nowIso,
+                  updated_at: nowIso,
+                },
+              },
+            ],
+          );
+        }
+
+        toast({
+          title: "Order Held Locally ✓",
+          description: "Saved offline — recall anytime or sync when online.",
+        });
+
+        setOrderItems([]);
+        setRecalledKitchenOrderId(null);
+        setSelectedTable(null);
+        setCustomerName("");
+        setCustomerPhone("");
+        setNcReason("");
+        pendingNewKitchenOrderRef.current = null; // H-1: clear on hold success
+
+        queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+        return;
+      }
 
       if (recalledKitchenOrderId) {
         // Update existing kitchen order
@@ -1057,19 +1811,26 @@ export const QSRPosMain: React.FC = () => {
     orderMode,
     selectedTable,
     recalledKitchenOrderId,
+    pendingOrderId,
+    customerName,
+    customerPhone,
+    ncReason,
     attendantName,
+    isOfflineNow,
+    queryClient,
     toast,
   ]);
 
   // Recall order from active orders drawer
   const handleRecallOrder = useCallback(
     (order: ActiveKitchenOrder) => {
+      tableSelectReqRef.current += 1;
       // Restore customer details from recalled order if available
-      setCustomerName((order as any).customer_name || "");
-      setCustomerPhone((order as any).customer_phone || "");
+      setCustomerName((order as any).customer_name || order.customerName || "");
+      setCustomerPhone((order as any).customer_phone || order.customerPhone || "");
       setNcReason("");
       setPendingKitchenOrderId(null);
-      setPendingOrderId(null);
+      setPendingOrderId(order.orderId || null);
       setPaymentOrderItems([]);
 
       const mappedItems: QSROrderItem[] = order.items.map((item, idx) => {
@@ -1131,6 +1892,15 @@ export const QSRPosMain: React.FC = () => {
   // Handle proceed to payment directly from active orders
   const handleProceedToPayment = useCallback(
     (order: ActiveKitchenOrder) => {
+      // H-6: Snapshot current POS workspace state so closing without paying restores it
+      drawerCheckoutSnapshotRef.current = {
+        orderMode,
+        selectedTable,
+        recalledKitchenOrderId,
+        pendingOrderId,
+        pendingKitchenOrderId,
+        paymentOrderItems,
+      } as any;
       // Map order items for payment
       const mappedItems: QSROrderItem[] = order.items.map((item, idx) => {
         const menuItem = menuItems.find(
@@ -1150,15 +1920,18 @@ export const QSRPosMain: React.FC = () => {
 
       // Store the items for payment dialog
       setPaymentOrderItems(mappedItems);
+      setCheckoutSource("drawer");
       setPendingKitchenOrderId(order.id);
+      setPendingOrderId(order.orderId || null);
       setRecalledKitchenOrderId(order.id);
       
       // Update the current mode to match the order being paid
       if (order.orderType) {
-        setOrderMode(order.orderType as QSRMode);
+        setOrderMode(order.orderType as QSROrderMode);
       }
 
-      // Try to extract table from source
+      // Try to extract table from source (clear inherited table first so non-matching sources don't inherit workspace table)
+      setSelectedTable(null);
       if ((order.orderType || orderMode) === "dine_in") {
         const sortedTables = [...tables].sort((a, b) => b.name.length - a.name.length);
         const table = sortedTables.find((t) =>
@@ -1172,7 +1945,7 @@ export const QSRPosMain: React.FC = () => {
       // Open payment dialog (drawer stays open in background)
       setShowPaymentDialog(true);
     },
-    [menuItems, tables, orderMode],
+    [menuItems, tables, orderMode, selectedTable, recalledKitchenOrderId, pendingOrderId, pendingKitchenOrderId, paymentOrderItems],
   );
 
   // Handle payment dialog close - Clear all payment state
@@ -1181,18 +1954,41 @@ export const QSRPosMain: React.FC = () => {
     // Clear payment state to prevent stale data on next open
     setPaymentOrderItems([]);
     setPendingKitchenOrderId(null);
-    // Note: We don't clear recalledKitchenOrderId here as it may be needed if user recalls the order again
+    setCheckoutSource(null);
+    // H-6: Restore previous POS workspace state if user cancelled drawer payment
+    if (drawerCheckoutSnapshotRef.current) {
+      const snap = drawerCheckoutSnapshotRef.current as any;
+      drawerCheckoutSnapshotRef.current = null;
+      setOrderMode(snap.orderMode);
+      setSelectedTable(snap.selectedTable);
+      setRecalledKitchenOrderId(snap.recalledKitchenOrderId);
+      setPendingOrderId(snap.pendingOrderId);
+      setPendingKitchenOrderId(snap.pendingKitchenOrderId ?? null);
+      setPaymentOrderItems(snap.paymentOrderItems ?? []);
+    }
   }, []);
 
-  // Payment success handler - Supports both pre-pay and post-pay flows
+  // Payment success handler - Supports both pre-pay and post-pay flows (online + offline)
   const handlePaymentSuccess = useCallback(
     async (paymentDetails?: {
       method?: string;
       paymentStatus?: string;
       total?: number;
+      subtotal?: number;
+      discountAmount?: number;
+      discountPercentage?: number;
+      discountNotes?: string;
+      ncReason?: string;
       splitPayments?: Array<{ method: string; amount: number }>;
       customerName?: string;
       customerMobile?: string;
+      items?: any[];
+      offlineQueued?: boolean;
+      loyaltyPointsRedeemed?: number;
+      loyaltyCustomerId?: string;
+      loyaltyDiscountAmount?: number;
+      roomId?: string;
+      deferParentClose?: boolean;
     }) => {
       try {
         let currentTable = selectedTable;
@@ -1200,22 +1996,35 @@ export const QSRPosMain: React.FC = () => {
         const finalMethod = paymentDetails?.method || (currentMode === "nc" ? "nc" : "paid");
         const finalPaymentStatus = paymentDetails?.paymentStatus || (currentMode === "nc" ? "nc" : "paid");
         const splitPayments = paymentDetails?.splitPayments || null;
+        const wasQueuedOffline =
+          paymentDetails?.offlineQueued !== undefined
+            ? Boolean(paymentDetails.offlineQueued)
+            : isOfflineNow();
 
         // Determine the effective kitchen order ID (pendingKitchenOrderId OR recalledKitchenOrderId)
         const effectiveKitchenOrderId = pendingKitchenOrderId || recalledKitchenOrderId;
 
-        // If selectedTable was cleared (after Send to Kitchen), resolve table from kitchen order source
+        // If selectedTable was cleared (after Send to Kitchen), resolve table from local or online kitchen order
         if (!currentTable && currentMode === "dine_in" && effectiveKitchenOrderId) {
           try {
-            const { data: ko } = await supabase
-              .from("kitchen_orders")
-              .select("source")
-              .eq("id", effectiveKitchenOrderId)
-              .maybeSingle();
-            if (ko?.source) {
+            const localKo = await getLocalOrder(effectiveKitchenOrderId);
+            const koSource =
+              localKo?.source ||
+              activeOrders.find((o) => o.id === effectiveKitchenOrderId)?.source ||
+              (!wasQueuedOffline && !isOfflineNow()
+                ? (
+                    await supabase
+                      .from("kitchen_orders")
+                      .select("source")
+                      .eq("id", effectiveKitchenOrderId)
+                      .maybeSingle()
+                  ).data?.source
+                : undefined);
+
+            if (koSource) {
               const sortedTables = [...tables].sort((a, b) => b.name.length - a.name.length);
               const matched = sortedTables.find((t) =>
-                ko.source.toLowerCase().includes(t.name.toLowerCase())
+                koSource.toLowerCase().includes(t.name.toLowerCase()),
               );
               if (matched) currentTable = matched;
             }
@@ -1237,11 +2046,333 @@ export const QSRPosMain: React.FC = () => {
         const finalCustomerPhone =
           paymentDetails?.customerMobile?.trim() || customerPhone.trim() || null;
 
+        const persistPrePayOffline = async (
+          existingServerKitchenOrderId?: string | null,
+          existingServerOrderId?: string | null,
+        ) => {
+          if (!restaurantId) return;
+          const activeItems =
+            paymentDetails?.items && paymentDetails.items.length > 0
+              ? paymentDetails.items
+              : orderItems;
+          if (activeItems.length === 0) return;
+
+          const orderSource =
+            currentMode === "dine_in" && currentTable
+              ? tableLabel(currentTable.name)
+              : currentMode === "takeaway"
+              ? "Takeaway"
+              : currentMode === "delivery"
+              ? "Delivery"
+              : "Non-Chargeable";
+
+          const paymentCustomerName =
+            paymentDetails?.customerName?.trim() ||
+            customerName.trim() ||
+            (currentMode === "dine_in" && currentTable
+              ? tableLabel(currentTable.name)
+              : currentMode === "takeaway"
+              ? "Takeaway Customer"
+              : currentMode === "delivery"
+              ? "Delivery Customer"
+              : "Walk-in Customer");
+
+          const rawSubtotal = activeItems.reduce(
+            (sum, item) =>
+              sum +
+              ((item as any).calculatedPrice ??
+                (item as any).customPrice ??
+                item.price) *
+                item.quantity,
+            0,
+          );
+          const orderTotal =
+            paymentDetails?.total !== undefined
+              ? paymentDetails.total
+              : rawSubtotal;
+          const isNC = currentMode === "nc" || finalMethod === "nc";
+          const effectiveNcReason = paymentDetails?.ncReason || ncReason || null;
+          const nowIso = new Date().toISOString();
+
+          const kitchenItems = activeItems.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            price:
+              (item as any).calculatedPrice ??
+              (item as any).customPrice ??
+              item.price,
+            menuItemId: item.menuItemId,
+            notes: item.notes
+              ? Array.isArray(item.notes)
+                ? item.notes
+                : [item.notes]
+              : [],
+          }));
+
+          const orderItemsFormatted = activeItems.map((item) =>
+            formatOrderItemString(
+              item.quantity,
+              item.name,
+              (item as any).calculatedPrice ??
+                (item as any).customPrice ??
+                item.price,
+              Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
+            ),
+          );
+
+          const discountAmt = isNC
+            ? rawSubtotal
+            : paymentDetails?.discountAmount || 0;
+          const discountPct = isNC
+            ? 100
+            : paymentDetails?.discountPercentage || 0;
+
+          const fingerprint = `${restaurantId}|${isNC ? 0 : orderTotal}|${finalMethod}|${orderItemsFormatted.join(",")}`;
+          const reused =
+            pendingOfflinePrePayRef.current?.fingerprint === fingerprint
+              ? pendingOfflinePrePayRef.current
+              : null;
+          const offlineOrderId =
+            existingServerOrderId || reused?.orderId || crypto.randomUUID();
+          // H-5: If server kitchen_order was already inserted before later failure, reuse its ID
+          const offlineKitchenOrderId =
+            existingServerKitchenOrderId || reused?.kitchenOrderId || crypto.randomUUID();
+          const offlineToken =
+            reused?.offlineToken || generateOfflineOrderNumber();
+          // C-2: stable txnId for pos_transaction idempotency across retries
+          const offlineTxnId = reused?.txnId || crypto.randomUUID();
+          pendingOfflinePrePayRef.current = {
+            fingerprint,
+            orderId: offlineOrderId,
+            kitchenOrderId: offlineKitchenOrderId,
+            offlineToken,
+            txnId: offlineTxnId,
+          };
+
+          await enqueueWrite(
+            "order",
+            {
+              id: offlineOrderId,
+              restaurant_id: restaurantId,
+              customer_name: paymentCustomerName,
+              customer_phone: finalCustomerPhone,
+              items: orderItemsFormatted,
+              status: isNC ? "nc" : "completed",
+              total: isNC ? 0 : orderTotal,
+              order_type: isNC ? "non-chargeable" : currentMode,
+              nc_reason: isNC ? effectiveNcReason : null,
+              source: "pos",
+              payment_status: finalPaymentStatus,
+              payment_method: finalMethod,
+              ...(splitPayments &&
+                splitPayments.length > 0 && {
+                  split_payments: splitPayments,
+                }),
+              discount_amount: discountAmt,
+              discount_percentage: discountPct,
+              ...(paymentDetails?.discountNotes && {
+                discount_notes: paymentDetails.discountNotes,
+              }),
+              attendant: attendantName,
+              created_at: nowIso,
+              updated_at: nowIso,
+            },
+            existingServerOrderId ? "update" : "insert",
+          );
+
+          await enqueueWrite(
+            "kitchen_order",
+            {
+              id: offlineKitchenOrderId,
+              order_id: offlineOrderId,
+              restaurant_id: restaurantId,
+              source: `QSR-${orderSource}`,
+              status: "completed",
+              items: kitchenItems,
+              order_type: currentMode === "nc" ? "takeaway" : currentMode,
+              customer_name: paymentCustomerName,
+              customer_phone: finalCustomerPhone,
+              server_name: attendantName,
+              priority: "normal",
+              _deductInventory: true,
+              bumped_at: nowIso,
+              created_at: nowIso,
+              updated_at: nowIso,
+            },
+            existingServerKitchenOrderId ? "update" : "insert",
+          );
+
+          if (!isNC) {
+            await enqueueWrite(
+              "pos_transaction",
+              {
+                id: offlineTxnId, // C-2: stable idempotency key across retries
+                restaurant_id: restaurantId,
+                order_id: offlineOrderId,
+                kitchen_order_id: offlineKitchenOrderId,
+                amount: orderTotal,
+                payment_method: finalMethod,
+                status:
+                  finalPaymentStatus === "pending" ? "pending" : "completed",
+                customer_name: paymentCustomerName || null,
+                customer_phone: finalCustomerPhone,
+                staff_id: user?.id || null,
+                discount_amount: discountAmt,
+                ...(splitPayments && { split_payments: splitPayments }),
+                created_at: nowIso,
+                updated_at: nowIso,
+              },
+              "insert",
+            );
+          }
+
+          if (
+            (paymentDetails?.loyaltyPointsRedeemed || 0) > 0 &&
+            (paymentDetails?.loyaltyCustomerId || finalCustomerPhone)
+          ) {
+            await enqueueWrite(
+              "loyalty_redemption",
+              {
+                restaurant_id: restaurantId,
+                customer_id: paymentDetails?.loyaltyCustomerId || null,
+                customer_phone: finalCustomerPhone,
+                transaction_type: "redeem",
+                source: currentTable ? "pos" : "qsr",
+                source_id: offlineOrderId,
+                points_redeemed: paymentDetails?.loyaltyPointsRedeemed,
+                notes: `Redeemed at checkout`,
+                created_by: user?.id || null,
+              },
+              "insert",
+            );
+          }
+
+          if (finalMethod === "room" && paymentDetails?.roomId) {
+            await enqueueWrite(
+              "room_food_order",
+              {
+                room_id: paymentDetails.roomId,
+                order_id: offlineOrderId,
+                total: orderTotal,
+                status: "pending",
+              },
+              "insert",
+            );
+          }
+
+          await saveLocalOrder({
+            id: offlineKitchenOrderId,
+            orderId: offlineOrderId,
+            restaurant_id: restaurantId,
+            source: `QSR-${orderSource}`,
+            tableId: currentTable?.id || null,
+            tableName: currentTable?.name || null,
+            orderType: currentMode,
+            status: "completed",
+            priority: "normal",
+            items: kitchenItems,
+            total: isNC ? 0 : orderTotal,
+            subtotal: rawSubtotal,
+            discount: discountPct || discountAmt || undefined,
+            discountType: discountPct
+              ? "percentage"
+              : discountAmt
+              ? "amount"
+              : undefined,
+            customerName: paymentCustomerName,
+            customerPhone: finalCustomerPhone || undefined,
+            attendant: attendantName,
+            paymentMethod: finalMethod,
+            paymentStatus: finalPaymentStatus,
+            splitPayments: splitPayments || undefined,
+            offlineToken,
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            completedAt: nowIso,
+            synced: false,
+          });
+          pendingOfflinePrePayRef.current = null;
+        };
+
+        const drawerSnap =
+          checkoutSource === "drawer" ? drawerCheckoutSnapshotRef.current : null;
+        const snapEffectiveId = drawerSnap
+          ? drawerSnap.pendingKitchenOrderId || drawerSnap.recalledKitchenOrderId
+          : null;
+        const paidSameAsRecalled =
+          !drawerSnap || snapEffectiveId === effectiveKitchenOrderId;
+
+        if (wasQueuedOffline) {
+          if (effectiveKitchenOrderId) {
+            // POST-PAY OFFLINE: PaymentDialog / MobilePaymentDialog already queued the DB updates & localOrders mirror.
+            if (paidSameAsRecalled) {
+              setPendingOrderId(null);
+              setPendingKitchenOrderId(null);
+              setOrderItems([]);
+              setRecalledKitchenOrderId(null);
+            }
+            setPaymentOrderItems([]);
+          } else {
+            await persistPrePayOffline();
+          }
+
+          drawerCheckoutSnapshotRef.current = null;
+          if (paidSameAsRecalled) {
+            setOrderItems([]);
+            setRecalledKitchenOrderId(null);
+            setPendingOrderId(null);
+            setPendingKitchenOrderId(null);
+            setCustomerName("");
+            setCustomerPhone("");
+            setNcReason("");
+          } else if (drawerSnap) {
+            setOrderMode(drawerSnap.orderMode);
+            setSelectedTable(drawerSnap.selectedTable);
+            setRecalledKitchenOrderId(drawerSnap.recalledKitchenOrderId);
+            setPendingOrderId(drawerSnap.pendingOrderId);
+            setPendingKitchenOrderId(drawerSnap.pendingKitchenOrderId ?? null);
+          }
+          setPaymentOrderItems([]);
+          setCheckoutSource(null);
+
+          if (currentMode === "dine_in" && currentTable) {
+            await updateTableStatus(currentTable.id, "available");
+            if (paidSameAsRecalled || drawerSnap?.selectedTable?.id === currentTable.id) {
+              setSelectedTable(null);
+            }
+          }
+          refetchTables();
+
+          if (!paymentDetails?.deferParentClose) {
+            toast({
+              title: "Payment Saved Locally ✓",
+              description:
+                "No internet — bill queued and will sync automatically when connected.",
+            });
+            setShowPaymentDialog(false);
+          }
+          setShowActiveOrders(false);
+
+          queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+          queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+          queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+          queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+          queryClient.invalidateQueries({ queryKey: ["orders"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
+          queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
+          queryClient.invalidateQueries({ queryKey: ["past-orders"] });
+          queryClient.invalidateQueries({ queryKey: ["qsr-todays-revenue"] });
+          return;
+        }
+
         // Check if this is post-pay (order already in kitchen)
+        let deferredToOffline = false;
         if (effectiveKitchenOrderId) {
           // POST-PAY: Order already in kitchen — update existing order, don't create a new one
           const activeItems = (paymentDetails?.items && paymentDetails.items.length > 0)
             ? paymentDetails.items
+            : checkoutSource === "drawer"
+            ? paymentOrderItems
             : (orderItems.length > 0 ? orderItems : paymentOrderItems);
           const orderTotal = paymentDetails?.total !== undefined
             ? paymentDetails.total
@@ -1250,105 +2381,164 @@ export const QSRPosMain: React.FC = () => {
               );
           const isNC = currentMode === "nc";
 
-          // Prepare updated kitchen items
           const kitchenItems = activeItems.map((item) => ({
             name: item.name,
             quantity: item.quantity,
             price: (item as any).calculatedPrice ?? (item as any).customPrice ?? item.price,
             menuItemId: item.menuItemId,
-            notes: item.notes ? [item.notes] : [],
+            notes: item.notes ? (Array.isArray(item.notes) ? item.notes : [item.notes]) : [],
           }));
 
-          // Update kitchen order with latest items and mark completed
-          const { data: updatedKitchenOrder, error: kitchenUpdateError } = await supabase
-            .from("kitchen_orders")
-            .update({
-              items: kitchenItems,
-              bumped_at: new Date().toISOString(),
-              status: "completed",
-              ...(finalCustomerName && { customer_name: finalCustomerName }),
-              ...(finalCustomerPhone && { customer_phone: finalCustomerPhone }),
-            })
-            .eq("id", effectiveKitchenOrderId)
-            .select("order_id")
-            .maybeSingle();
-
-          if (kitchenUpdateError) {
-            console.error("Error updating kitchen order to completed:", kitchenUpdateError);
-          }
-
-          // Determine the linked order ID
-          const linkedOrderId = pendingOrderId || updatedKitchenOrder?.order_id;
-
-          // Prepare formatted items for orders table
           const orderItemsFormatted = activeItems.map(
             (item) => formatOrderItemString(
               item.quantity,
               item.name,
               (item as any).calculatedPrice ?? (item as any).customPrice ?? item.price,
-              item.notes
+              Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
             )
           );
 
-          if (linkedOrderId) {
-            // Update existing orders record with latest items, total, and status
-            await supabase
-              .from("orders")
+          let resolvedPostPayOrderId: string | null = pendingOrderId || null;
+          try {
+            const { data: updatedKitchenOrder, error: kitchenUpdateError } = await supabase
+              .from("kitchen_orders")
               .update({
-                status: isNC ? "nc" : "completed",
-                items: orderItemsFormatted,
-                total: isNC ? 0 : orderTotal,
-                payment_status: finalPaymentStatus,
-                payment_method: finalMethod,
-                customer_name: finalCustomerName,
-                customer_phone: finalCustomerPhone,
-                ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
-                updated_at: new Date().toISOString(),
+                items: kitchenItems,
+                bumped_at: new Date().toISOString(),
+                status: "completed",
+                ...(finalCustomerName && { customer_name: finalCustomerName }),
+                ...(finalCustomerPhone && { customer_phone: finalCustomerPhone }),
               })
-              .eq("id", linkedOrderId);
-          } else if (restaurantId) {
-            // No linked order exists yet — create one and link it
-            const { data: createdOrder } = await supabase
-              .from("orders")
-              .insert({
-                restaurant_id: restaurantId,
-                customer_name: finalCustomerName,
-                customer_phone: finalCustomerPhone,
-                items: orderItemsFormatted,
-                status: isNC ? "nc" : "completed",
-                total: isNC ? 0 : orderTotal,
-                order_type: isNC ? "non-chargeable" : currentMode.replace("_", "-"),
-                nc_reason: isNC ? ncReason || null : null,
-                source: "pos",
-                payment_status: finalPaymentStatus,
-                payment_method: finalMethod,
-                ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
-                attendant: attendantName,
-              })
-              .select()
+              .eq("id", effectiveKitchenOrderId)
+              .select("order_id")
               .maybeSingle();
 
-            // Link kitchen order to this new orders record
-            if (createdOrder?.id) {
-              await supabase
-                .from("kitchen_orders")
-                .update({ order_id: createdOrder.id })
-                .eq("id", effectiveKitchenOrderId);
+            if (kitchenUpdateError) throw kitchenUpdateError;
+
+            const linkedOrderId = pendingOrderId || updatedKitchenOrder?.order_id;
+
+            if (linkedOrderId) {
+              const { error: orderUpdateError } = await supabase
+                .from("orders")
+                .update({
+                  status: isNC ? "nc" : "completed",
+                  items: orderItemsFormatted,
+                  total: isNC ? 0 : orderTotal,
+                  payment_status: finalPaymentStatus,
+                  payment_method: finalMethod,
+                  customer_name: finalCustomerName,
+                  customer_phone: finalCustomerPhone,
+                  ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", linkedOrderId);
+              if (orderUpdateError) throw orderUpdateError;
+            } else if (restaurantId) {
+              const { data: createdOrder, error: createOrderError } = await supabase
+                .from("orders")
+                .insert({
+                  restaurant_id: restaurantId,
+                  customer_name: finalCustomerName,
+                  customer_phone: finalCustomerPhone,
+                  items: orderItemsFormatted,
+                  status: isNC ? "nc" : "completed",
+                  total: isNC ? 0 : orderTotal,
+                  order_type: isNC ? "non-chargeable" : currentMode.replace("_", "-"),
+                  nc_reason: isNC ? ncReason || null : null,
+                  source: "pos",
+                  payment_status: finalPaymentStatus,
+                  payment_method: finalMethod,
+                  ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
+                  attendant: attendantName,
+                })
+                .select()
+                .maybeSingle();
+              if (createOrderError) throw createOrderError;
+
+              if (createdOrder?.id) {
+                resolvedPostPayOrderId = createdOrder.id;
+                const { error: linkErr } = await supabase
+                  .from("kitchen_orders")
+                  .update({ order_id: createdOrder.id })
+                  .eq("id", effectiveKitchenOrderId);
+                if (linkErr) throw linkErr;
+              }
+            }
+          } catch (postPayErr) {
+            console.warn("[QSR] Post-pay parent finalization deferred offline:", postPayErr);
+            deferredToOffline = true;
+            const nowIso = new Date().toISOString();
+            const localExisting = await getLocalOrder(effectiveKitchenOrderId).catch(
+              () => undefined,
+            );
+            const fallbackOrderId = resolvedPostPayOrderId || pendingOrderId || localExisting?.orderId || null;
+
+            await enqueueWrite(
+              "kitchen_order",
+              {
+                id: effectiveKitchenOrderId,
+                items: kitchenItems,
+                bumped_at: nowIso,
+                status: "completed",
+                ...(finalCustomerName && { customer_name: finalCustomerName }),
+                ...(finalCustomerPhone && { customer_phone: finalCustomerPhone }),
+              },
+              "update",
+            );
+            await enqueueWrite(
+              "order",
+              {
+                id: fallbackOrderId || effectiveKitchenOrderId,
+                ...(!fallbackOrderId && {
+                  _resolveOrderIdFromKitchenOrderId: effectiveKitchenOrderId,
+                }),
+                status: isNC ? "nc" : "completed",
+                items: orderItemsFormatted,
+                total: isNC ? 0 : orderTotal,
+                payment_status: finalPaymentStatus,
+                payment_method: finalMethod,
+                customer_name: finalCustomerName,
+                customer_phone: finalCustomerPhone,
+                ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
+                updated_at: nowIso,
+              },
+              "update",
+            );
+            if (restaurantId) {
+              await saveLocalOrder({
+                ...(localExisting || {
+                  id: effectiveKitchenOrderId,
+                  orderId: fallbackOrderId,
+                  restaurant_id: restaurantId,
+                  source: currentTable ? `QSR-${tableLabel(currentTable.name)}` : "QSR-POS",
+                  orderType: currentMode,
+                  priority: "normal",
+                  createdAt: nowIso,
+                }),
+                id: effectiveKitchenOrderId,
+                orderId: fallbackOrderId,
+                status: "completed",
+                items: kitchenItems,
+                total: isNC ? 0 : orderTotal,
+                customerName: finalCustomerName,
+                customerPhone: finalCustomerPhone || undefined,
+                paymentMethod: finalMethod,
+                paymentStatus: finalPaymentStatus,
+                splitPayments: splitPayments || undefined,
+                updatedAt: nowIso,
+                completedAt: nowIso,
+                synced: false,
+              });
             }
           }
 
-          // NOTE: pos_transactions insert for post-pay is handled by
-          // PaymentDialog / MobilePaymentDialog (which have orderId).
-          // Do NOT insert here to avoid duplicate rows.
-
-          // Clear pending order state
-          setPendingOrderId(null);
-          setPendingKitchenOrderId(null);
+          if (paidSameAsRecalled) {
+            setPendingOrderId(null);
+            setPendingKitchenOrderId(null);
+            setOrderItems([]);
+            setRecalledKitchenOrderId(null);
+          }
           setPaymentOrderItems([]);
-
-          // Clear cart items
-          setOrderItems([]);
-          setRecalledKitchenOrderId(null);
         } else if ((orderItems.length > 0 || (paymentDetails?.items && paymentDetails.items.length > 0)) && restaurantId) {
           // PRE-PAY: No existing kitchen order — create order directly as completed
           const activeItems = (paymentDetails?.items && paymentDetails.items.length > 0)
@@ -1381,178 +2571,209 @@ export const QSRPosMain: React.FC = () => {
               );
           const isNC = currentMode === "nc";
 
-          // Prepare kitchen items
           const kitchenItems = activeItems.map((item) => ({
             name: item.name,
             quantity: item.quantity,
             price: (item as any).calculatedPrice ?? (item as any).customPrice ?? item.price,
             menuItemId: item.menuItemId,
-            notes: item.notes ? [item.notes] : [],
+            notes: item.notes ? (Array.isArray(item.notes) ? item.notes : [item.notes]) : [],
           }));
 
-          // Create kitchen order as bumped (completed) - for record keeping
-          const { data: kitchenOrder, error: kitchenError } = await supabase
-            .from("kitchen_orders")
-            .insert({
-              restaurant_id: restaurantId,
-              source: `QSR-${orderSource}`,
-              status: "completed", // Already completed since paid
-              items: kitchenItems,
-              order_type: currentMode === "nc" ? "takeaway" : currentMode,
-              customer_name: paymentCustomerName,
-              server_name: attendantName,
-              priority: "normal",
-              bumped_at: new Date().toISOString(), // Mark as completed immediately
-            })
-            .select()
-            .maybeSingle();
-
-          if (kitchenError) throw kitchenError;
-
-          // Prepare items array for orders table
-          const orderItemsFormatted = activeItems.map(
-            (item) => formatOrderItemString(
-              item.quantity,
-              item.name,
-              (item as any).calculatedPrice ?? (item as any).customPrice ?? item.price,
-              item.notes
-            )
-          );
-
-          const { data: createdOrder, error: orderError } = await supabase
-            .from("orders")
-            .insert({
-              restaurant_id: restaurantId,
-              customer_name: paymentCustomerName,
-              items: orderItemsFormatted, // Required field - array of strings
-              status: "completed", // Already completed since paid
-              total: isNC ? 0 : orderTotal,
-              // For NC orders, store original value in discount_amount (100% discount)
-              order_type: isNC ? "non-chargeable" : currentMode,
-              nc_reason: isNC ? ncReason || null : null, // Save NC reason if provided
-              source: "pos",
-              payment_status: finalPaymentStatus,
-              payment_method: finalMethod,
-              ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
-              discount_amount: isNC ? orderTotal : 0, // Original value for NC orders
-              discount_percentage: isNC ? 100 : 0,
-              attendant: attendantName,
-            })
-            .select()
-            .maybeSingle();
-
-          if (orderError) throw orderError;
-
-          // Link kitchen order to order record
-          if (createdOrder?.id && kitchenOrder?.id) {
-            await supabase
+          let createdKitchenOrderId: string | null = null;
+          let createdOrderId: string | null = null;
+          try {
+            const { data: kitchenOrder, error: kitchenError } = await supabase
               .from("kitchen_orders")
-              .update({ order_id: createdOrder.id })
-              .eq("id", kitchenOrder.id);
-          }
+              .insert({
+                restaurant_id: restaurantId,
+                source: `QSR-${orderSource}`,
+                status: "completed",
+                items: kitchenItems,
+                order_type: currentMode === "nc" ? "takeaway" : currentMode,
+                customer_name: paymentCustomerName,
+                server_name: attendantName,
+                priority: "normal",
+                bumped_at: new Date().toISOString(),
+              })
+              .select()
+              .maybeSingle();
 
-          // Insert pos_transaction (pre-pay path)
-          if (!isNC && restaurantId) {
-            const { data: authData } = await supabase.auth.getUser();
-            await supabase.from("pos_transactions").insert({
-              restaurant_id: restaurantId,
-              order_id: createdOrder?.id || null,
-              kitchen_order_id: kitchenOrder?.id || null,
-              amount: orderTotal,
-              payment_method: finalMethod,
-              status: finalPaymentStatus === "pending" ? "pending" : "completed",
-              customer_name: paymentCustomerName || null,
-              staff_id: authData?.user?.id || null,
-              ...(splitPayments && { split_payments: splitPayments }),
-            }).then(() => {}, console.error);
-          }
+            if (kitchenError) throw kitchenError;
+            createdKitchenOrderId = kitchenOrder?.id || null;
 
-          // Deduct inventory based on recipe ingredients (non-blocking)
-          if (kitchenOrder?.id) {
-            try {
-              const { data: deductResult, error: deductError } =
-                await supabase.functions.invoke("deduct-inventory-on-prep", {
-                  body: { order_id: kitchenOrder.id },
-                });
+            const orderItemsFormatted = activeItems.map(
+              (item) => formatOrderItemString(
+                item.quantity,
+                item.name,
+                (item as any).calculatedPrice ?? (item as any).customPrice ?? item.price,
+                Array.isArray(item.notes) ? item.notes.join(", ") : item.notes,
+              )
+            );
 
-              if (deductError) {
-                console.error("Inventory deduction error:", deductError.message);
-              } else if (!deductResult?.success && !deductResult?.skipped && deductResult?.errors) {
-                console.warn("Inventory deduction warnings:", deductResult.errors);
-                toast({
-                  variant: "destructive",
-                  title: "Inventory Warning",
-                  description: deductResult.errors.join("\n"),
-                  duration: 6000,
-                });
-              }
-            } catch (invErr) {
-              console.error("Inventory deduction failed (non-blocking):", invErr);
+            const { data: createdOrder, error: orderError } = await supabase
+              .from("orders")
+              .insert({
+                restaurant_id: restaurantId,
+                customer_name: paymentCustomerName,
+                items: orderItemsFormatted,
+                status: "completed",
+                total: isNC ? 0 : orderTotal,
+                order_type: isNC ? "non-chargeable" : currentMode,
+                nc_reason: isNC ? ncReason || null : null,
+                source: "pos",
+                payment_status: finalPaymentStatus,
+                payment_method: finalMethod,
+                ...(splitPayments && splitPayments.length > 0 && { split_payments: splitPayments }),
+                discount_amount: isNC ? orderTotal : 0,
+                discount_percentage: isNC ? 100 : 0,
+                attendant: attendantName,
+              })
+              .select()
+              .maybeSingle();
+
+            if (orderError) throw orderError;
+            createdOrderId = createdOrder?.id || null;
+
+            if (createdOrder?.id && kitchenOrder?.id) {
+              const { error: linkErr } = await supabase
+                .from("kitchen_orders")
+                .update({ order_id: createdOrder.id })
+                .eq("id", kitchenOrder.id);
+              if (linkErr) throw linkErr;
             }
-          }
 
+            if (!isNC && restaurantId) {
+              const { data: authData } = await supabase.auth.getUser();
+              const { error: txnErr } = await supabase.from("pos_transactions").insert({
+                restaurant_id: restaurantId,
+                order_id: createdOrder?.id || null,
+                kitchen_order_id: kitchenOrder?.id || null,
+                amount: orderTotal,
+                payment_method: finalMethod,
+                status: finalPaymentStatus === "pending" ? "pending" : "completed",
+                customer_name: paymentCustomerName || null,
+                staff_id: authData?.user?.id || user?.id || null,
+                ...(splitPayments && { split_payments: splitPayments }),
+              });
+              if (txnErr) throw txnErr;
+            }
+
+            if (kitchenOrder?.id) {
+              try {
+                const { data: deductResult, error: deductError } =
+                  await supabase.functions.invoke("deduct-inventory-on-prep", {
+                    body: { order_id: kitchenOrder.id },
+                  });
+
+                if (deductError) {
+                  console.error("Inventory deduction error:", deductError.message);
+                } else if (!deductResult?.success && !deductResult?.skipped && deductResult?.errors) {
+                  console.warn("Inventory deduction warnings:", deductResult.errors);
+                  toast({
+                    variant: "destructive",
+                    title: "Inventory Warning",
+                    description: deductResult.errors.join("\n"),
+                    duration: 6000,
+                  });
+                }
+              } catch (invErr) {
+                console.error("Inventory deduction failed (non-blocking):", invErr);
+              }
+            }
+          } catch (prePayErr) {
+            console.warn("[QSR] Pre-pay parent finalization deferred offline:", prePayErr);
+            deferredToOffline = true;
+            await persistPrePayOffline(createdKitchenOrderId, createdOrderId);
+          }
         }
 
-        // Clear cart, order, and customer details
-        setOrderItems([]);
-        setRecalledKitchenOrderId(null);
-        setPendingOrderId(null);
-        setPendingKitchenOrderId(null);
+        drawerCheckoutSnapshotRef.current = null;
+        // Clear cart, order, and customer details (preserve unrelated cart if paying from drawer)
+        if (paidSameAsRecalled) {
+          setOrderItems([]);
+          setRecalledKitchenOrderId(null);
+          setPendingOrderId(null);
+          setPendingKitchenOrderId(null);
+          setCustomerName("");
+          setCustomerPhone("");
+          setNcReason("");
+        } else if (drawerSnap) {
+          setOrderMode(drawerSnap.orderMode);
+          setSelectedTable(drawerSnap.selectedTable);
+          setRecalledKitchenOrderId(drawerSnap.recalledKitchenOrderId);
+          setPendingOrderId(drawerSnap.pendingOrderId);
+          setPendingKitchenOrderId(drawerSnap.pendingKitchenOrderId ?? null);
+        }
         setPaymentOrderItems([]);
-        setCustomerName("");
-        setCustomerPhone("");
-        setNcReason("");
+        setCheckoutSource(null);
 
-      // Free up table if dine-in
-      if (currentMode === "dine_in" && currentTable) {
-        await updateTableStatus(currentTable.id, "available");
-        setSelectedTable(null);
+        // Free up table if dine-in
+        if (currentMode === "dine_in" && currentTable) {
+          try {
+            await updateTableStatus(currentTable.id, "available");
+          } catch {
+            /* offline fallback handled inside useQSRTables */
+          }
+          if (paidSameAsRecalled || drawerSnap?.selectedTable?.id === currentTable.id) {
+            setSelectedTable(null);
+          }
+        }
+        refetchTables();
+
+        if (!paymentDetails?.deferParentClose) {
+          toast({
+            title: deferredToOffline ? "Finalization Saved Locally ✓" : "Payment Complete",
+            description: deferredToOffline
+              ? "Order updates queued locally and will sync automatically when online."
+              : "Order has been paid and completed",
+          });
+          setShowPaymentDialog(false);
+        }
+        setShowActiveOrders(false); // Close Active Orders drawer after successful payment
+
+        // Invalidate active orders queries to reflect completed payment
+        queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["all-orders"] }); // Orders Management view
+        queryClient.invalidateQueries({ queryKey: ["orders"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
+        queryClient.invalidateQueries({ queryKey: ["past-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["qsr-todays-revenue"] });
+      } catch (error) {
+        console.error("Error completing payment:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to complete payment",
+        });
+        throw error; // C-4: propagate so callers (PaymentDialog/MobilePaymentDialog) don't show success UI
       }
-      refetchTables();
-
-      toast({
-        title: "Payment Complete",
-        description: "Order has been paid and completed",
-      });
-
-      setShowPaymentDialog(false);
-      setShowActiveOrders(false); // Close Active Orders drawer after successful payment
-
-      // Invalidate active orders queries to reflect completed payment
-      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["active-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["all-orders"] }); // Orders Management view
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
-      queryClient.invalidateQueries({ queryKey: ["past-orders"] });
-    } catch (error) {
-      console.error("Error completing payment:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to complete payment",
-      });
-    }
-  }, [
-    pendingOrderId,
-    pendingKitchenOrderId,
-    recalledKitchenOrderId,
-    orderItems,
-    paymentOrderItems,
-    orderMode,
-    selectedTable,
-    tables,
-    restaurantId,
-    customerName,
-    ncReason,
-    attendantName,
-    updateTableStatus,
-    refetchTables,
-    queryClient,
-    toast,
-  ]);
+    },
+    [
+      pendingOrderId,
+      pendingKitchenOrderId,
+      recalledKitchenOrderId,
+      orderItems,
+      paymentOrderItems,
+      orderMode,
+      selectedTable,
+      tables,
+      activeOrders,
+      restaurantId,
+      customerName,
+      customerPhone,
+      ncReason,
+      attendantName,
+      user?.id,
+      isOfflineNow,
+      updateTableStatus,
+      refetchTables,
+      queryClient,
+      toast,
+    ],
+  );
 
   // Delete active order handler - initiates confirmation
   const handleDeleteActiveOrder = useCallback((order: ActiveKitchenOrder) => {
@@ -1564,12 +2785,78 @@ export const QSRPosMain: React.FC = () => {
     setOrderToDelete({ order, type: "past" });
   }, []);
 
-  // Execute the actual deletion after confirmation
+  // Execute the actual deletion after confirmation (supports offline queue)
   const executeDeleteOrder = useCallback(async () => {
     const { order, type } = orderToDelete;
     if (!order) return;
 
     try {
+      const offline = isOfflineNow();
+      const localExisting = await getLocalOrder(order.id).catch(() => undefined);
+
+      if (offline || localExisting) {
+        const removedCount = await removeQueuedWritesForOrder(
+          order.id,
+          order.orderId,
+        );
+
+        if (removedCount > 0 && localExisting && !localExisting.synced) {
+          // Purely local unsynced order — removing from queue & localOrders leaves no server footprint
+          await deleteLocalOrder(order.id);
+        } else {
+          // Order already existed on server — store local tombstone and queue deletes
+          if (restaurantId) {
+            await saveLocalOrder({
+              ...(localExisting || {
+                id: order.id,
+                orderId: order.orderId || null,
+                restaurant_id: restaurantId,
+                source: order.source,
+                orderType: "takeaway",
+                priority: "normal",
+                items: order.items || [],
+                total: order.total || 0,
+                createdAt: order.createdAt,
+              }),
+              status: "deleted",
+              updatedAt: new Date().toISOString(),
+            });
+          }
+          await enqueueWrite(
+            "kitchen_order_delete",
+            { id: order.id },
+            "delete",
+          );
+          if (order.orderId) {
+            await enqueueWrite(
+              "order_delete",
+              { id: order.orderId },
+              "delete",
+            );
+          }
+        }
+
+        if (type === "active") {
+          queryClient.invalidateQueries({
+            queryKey: ["active-kitchen-orders", restaurantId],
+          });
+        } else {
+          queryClient.invalidateQueries({
+            queryKey: ["past-orders", restaurantId],
+          });
+        }
+        queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
+        queryClient.invalidateQueries({ queryKey: ["qsr-todays-revenue"] });
+
+        toast({
+          title: offline ? "Order Deleted (Offline)" : "Order Deleted",
+          description: offline
+            ? `Order from ${order.source} removed locally and queued for sync`
+            : `Order from ${order.source} has been deleted`,
+        });
+        return;
+      }
+
       // Delete from kitchen_orders
       const { error: kitchenError } = await supabase
         .from("kitchen_orders")
@@ -1619,7 +2906,7 @@ export const QSRPosMain: React.FC = () => {
     } finally {
       setOrderToDelete({ order: null, type: null });
     }
-  }, [orderToDelete, restaurantId, queryClient, toast]);
+  }, [orderToDelete, restaurantId, isOfflineNow, queryClient, toast]);
 
   // Determine what to show in main area
   const showTableSelection = orderMode === "dine_in" && !selectedTable;
@@ -1650,7 +2937,7 @@ export const QSRPosMain: React.FC = () => {
             orderMode={orderMode}
             selectedTableName={selectedTable?.name ?? null}
             activeOrdersCount={activeOrders.length}
-            todaysRevenue={todaysRevenue}
+            todaysRevenue={canViewRevenue ? todaysRevenue : undefined}
             isPrinterConnected={isPrinterConnected}
             isReconnecting={isReconnecting}
             printerName={printerName}
@@ -1810,13 +3097,15 @@ export const QSRPosMain: React.FC = () => {
                   <Receipt className="w-4 h-4" />
                   <span className="hidden sm:inline">Past Orders</span>
                 </Button>
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg shadow-sm">
-                  <TrendingUp className="w-4 h-4" />
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[10px] font-medium opacity-90">TODAY'S REVENUE</span>
-                    <span className="text-sm font-bold">{formatIndianCurrency(todaysRevenue).formatted}</span>
+                {canViewRevenue && (
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg shadow-sm">
+                    <TrendingUp className="w-4 h-4" />
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-[10px] font-medium opacity-90">TODAY'S REVENUE</span>
+                      <span className="text-sm font-bold">{formatIndianCurrency(todaysRevenue).formatted}</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
             <QSRModeSelector
@@ -1844,7 +3133,10 @@ export const QSRPosMain: React.FC = () => {
             onAddNote={handleAddNote}
             onSendToKitchen={handleSendToKitchen}
             onHoldOrder={handleHoldOrder}
-            onProceedToPayment={() => setShowPaymentDialog(true)}
+            onProceedToPayment={() => {
+              setCheckoutSource("cart");
+              setShowPaymentDialog(true);
+            }}
             onClearOrder={handleClearOrder}
             onAddCustomItem={() => setShowCustomItemDialog(true)}
             onChangeTable={() => {
@@ -1922,7 +3214,10 @@ export const QSRPosMain: React.FC = () => {
         onAddNote={handleAddNote}
         onSendToKitchen={handleSendToKitchen}
         onHoldOrder={handleHoldOrder}
-        onProceedToPayment={() => setShowPaymentDialog(true)}
+        onProceedToPayment={() => {
+          setCheckoutSource("cart");
+          setShowPaymentDialog(true);
+        }}
         onClearOrder={handleClearOrder}
         onAddCustomItem={() => setShowCustomItemDialog(true)}
         onChangeTable={() => {
@@ -2004,6 +3299,7 @@ export const QSRPosMain: React.FC = () => {
         tableNumber={selectedTable?.name || ""}
         onEditOrder={handlePaymentDialogClose}
         orderId={pendingKitchenOrderId || recalledKitchenOrderId || undefined}
+        linkedOrderId={pendingOrderId || undefined}
         isNonChargeable={orderMode === "nc"}
         serverName={attendantName}
         initialCustomerName={customerName}

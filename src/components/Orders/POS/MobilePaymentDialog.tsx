@@ -19,16 +19,33 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useAuth } from "@/hooks/useAuth";
 import { useCRMSync } from "@/hooks/useCRMSync";
 import { useBillSharing } from "@/hooks/useBillSharing";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { useNetworkStatus } from "@/contexts/NetworkStatusContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { thermalPrinterService } from "@/services/thermalPrinterService";
 import { nativePrinterBridge } from "@/services/nativePrinterBridge";
 import { resolveInvoiceTemplate } from "@/utils/resolveInvoiceTemplate";
-import type { PaymentDialogProps } from "@/components/Orders/POS/PaymentDialog/types";
+import { enqueueWrite } from "@/utils/syncManager";
+import {
+  cachePaymentSettings,
+  commitLocalOrderAndWritesAtomic,
+  getCachedByRestaurant,
+  getCachedPaymentSettings,
+  getCachedRestaurant,
+  getLocalOrder,
+  getLocalOrderByAnyId,
+  saveLocalOrder,
+} from "@/utils/offlineDB";
+import { formatOrderItemString } from "@/lib/order-utils";
+import type {
+  PaymentDialogProps,
+  PaymentSuccessDetails,
+} from "@/components/Orders/POS/PaymentDialog/types";
 import type { OrderItem } from "@/types/orders";
 import {
   X,
@@ -49,6 +66,7 @@ import {
   Star,
   Bluetooth,
   Wifi,
+  WifiOff,
   Share2,
   Gift,
   AlertCircle,
@@ -253,12 +271,17 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   onSuccess,
   tableNumber = "",
   orderId,
+  linkedOrderId,
   isNonChargeable = false,
   serverName,
   onEditOrder,
   onOrderUpdated,
   initialCustomerName = "",
   initialCustomerMobile = "",
+  isSettledReprint = false,
+  initialDiscountAmount,
+  initialDiscountPercentage,
+  initialTotal,
 }) => {
   // ── Step state ────────────────────────────────────────────────────────────
   const [step, setStep] = useState<MobilePayStep>("confirm");
@@ -309,66 +332,139 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   const [pendingPrintAfterConnect, setPendingPrintAfterConnect] = useState(false);
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPaymentDetailsRef = useRef<PaymentSuccessDetails | null>(null);
-  const hasPrintedRef = useRef(false);
+  const hasPrintedRef = useRef<string | null>(null);
+  // C-3: stable txnId for offline pos_transaction idempotency across retries
+  const pendingOfflineTxnIdRef = useRef<{ key: string; attemptId: number; txnId: string } | null>(null);
 
+  const { user: authUser } = useAuth();
+  const activeOrderIdRef = useRef<string | undefined>(orderId);
+  activeOrderIdRef.current = orderId;
+  const customerNameDirtyRef = useRef(false);
+  const customerMobileDirtyRef = useRef(false);
+  const discountsDirtyRef = useRef(false); // H-8: protect user-edited discounts on network toggle
+  const persistedByParentRef = useRef(false);
+  const paymentAttemptRef = useRef(0); // H-7: scope persistedByParentRef & auto-close per attempt
+  const onlineSettlementRef = useRef<{
+    orderId: string;
+    attemptId: number;
+    method: string;
+    total: number;
+    splitData?: Array<{ method: string; amount: number }>;
+    koUpdated: boolean;
+    orderUpdated: boolean;
+    txnInserted: boolean;
+    txnId: string;
+  } | null>(null);
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { isOnline } = useNetworkStatus();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // H-13: Invalidate cached payment settings / restaurant info on reconnect
+  const prevOnlineRef = useRef(isOnline);
+  useEffect(() => {
+    if (isOnline && !prevOnlineRef.current) {
+      queryClient.invalidateQueries({ queryKey: ["payment-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["restaurant-info"] });
+    }
+    prevOnlineRef.current = isOnline;
+  }, [isOnline, queryClient]);
   const { syncCustomerToCRM } = useCRMSync();
   const { getBillUrl } = useBillSharing();
 
   // ── Restaurant ID hook (handles branch switches & franchise) ─────────────
   const { restaurantId: currentRestaurantId, restaurantName: currentRestaurantName } = useRestaurantId();
 
-  // ── Queries ───────────────────────────────────────────────────────────────
+  // ── Queries (with IDB offline fallback) ───────────────────────────────────
   const { data: restaurantInfo } = useQuery({
     queryKey: ["restaurant-info", currentRestaurantId],
+    networkMode: "always",
     queryFn: async () => {
-      if (currentRestaurantId) {
-        const { data } = await supabase
-          .from("restaurants").select("*").eq("id", currentRestaurantId).maybeSingle();
-        if (data) return data;
+      const offline = !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
+      if (offline && currentRestaurantId) {
+        return (await getCachedRestaurant(currentRestaurantId)) || null;
       }
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      const { data: profile } = await supabase
-        .from("profiles").select("restaurant_id").eq("id", user.id).maybeSingle();
-      if (!profile?.restaurant_id) return null;
-      const { data } = await supabase
-        .from("restaurants").select("*").eq("id", profile.restaurant_id).maybeSingle();
-      return data;
+      try {
+        if (currentRestaurantId) {
+          const { data, error } = await supabase
+            .from("restaurants").select("*").eq("id", currentRestaurantId).maybeSingle();
+          if (error) throw error;
+          return data || (await getCachedRestaurant(currentRestaurantId)) || null;
+        }
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        if (!user) return null;
+        const { data: profile } = await supabase
+          .from("profiles").select("restaurant_id").eq("id", user.id).maybeSingle();
+        if (!profile?.restaurant_id) return null;
+        const { data } = await supabase
+          .from("restaurants").select("*").eq("id", profile.restaurant_id).maybeSingle();
+        return data;
+      } catch {
+        if (currentRestaurantId) {
+          return (await getCachedRestaurant(currentRestaurantId)) || null;
+        }
+        return null;
+      }
     },
     enabled: isOpen,
   });
 
   const activeRestaurantId = currentRestaurantId || restaurantInfo?.id;
 
-  // ── Cache restaurant info to localStorage so print always has correct name ──
+  // ── Cache restaurant info scoped by restaurantId so print/UPI stays isolated per branch ──
   useEffect(() => {
-    if (restaurantInfo?.name || currentRestaurantName) {
+    const targetId = activeRestaurantId;
+    if (targetId && (restaurantInfo?.name || currentRestaurantName)) {
       try {
-        localStorage.setItem("cached_restaurant_name", currentRestaurantName || restaurantInfo?.name || "");
-        localStorage.setItem("cached_restaurant_address", restaurantInfo?.address || "");
-        localStorage.setItem("cached_restaurant_phone", restaurantInfo?.phone || "");
-        localStorage.setItem("cached_restaurant_gstin", restaurantInfo?.gstin || "");
-        localStorage.setItem("cached_restaurant_upi_id", (restaurantInfo as any)?.upi_id || "");
-      } catch {}
+        const name = currentRestaurantName || restaurantInfo?.name || "";
+        localStorage.setItem("cached_restaurant_name", name);
+        localStorage.setItem(`cached_restaurant_name_${targetId}`, name);
+        if (restaurantInfo) {
+          localStorage.setItem(`cached_restaurant_address_${targetId}`, restaurantInfo.address || "");
+          localStorage.setItem(`cached_restaurant_phone_${targetId}`, restaurantInfo.phone || "");
+          localStorage.setItem(`cached_restaurant_gstin_${targetId}`, restaurantInfo.gstin || "");
+          localStorage.setItem(`cached_restaurant_upi_id_${targetId}`, (restaurantInfo as any)?.upi_id || "");
+        }
+      } catch {
+        /* ignore storage quota errors */
+      }
     }
-  }, [restaurantInfo, currentRestaurantName]);
+  }, [activeRestaurantId, restaurantInfo, currentRestaurantName]);
 
   const { data: paymentSettings } = useQuery({
     queryKey: ["payment-settings", activeRestaurantId],
+    networkMode: "always",
     queryFn: async () => {
       if (!activeRestaurantId) return null;
-      const { data } = await supabase
-        .from("payment_settings")
-        .select("*")
-        .eq("restaurant_id", activeRestaurantId)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data;
+      const offline = !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
+      if (offline) {
+        return (await getCachedPaymentSettings(activeRestaurantId)) || null;
+      }
+      try {
+        const { data, error } = await supabase
+          .from("payment_settings")
+          .select("*")
+          .eq("restaurant_id", activeRestaurantId)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) {
+          await cachePaymentSettings(activeRestaurantId, data).catch(() => {});
+          if (data.upi_id) {
+            try {
+              localStorage.setItem(`cached_restaurant_upi_id_${activeRestaurantId}`, data.upi_id);
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+        return data ?? null;
+      } catch {
+        return (await getCachedPaymentSettings(activeRestaurantId)) || null;
+      }
     },
     enabled: !!activeRestaurantId,
   });
@@ -414,18 +510,30 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     customerRecord?.loyalty_points ? customerRecord.loyalty_points * pointsValue : 0
   );
 
-  // ── Menu items query for adding items on the fly (uses qsr-menu-items cache) ──
+  // ── Menu items query for adding items on the fly (with IDB offline fallback) ──
   const { data: menuItems = [] } = useQuery({
     queryKey: ["qsr-menu-items", activeRestaurantId],
+    networkMode: "always",
     queryFn: async () => {
       if (!activeRestaurantId) return [];
-      const { data } = await supabase
-        .from("menu_items")
-        .select("id, name, price, category, is_available")
-        .eq("restaurant_id", activeRestaurantId)
-        .eq("is_available", true)
-        .order("name");
-      return data || [];
+      const offline = !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
+      if (offline) {
+        const cached = await getCachedByRestaurant<any>("menuItems", activeRestaurantId);
+        return cached.filter((m) => m.is_available !== false);
+      }
+      try {
+        const { data, error } = await supabase
+          .from("menu_items")
+          .select("id, name, price, category, is_available")
+          .eq("restaurant_id", activeRestaurantId)
+          .eq("is_available", true)
+          .order("name");
+        if (error) throw error;
+        return data || [];
+      } catch {
+        const cached = await getCachedByRestaurant<any>("menuItems", activeRestaurantId);
+        return cached.filter((m) => m.is_available !== false);
+      }
     },
     enabled: isOpen && !!activeRestaurantId,
     staleTime: 1000 * 60 * 5,
@@ -592,12 +700,24 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
   // ── Build UPI QR URL ──────────────────────────────────────────────────────
   const upiQrUrl = useMemo(() => {
-    const upiId = (paymentSettings as any)?.upi_id;
+    const upiId =
+      (paymentSettings as any)?.upi_id ||
+      (restaurantInfo as any)?.upi_id ||
+      (activeRestaurantId
+        ? localStorage.getItem(`cached_restaurant_upi_id_${activeRestaurantId}`)
+        : null);
     if (!upiId) return null;
-    const name = encodeURIComponent(restaurantInfo?.name || "Restaurant");
+    const name = encodeURIComponent(
+      restaurantInfo?.name ||
+        currentRestaurantName ||
+        (activeRestaurantId
+          ? localStorage.getItem(`cached_restaurant_name_${activeRestaurantId}`)
+          : null) ||
+        "Restaurant",
+    );
     const amount = finalTotal.toFixed(2);
     return `upi://pay?pa=${upiId}&pn=${name}&am=${amount}&cu=INR`;
-  }, [paymentSettings, restaurantInfo, finalTotal]);
+  }, [paymentSettings, restaurantInfo, activeRestaurantId, currentRestaurantName, finalTotal]);
 
   // ── Generate QR code data URL locally (replaces dead Google Charts API) ────
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
@@ -612,41 +732,96 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   // ── Load existing order details ───────────────────────────────────────────
   useEffect(() => {
     if (!isOpen || !orderId) return;
+    const loadOrderId = orderId;
+    let cancelled = false;
+    const isCurrentLoad = () => !cancelled && activeOrderIdRef.current === loadOrderId;
+    const applyLoadedCustomer = (name?: string | null, phone?: string | null) => {
+      if (!isCurrentLoad()) return;
+      if (
+        name &&
+        !["nc", "delivery", "takeaway", "dine-in"].includes(name.toLowerCase()) &&
+        !customerNameDirtyRef.current
+      ) {
+        setCustomerName(name);
+      }
+      if (phone && !customerMobileDirtyRef.current) {
+        setCustomerMobile(String(phone));
+      }
+    };
+
     (async () => {
       try {
-        const { data: ko } = await supabase
+        const local = await getLocalOrderByAnyId(loadOrderId);
+        if (!isCurrentLoad()) return;
+        if (local) {
+          applyLoadedCustomer(local.customerName, local.customerPhone);
+          if (!discountsDirtyRef.current && local.discount !== undefined) {
+            if (local.discountType === "percentage") {
+              setManualDiscountPct(local.discount);
+              setManualCash(0);
+            } else if (local.discountType === "amount") {
+              setManualCash(local.discount);
+              setManualDiscountPct(0);
+            }
+          }
+          // H-11: Do not return early when online — still hydrate server discounts & promo
+        }
+        if (!isOnline || (typeof navigator !== "undefined" && !navigator.onLine)) {
+          return;
+        }
+        const { data: ko, error: koLookupErr } = await supabase
           .from("kitchen_orders")
           .select("order_id, customer_name, customer_phone")
-          .eq("id", orderId)
+          .eq("id", loadOrderId)
           .maybeSingle();
 
-        if (ko?.customer_name && !["nc", "delivery", "takeaway", "dine-in"].includes(ko.customer_name.toLowerCase())) {
-          setCustomerName(ko.customer_name);
-        }
-        if ((ko as any)?.customer_phone) {
-          setCustomerMobile(String((ko as any).customer_phone));
-        }
+        if (koLookupErr) throw koLookupErr;
+        if (!isCurrentLoad()) return;
+        applyLoadedCustomer(ko?.customer_name, (ko as any)?.customer_phone);
 
-        if (ko?.order_id) {
+        const targetOrderId =
+          ko?.order_id ||
+          (linkedOrderId === loadOrderId ? loadOrderId : linkedOrderId) ||
+          local?.orderId ||
+          null;
+        if (targetOrderId) {
           const { data: order } = await supabase
             .from("orders")
             .select("customer_name, customer_phone, discount_percentage, discount_amount, promotion_code, promotion_name")
-            .eq("id", ko.order_id)
+            .eq("id", targetOrderId)
             .maybeSingle();
 
+          if (!isCurrentLoad()) return;
           if (order) {
-            if ((order as any).customer_name) setCustomerName((order as any).customer_name);
-            if ((order as any).customer_phone) setCustomerMobile(String((order as any).customer_phone));
-            const pct = parseFloat((order as any).discount_percentage) || 0;
-            setManualDiscountPct(pct);
-            if ((order as any).promotion_code) {
-              setPromoCode((order as any).promotion_code);
-              setAppliedPromo({
-                name: (order as any).promotion_name || "Applied Promotion",
-                code: (order as any).promotion_code,
-                promotion_code: (order as any).promotion_code,
-                discount_percentage: pct,
-              });
+            applyLoadedCustomer((order as any).customer_name, (order as any).customer_phone);
+            // H-8 & H-9: Only hydrate discounts if user hasn't modified them mid-flow,
+            // and never apply stored discount_percentage to BOTH appliedPromo and manualDiscountPct.
+            if (!discountsDirtyRef.current) {
+              const pct = parseFloat((order as any).discount_percentage) || 0;
+              const amt = parseFloat((order as any).discount_amount) || 0;
+              if ((order as any).promotion_code) {
+                setPromoCode((order as any).promotion_code);
+                setAppliedPromo({
+                  name: (order as any).promotion_name || "Applied Promotion",
+                  code: (order as any).promotion_code,
+                  promotion_code: (order as any).promotion_code,
+                  discount_percentage: pct,
+                });
+                setManualDiscountPct(0);
+                setManualCash(0);
+              } else if (pct > 0) {
+                setManualDiscountPct(pct);
+                setManualCash(0);
+                setAppliedPromo(null);
+              } else if (amt > 0) {
+                setManualCash(amt);
+                setManualDiscountPct(0);
+                setAppliedPromo(null);
+              } else {
+                setManualDiscountPct(0);
+                setManualCash(0);
+                setAppliedPromo(null);
+              }
             }
           }
         }
@@ -654,7 +829,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         console.error("MobilePaymentDialog: load order details failed", e);
       }
     })();
-  }, [isOpen, orderId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, orderId, linkedOrderId, isOnline]);
 
   // ── Sync and Reset Lifecycle ───────────────────────────────────────────────
   const prevIsOpenRef = useRef(false);
@@ -667,7 +845,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         clearTimeout(autoCloseTimerRef.current);
         autoCloseTimerRef.current = null;
       }
+      paymentAttemptRef.current += 1;
       prevIsOpenRef.current = false;
+      persistedByParentRef.current = false;
+      onlineSettlementRef.current = null;
       return;
     }
 
@@ -676,8 +857,16 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     const switchedOrder = orderKey !== prevOrderKeyRef.current;
 
     if (justOpened || switchedOrder) {
+      paymentAttemptRef.current += 1;
       prevIsOpenRef.current = true;
       prevOrderKeyRef.current = orderKey;
+      customerNameDirtyRef.current = false;
+      customerMobileDirtyRef.current = false;
+      discountsDirtyRef.current = false;
+      persistedByParentRef.current = false;
+      pendingOfflineTxnIdRef.current = null;
+      onlineSettlementRef.current = null;
+      lastPaymentDetailsRef.current = null;
       setLocalItems(orderItems || []);
       setCustomTotalOverride(null);
       setEditingItemIdx(null);
@@ -690,8 +879,12 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       setCustomerRecord(null);
       setPromoCode("");
       setAppliedPromo(null);
-      setManualDiscountPct(0);
-      setManualCash(0);
+      setManualDiscountPct(
+        isSettledReprint && initialDiscountPercentage ? initialDiscountPercentage : 0,
+      );
+      setManualCash(
+        isSettledReprint && initialDiscountAmount ? initialDiscountAmount : 0,
+      );
       setPointsToRedeem(0);
       setNcReason("");
       setSplitCash("");
@@ -701,7 +894,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       setLoyaltyPointsAwarded(null);
       setShowPrinterModal(false);
       setPendingPrintAfterConnect(false);
-      hasPrintedRef.current = false;
+      hasPrintedRef.current = null;
       setShowAddItemModal(false);
       setMenuSearchQuery("");
       setCustomItemName("");
@@ -713,7 +906,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
   // Sync customer details whenever parent screen updates them
   useEffect(() => {
-    if (initialCustomerName) {
+    if (initialCustomerName && !customerNameDirtyRef.current) {
       setCustomerName(initialCustomerName);
     }
   }, [initialCustomerName]);
@@ -721,6 +914,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   // Cleanup timer on component unmount
   useEffect(() => {
     return () => {
+      paymentAttemptRef.current += 1;
       if (autoCloseTimerRef.current) {
         clearTimeout(autoCloseTimerRef.current);
       }
@@ -751,7 +945,9 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
       if (customer) {
         setCustomerRecord(customer as CustomerRecord);
-        if (!customerName && customer.name) setCustomerName(customer.name);
+        if (!customerName && !customerNameDirtyRef.current && customer.name) {
+          setCustomerName(customer.name);
+        }
         if (customer.loyalty_enrolled && (customer.loyalty_points ?? 0) > 0) {
           toast({
             title: `Welcome back, ${customer.name}! 🎉`,
@@ -771,7 +967,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
   const handlePhoneBlur = useCallback(() => lookupCustomer(customerMobile), [lookupCustomer, customerMobile]);
 
   useEffect(() => {
-    if (initialCustomerMobile) {
+    if (initialCustomerMobile && !customerMobileDirtyRef.current) {
       setCustomerMobile(initialCustomerMobile);
       lookupCustomer(initialCustomerMobile);
     }
@@ -784,7 +980,9 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     } else if (phone.length < 10 && customerRecord) {
       // Clear customer record if they start deleting the phone number
       setCustomerRecord(null);
-      setCustomerName("");
+      if (!customerNameDirtyRef.current) {
+        setCustomerName("");
+      }
     }
   }, [customerMobile, lookupCustomer]);
 
@@ -814,6 +1012,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       });
       if (error) throw error;
       if (data.valid && data.promotion) {
+        discountsDirtyRef.current = true;
         setPromoCode(codeToUse);
         setAppliedPromo(data.promotion);
         toast({ title: `${data.promotion.name} applied ✓` });
@@ -827,7 +1026,49 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
   // ── Mark order as payment pending (when printing or sending bill before payment) ──
   const handleMarkPaymentPending = useCallback(async () => {
-    if (!orderId) return;
+    if (!orderId || isSettledReprint) return;
+    const isOffline = !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
+    if (isOffline) {
+      const local = await getLocalOrderByAnyId(orderId);
+      const isDirectOrderId = Boolean(
+        linkedOrderId && linkedOrderId === orderId && (!local || local.id !== orderId),
+      );
+      const targetOrderId =
+        linkedOrderId || local?.orderId || (isDirectOrderId ? orderId : undefined);
+      const nextMirror =
+        local && local.paymentStatus !== "paid" && local.paymentStatus !== "nc"
+          ? {
+              ...local,
+              paymentStatus: "pending",
+              ...(customerName.trim() && { customerName: customerName.trim() }),
+              ...(customerMobile.trim() && { customerPhone: customerMobile.trim() }),
+              updatedAt: new Date().toISOString(),
+            }
+          : null;
+      await commitLocalOrderAndWritesAtomic(nextMirror, [
+        {
+          type: "order",
+          operation: "update",
+          payload: {
+            id: targetOrderId || orderId,
+            ...(!targetOrderId && !isDirectOrderId && {
+              _resolveOrderIdFromKitchenOrderId: orderId,
+            }),
+            ...(local?.paymentStatus !== "paid" &&
+              local?.paymentStatus !== "nc" && {
+                payment_status: "pending",
+                _preserveExistingPaidStatus: true,
+              }),
+            ...(customerName.trim() && { customer_name: customerName.trim() }),
+            ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+          },
+        },
+      ]);
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      return;
+    }
+
     try {
       const { data: ko, error: koErr } = await supabase
         .from("kitchen_orders")
@@ -837,7 +1078,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
 
       if (koErr) throw koErr;
 
-      const targetOrderId = ko?.order_id ?? orderId;
+      const targetOrderId = ko?.order_id ?? linkedOrderId ?? orderId;
       if (!targetOrderId) return;
 
       // Only set payment_status to pending if not already paid
@@ -876,7 +1117,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       console.warn("[MobilePaymentDialog] handleMarkPaymentPending error:", err);
       throw err;
     }
-  }, [orderId, customerName, customerMobile, step, queryClient]);
+  }, [orderId, linkedOrderId, isOnline, customerName, customerMobile, step, queryClient]);
 
   // ── Print bill ────────────────────────────────────────────────────────────
   const isPrintingRef = useRef(false);
@@ -892,15 +1133,24 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     }
     
     isPrintingRef.current = true;
-    hasPrintedRef.current = true;
     setIsPrinting(true);
     try {
-      // Resolve restaurant name: live query > localStorage cache > fallback
-      const cachedName = localStorage.getItem("cached_restaurant_name") || "";
-      const cachedAddress = localStorage.getItem("cached_restaurant_address") || "";
-      const cachedPhone = localStorage.getItem("cached_restaurant_phone") || "";
-      const cachedGstin = localStorage.getItem("cached_restaurant_gstin") || "";
-      const cachedUpiId = localStorage.getItem("cached_restaurant_upi_id") || "";
+      const snapshot = step === "success" ? lastPaymentDetailsRef.current : null;
+      const printItems = snapshot?.items || localItems;
+      const printSubtotal = snapshot?.subtotal ?? subtotal;
+      const printDiscount = snapshot?.discountAmount ?? totalDiscount;
+      const printTotal =
+        isSettledReprint && initialTotal !== undefined
+          ? initialTotal
+          : (snapshot?.total ?? finalTotal);
+
+      // Resolve restaurant metadata: live/IDB query > tenant-scoped localStorage cache > fallback
+      const scope = activeRestaurantId || "";
+      const cachedName = (scope ? localStorage.getItem(`cached_restaurant_name_${scope}`) : null) || "";
+      const cachedAddress = (scope ? localStorage.getItem(`cached_restaurant_address_${scope}`) : null) || "";
+      const cachedPhone = (scope ? localStorage.getItem(`cached_restaurant_phone_${scope}`) : null) || "";
+      const cachedGstin = (scope ? localStorage.getItem(`cached_restaurant_gstin_${scope}`) : null) || "";
+      const cachedUpiId = (scope ? localStorage.getItem(`cached_restaurant_upi_id_${scope}`) : null) || "";
 
       const rName = restaurantInfo?.name || cachedName || "Restaurant";
       const rAddress = restaurantInfo?.address || cachedAddress || undefined;
@@ -908,30 +1158,43 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       const rGstin = restaurantInfo?.gstin || cachedGstin || undefined;
       const upiId = (paymentSettings as any)?.upi_id || (restaurantInfo as any)?.upi_id || cachedUpiId || undefined;
 
-      await thermalPrinterService.printReceipt({
-        restaurantName: rName,
-        address: rAddress,
-        phone: rPhone,
-        gstin: rGstin,
-        billNumber: `#${Date.now().toString().slice(-6)}`,
-        date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
-        time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
-        tableName: tableNumber || undefined,
-        customerName: customerName || undefined,
-        customerMobile: customerMobile || undefined,
-        serverName: serverName || undefined,
-        items: localItems.map((i) => ({
-          ...i,
-          price: getItemUnitPrice(i),
-        })),
-        subtotal,
-        cgst: 0,
-        sgst: 0,
-        discount: totalDiscount,
-        netAmount: finalTotal,
-        currencySymbol,
-        upiId,
+      const billSignature = JSON.stringify({
+        items: printItems.map((i) => [i.name, i.quantity, getItemUnitPrice(i)]),
+        subtotal: printSubtotal,
+        discount: printDiscount,
+        total: printTotal,
+        customerName,
+        customerMobile,
+        tableNumber,
       });
+
+      if (hasPrintedRef.current !== billSignature) {
+        await thermalPrinterService.printReceipt({
+          restaurantName: rName,
+          address: rAddress,
+          phone: rPhone,
+          gstin: rGstin,
+          billNumber: `#${Date.now().toString().slice(-6)}`,
+          date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+          time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+          tableName: tableNumber || undefined,
+          customerName: customerName || undefined,
+          customerMobile: customerMobile || undefined,
+          serverName: serverName || undefined,
+          items: printItems.map((i) => ({
+            ...i,
+            price: getItemUnitPrice(i),
+          })),
+          subtotal: printSubtotal,
+          cgst: 0,
+          sgst: 0,
+          discount: printDiscount,
+          netAmount: printTotal,
+          currencySymbol,
+          upiId,
+        });
+        hasPrintedRef.current = billSignature;
+      }
 
       if (step !== "success") {
         await handleMarkPaymentPending();
@@ -946,7 +1209,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       isPrintingRef.current = false;
       setIsPrinting(false);
     }
-  }, [restaurantInfo, paymentSettings, tableNumber, customerName, customerMobile, serverName, localItems, getItemUnitPrice, subtotal, totalDiscount, finalTotal, currencySymbol, step, handleMarkPaymentPending, onClose, toast]);
+  }, [activeRestaurantId, restaurantInfo, paymentSettings, tableNumber, customerName, customerMobile, serverName, localItems, getItemUnitPrice, subtotal, totalDiscount, finalTotal, currencySymbol, step, handleMarkPaymentPending, onClose, toast]);
 
   // ── After printer connects inline ─────────────────────────────────────────
   const handlePrinterConnected = useCallback(async () => {
@@ -969,16 +1232,21 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     }
     setIsSendingWA(true);
     try {
+      const snapshot = step === "success" ? lastPaymentDetailsRef.current : null;
+      const waItems = snapshot?.items || localItems;
+      const waSubtotal = snapshot?.subtotal ?? subtotal;
+      const waDiscount = snapshot?.discountAmount ?? totalDiscount;
+      const waTotal = snapshot?.total ?? finalTotal;
       const billUrl = await getBillUrl({
         restaurantId: restaurantInfo?.id,
         restaurantName: restaurantInfo?.name || "Restaurant",
         restaurantAddress: restaurantInfo?.address,
         restaurantPhone: restaurantInfo?.phone,
         logoUrl: (restaurantInfo as any)?.logo_url || ((restaurantInfo as any)?.id ? localStorage.getItem(`restaurant_logo_url_${(restaurantInfo as any).id}`) : null) || undefined,
-        items: localItems.map((i) => ({ name: i.name, quantity: i.quantity, price: getItemUnitPrice(i) })),
-        subtotal,
-        total: finalTotal,
-        discount: totalDiscount > 0 ? totalDiscount : undefined,
+        items: waItems.map((i) => ({ name: i.name, quantity: i.quantity, price: getItemUnitPrice(i) })),
+        subtotal: waSubtotal,
+        total: waTotal,
+        discount: waDiscount > 0 ? waDiscount : undefined,
         tableNumber: tableNumber || undefined,
         customerName: customerName || undefined,
         orderDate: new Date().toLocaleString("en-IN"),
@@ -986,7 +1254,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       });
 
       const billUrlSuffix = billUrl ? billUrl.split("/bill/").pop() ?? billUrl : undefined;
-      const formattedAmount = `Rs.${finalTotal.toFixed(2)}`;
+      const formattedAmount = `Rs.${waTotal.toFixed(2)}`;
       const now = new Date();
       const formattedDate = `${now.toLocaleDateString("en-IN")} ${now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
       const cleanPhone = customerMobile.replace(/[\+\-\s]/g, "");
@@ -1045,15 +1313,19 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       return;
     }
     try {
+      const snapshot = step === "success" ? lastPaymentDetailsRef.current : null;
+      const shareItems = snapshot?.items || localItems;
+      const shareDiscount = snapshot?.discountAmount ?? totalDiscount;
+      const shareTotal = snapshot?.total ?? finalTotal;
       const text = [
         `*${restaurantInfo?.name || "Restaurant"} — Bill*`,
         tableNumber ? `Table: ${tableNumber}` : "",
         customerName ? `Customer: ${customerName}` : "",
         "",
-        ...localItems.map((i) => `${i.name} ×${i.quantity} — ${currencySymbol}${(getItemUnitPrice(i) * i.quantity).toFixed(2)}`),
+        ...shareItems.map((i) => `${i.name} ×${i.quantity} — ${currencySymbol}${(getItemUnitPrice(i) * i.quantity).toFixed(2)}`),
         "",
-        totalDiscount > 0 ? `Discount: -${currencySymbol}${totalDiscount.toFixed(2)}` : "",
-        `*Total: ${currencySymbol}${finalTotal.toFixed(2)}*`,
+        shareDiscount > 0 ? `Discount: -${currencySymbol}${shareDiscount.toFixed(2)}` : "",
+        `*Total: ${currencySymbol}${shareTotal.toFixed(2)}*`,
       ].filter(Boolean).join("\n");
 
       await navigator.share({ title: "Bill", text });
@@ -1069,9 +1341,17 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
     paymentMethod: string,
     splitData?: Array<{ method: string; amount: number }>
   ) => {
+    if (isSettledReprint) {
+      toast({ title: "Order already settled" });
+      return;
+    }
+    const attemptId = ++paymentAttemptRef.current; // H-7: scope attempt flags
+    persistedByParentRef.current = false;
     setIsSaving(true);
     try {
-      const restaurantId = restaurantInfo?.id;
+      const restaurantId = activeRestaurantId;
+      const isOffline =
+        !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
       const finalPaymentMethod = isNonChargeable ? "nc" : paymentMethod;
       const finalPaymentStatus = isNonChargeable ? "nc"
         : (paymentMethod === "pay_later" ? "pending" : "paid");
@@ -1086,7 +1366,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       if (loyaltyDiscount > 0) discountParts.push(`${pointsToRedeem} pts`);
       const discountNotes = discountParts.join(" + ");
 
-      const { data: { user } } = await supabase.auth.getUser();
+      // Avoid blocking on Supabase refresh requests while offline; preserve online session lookup
+      const user = isOffline
+        ? authUser
+        : (await supabase.auth.getSession()).data?.session?.user ?? authUser;
 
       const serializedItems = localItems.map((i) => ({
         id: i.id || crypto.randomUUID(),
@@ -1099,136 +1382,404 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         ...(i.modifiers && { modifiers: i.modifiers }),
       }));
 
-      if (orderId) {
-        // First try: treat orderId as a kitchen_orders.id
-        const { data: ko } = await supabase
-          .from("kitchen_orders")
-          .select("order_id")
-          .eq("id", orderId)
-          .maybeSingle();
-
-        // orderId may be kitchen_orders.id (POS/QSR) OR orders.id (Orders Management).
-        // Use the linked order_id when available; otherwise treat orderId as orders.id.
-        const targetOrderId = ko?.order_id ?? orderId;
-
-        // Update kitchen_order with completed status and updated items/total
-        if (ko) {
-          await supabase.from("kitchen_orders").update({
-            status: "completed",
-            bumped_at: new Date().toISOString(),
-            items: serializedItems,
-            ...(customerName.trim() && { customer_name: customerName.trim() }),
-            ...(customerMobile && { customer_phone: customerMobile }),
-          }).eq("id", orderId);
-        } else {
-          await supabase.from("kitchen_orders").update({
-            status: "completed",
-            bumped_at: new Date().toISOString(),
-            items: serializedItems,
-            ...(customerName.trim() && { customer_name: customerName.trim() }),
-            ...(customerMobile && { customer_phone: customerMobile }),
-          }).eq("order_id", orderId);
-        }
-
-        if (targetOrderId) {
-          await supabase.from("orders").update({
-            payment_status: finalPaymentStatus,
-            payment_method: finalPaymentMethod,
-            status: "completed",
-            total: finalTotal,
-            subtotal: subtotal,
-            items: serializedItems,
-            updated_at: new Date().toISOString(),
-            discount_amount: isNonChargeable ? subtotal : totalDiscount,
-            discount_percentage: isNonChargeable ? 100 : effectiveDiscountPct,
-            promotion_code: isNonChargeable ? null : (appliedPromo?.promotion_code || appliedPromo?.code || null),
-            promotion_name: isNonChargeable ? null : (appliedPromo?.name || null),
-            ...(discountNotes && { discount_notes: isNonChargeable ? "Non-Chargeable (100% off)" : discountNotes }),
-            ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
-            ...(splitData && { split_payments: splitData }),
-            ...(customerName.trim() && { customer_name: customerName.trim() }),
-            ...(customerMobile && { customer_phone: customerMobile }),
-          }).eq("id", targetOrderId);
-        }
-
-        onOrderUpdated?.();
-
-        // Log transaction
-        if (!isNonChargeable) {
-          await supabase.from("pos_transactions").insert({
-            restaurant_id: restaurantId,
-            order_id: targetOrderId || null,
-            kitchen_order_id: ko ? orderId : null,
-            amount: finalTotal,
-            payment_method: finalPaymentMethod,
-            status: finalPaymentMethod === "pay_later" ? "pending" : "completed",
-            customer_name: customerName || null,
-            customer_phone: customerMobile || null,
-            staff_id: user?.id || null,
-            discount_amount: totalDiscount,
-            promotion_id: appliedPromo?.id || null,
-            ...(splitData && { split_payments: splitData }),
-          }).then(() => {}, console.error);
-        }
-
-        // Log promo usage
-        if (appliedPromo && restaurantId) {
-          await supabase.functions.invoke("log-promotion-usage", {
-            body: {
-              orderId,
-              promotionId: appliedPromo.id,
-              restaurantId,
-              customerName: customerName || "Walk-in Customer",
-              customerPhone: customerMobile || null,
-              orderTotal: finalTotal,
-              discountAmount: promoDiscountAmt,
-            },
-          }).catch(console.error);
-        }
-      }
-      // NOTE: When orderId is null (e.g., POSMode direct checkout), the parent
-      // component (POSMode/QSRPosMain) creates the order and inserts pos_transactions
-      // with the real order_id. Do NOT insert here with order_id: null to avoid duplicates.
-
-      // ── CRM sync (earn points) ───────────────────────────────────────────
-      if (customerName.trim()) {
-        const pts = await syncCustomerToCRM({
-          customerName: customerName.trim(),
-          customerPhone: customerMobile || undefined,
-          orderTotal: finalTotal,
-          orderId: orderId || undefined,
-          source: tableNumber ? "pos" : "qsr",
-        }).catch(() => null);
-        if ((pts as any)?.pointsAwarded) setLoyaltyPointsAwarded((pts as any).pointsAwarded);
-      }
-
-      // ── Loyalty redemption: insert loyalty_transactions redeem row ────────
-      if (pointsToRedeem > 0 && customerRecord?.id && restaurantInfo?.id) {
-        await supabase.from("loyalty_transactions").insert({
-          customer_id: customerRecord.id,
-          restaurant_id: restaurantInfo.id,
-          transaction_type: "redeem",
-          points: -pointsToRedeem,
-          order_id: orderId || null,
-          notes: `Redeemed at checkout — ${currencySymbol}${loyaltyDiscount.toFixed(2)} off`,
-        });
-
-        // Update customer's loyalty_points balance in DB
-        await supabase
-          .from("customers")
-          .update({ loyalty_points: (customerRecord.loyalty_points || 0) - pointsToRedeem })
-          .eq("id", customerRecord.id);
-      }
+      const formattedOrderItems = localItems.map((i) =>
+        formatOrderItemString(i.quantity, i.name, getItemUnitPrice(i), i.notes),
+      );
 
       const resultDetails: PaymentSuccessDetails = {
         method: finalPaymentMethod,
         paymentStatus: finalPaymentStatus,
         total: finalTotal,
+        subtotal,
+        discountAmount: totalDiscount,
+        discountPercentage: effectiveDiscountPct,
+        discountNotes: discountNotes || undefined,
+        ncReason: isNonChargeable ? ncReason || undefined : undefined,
         splitPayments: splitData,
         customerName: customerName.trim() || undefined,
         customerMobile: customerMobile.trim() || undefined,
         items: serializedItems as any,
+        offlineQueued: isOffline,
+        ...(pointsToRedeem > 0 && {
+          loyaltyPointsRedeemed: pointsToRedeem,
+          loyaltyCustomerId: customerRecord?.id,
+          loyaltyDiscountAmount: loyaltyDiscount,
+        }),
       };
+
+      if (isOffline) {
+        const nowIso = new Date().toISOString();
+
+        if (orderId) {
+          const localExisting = await getLocalOrderByAnyId(orderId);
+          if (attemptId !== paymentAttemptRef.current) return;
+          const isDirectOrderId = Boolean(
+            linkedOrderId && linkedOrderId === orderId && (!localExisting || localExisting.id !== orderId),
+          );
+          const kitchenTargetId =
+            localExisting && localExisting.id !== orderId
+              ? localExisting.id
+              : isDirectOrderId
+              ? null
+              : orderId;
+          const targetOrderId =
+            linkedOrderId || localExisting?.orderId || (isDirectOrderId ? orderId : null);
+
+          const offlineWrites: Array<{
+            type: "kitchen_order" | "order" | "pos_transaction" | "loyalty_redemption";
+            operation: "insert" | "update";
+            payload: Record<string, unknown>;
+          }> = [];
+
+          if (kitchenTargetId) {
+            offlineWrites.push({
+              type: "kitchen_order",
+              operation: "update",
+              payload: {
+                id: kitchenTargetId,
+                status: "completed",
+                bumped_at: nowIso,
+                items: serializedItems,
+                ...(customerName.trim() && { customer_name: customerName.trim() }),
+                ...(customerMobile && { customer_phone: customerMobile }),
+              },
+            });
+          } else {
+            offlineWrites.push({
+              type: "kitchen_order",
+              operation: "update",
+              payload: {
+                _updateByOrderId: orderId,
+                status: "completed",
+                bumped_at: nowIso,
+                items: serializedItems,
+                ...(customerName.trim() && { customer_name: customerName.trim() }),
+                ...(customerMobile && { customer_phone: customerMobile }),
+              },
+            });
+          }
+
+          offlineWrites.push({
+            type: "order",
+            operation: "update",
+            payload: {
+              id: targetOrderId || orderId,
+              ...(!targetOrderId && !isDirectOrderId && {
+                _resolveOrderIdFromKitchenOrderId: orderId,
+              }),
+              payment_status: finalPaymentStatus,
+              payment_method: finalPaymentMethod,
+              status: isNonChargeable ? "nc" : "completed",
+              total: finalTotal,
+              items: formattedOrderItems,
+              discount_amount: isNonChargeable ? subtotal : totalDiscount,
+              discount_percentage: isNonChargeable ? 100 : effectiveDiscountPct,
+              promotion_code: isNonChargeable
+                ? null
+                : appliedPromo?.promotion_code || appliedPromo?.code || null,
+              promotion_name: isNonChargeable ? null : appliedPromo?.name || null,
+              ...(discountNotes && {
+                discount_notes: isNonChargeable
+                  ? "Non-Chargeable (100% off)"
+                  : discountNotes,
+              }),
+              ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
+              ...(splitData && { split_payments: splitData }),
+              ...(customerName.trim() && { customer_name: customerName.trim() }),
+              ...(customerMobile && { customer_phone: customerMobile }),
+            },
+          });
+
+          if (!isNonChargeable && restaurantId) {
+            // C-3: stable txnId across retries — keyed on orderId + method + attemptId
+            const txnKey = `${orderId}|${finalPaymentMethod}`;
+            const stableTxnId =
+              pendingOfflineTxnIdRef.current?.key === txnKey &&
+              pendingOfflineTxnIdRef.current?.attemptId === attemptId
+                ? pendingOfflineTxnIdRef.current.txnId
+                : (() => {
+                    const id = crypto.randomUUID();
+                    pendingOfflineTxnIdRef.current = { key: txnKey, attemptId, txnId: id };
+                    return id;
+                  })();
+            offlineWrites.push({
+              type: "pos_transaction",
+              operation: "insert",
+              payload: {
+                id: stableTxnId,
+                restaurant_id: restaurantId,
+                order_id: targetOrderId,
+                ...(!targetOrderId && !isDirectOrderId && {
+                  _resolveOrderIdFromKitchenOrderId: orderId,
+                }),
+                kitchen_order_id: kitchenTargetId,
+                amount: finalTotal,
+                payment_method: finalPaymentMethod,
+                status: finalPaymentMethod === "pay_later" ? "pending" : "completed",
+                customer_name: customerName || null,
+                customer_phone: customerMobile || null,
+                staff_id: user?.id || null,
+                discount_amount: totalDiscount,
+                promotion_id: appliedPromo?.id || null,
+                ...(splitData && { split_payments: splitData }),
+                created_at: nowIso,
+                updated_at: nowIso,
+              },
+            });
+          }
+
+          if (pointsToRedeem > 0 && (customerRecord?.id || customerMobile.trim()) && restaurantId) {
+            const loyaltyId =
+              pendingOfflineTxnIdRef.current?.attemptId === attemptId
+                ? `${pendingOfflineTxnIdRef.current.txnId}_loyalty`
+                : crypto.randomUUID();
+            offlineWrites.push({
+              type: "loyalty_redemption",
+              operation: "insert",
+              payload: {
+                id: loyaltyId,
+                restaurant_id: restaurantId,
+                customer_id: customerRecord?.id || null,
+                customer_phone: customerMobile.trim() || null,
+                transaction_type: "redeem",
+                source: tableNumber ? "pos" : "qsr",
+                source_id: targetOrderId || null,
+                ...(!targetOrderId && !isDirectOrderId && {
+                  _resolveOrderIdFromKitchenOrderId: orderId,
+                }),
+                points_redeemed: pointsToRedeem,
+                notes: `Redeemed at checkout — ${currencySymbol}${loyaltyDiscount.toFixed(2)} off`,
+                created_by: user?.id || null,
+              },
+            });
+          }
+
+          const mirrorObj =
+            restaurantId && (localExisting || !isDirectOrderId)
+              ? {
+                  ...(localExisting || {
+                    id: kitchenTargetId || orderId,
+                    orderId: targetOrderId,
+                    restaurant_id: restaurantId,
+                    source: tableNumber ? `QSR-Table ${tableNumber}` : "QSR-POS",
+                    orderType: isNonChargeable ? "nc" : tableNumber ? "dine_in" : "takeaway",
+                    priority: "normal",
+                    createdAt: nowIso,
+                  }),
+                  id: kitchenTargetId || orderId,
+                  orderId: targetOrderId,
+                  status: "completed" as const,
+                  items: serializedItems as any,
+                  total: finalTotal,
+                  subtotal,
+                  discount: effectiveDiscountPct || totalDiscount || undefined,
+                  discountType: effectiveDiscountPct ? ("percentage" as const) : totalDiscount ? ("amount" as const) : undefined,
+                  customerName: customerName.trim() || localExisting?.customerName,
+                  customerPhone: customerMobile.trim() || localExisting?.customerPhone,
+                  attendant: serverName || localExisting?.attendant,
+                  paymentMethod: finalPaymentMethod,
+                  paymentStatus: finalPaymentStatus,
+                  splitPayments: splitData,
+                  updatedAt: nowIso,
+                  completedAt: nowIso,
+                  synced: false,
+                }
+              : null;
+
+          await commitLocalOrderAndWritesAtomic(mirrorObj, offlineWrites);
+          if (attemptId !== paymentAttemptRef.current) return;
+
+          onOrderUpdated?.();
+          if (pendingOfflineTxnIdRef.current?.attemptId === attemptId) {
+            pendingOfflineTxnIdRef.current = null;
+          }
+        } else {
+          persistedByParentRef.current = true;
+          await Promise.resolve(
+            onSuccess({ ...resultDetails, deferParentClose: true }),
+          );
+        }
+        if (attemptId !== paymentAttemptRef.current) return;
+
+        toast({
+          title: "Saved Offline ✓",
+          description: "Payment queued and will sync automatically when online.",
+        });
+      } else {
+        if (orderId) {
+          const prevSettlement = onlineSettlementRef.current;
+          if (!prevSettlement || prevSettlement.orderId !== orderId) {
+            onlineSettlementRef.current = {
+              orderId,
+              attemptId,
+              method: finalPaymentMethod,
+              total: finalTotal,
+              splitData,
+              koUpdated: false,
+              orderUpdated: false,
+              txnInserted: false,
+              txnId: crypto.randomUUID(),
+            };
+          } else {
+            const paymentChanged =
+              prevSettlement.method !== finalPaymentMethod ||
+              prevSettlement.total !== finalTotal ||
+              JSON.stringify(prevSettlement.splitData) !== JSON.stringify(splitData);
+            if (paymentChanged) {
+              prevSettlement.orderUpdated = false;
+              prevSettlement.method = finalPaymentMethod;
+              prevSettlement.total = finalTotal;
+              prevSettlement.splitData = splitData;
+            }
+            prevSettlement.attemptId = attemptId;
+          }
+          const settlement = onlineSettlementRef.current;
+
+          // First try: treat orderId as a kitchen_orders.id
+          const { data: ko, error: koLookupErr } = await supabase
+            .from("kitchen_orders")
+            .select("order_id")
+            .eq("id", orderId)
+            .maybeSingle();
+          if (koLookupErr) throw koLookupErr;
+          if (attemptId !== paymentAttemptRef.current) return;
+
+          // orderId may be kitchen_orders.id (POS/QSR) OR orders.id (Orders Management).
+          // Use the linked order_id when available; otherwise use linkedOrderId or orderId.
+          const targetOrderId = ko?.order_id ?? linkedOrderId ?? orderId;
+
+          // Update kitchen_order with completed status and updated items/total (H-10: check errors)
+          if (!settlement.koUpdated) {
+            if (ko) {
+              const { error: koUpdateErr } = await supabase.from("kitchen_orders").update({
+                status: "completed",
+                bumped_at: new Date().toISOString(),
+                items: serializedItems,
+                ...(customerName.trim() && { customer_name: customerName.trim() }),
+                ...(customerMobile && { customer_phone: customerMobile }),
+              }).eq("id", orderId);
+              if (koUpdateErr) throw koUpdateErr;
+            } else {
+              const { error: koUpdateErr } = await supabase.from("kitchen_orders").update({
+                status: "completed",
+                bumped_at: new Date().toISOString(),
+                items: serializedItems,
+                ...(customerName.trim() && { customer_name: customerName.trim() }),
+                ...(customerMobile && { customer_phone: customerMobile }),
+              }).eq("order_id", orderId);
+              if (koUpdateErr) throw koUpdateErr;
+            }
+            settlement.koUpdated = true;
+            if (attemptId !== paymentAttemptRef.current) return;
+          }
+
+          if (targetOrderId && !settlement.orderUpdated) {
+            const { error: orderUpdateErr } = await supabase.from("orders").update({
+              payment_status: finalPaymentStatus,
+              payment_method: finalPaymentMethod,
+              status: isNonChargeable ? "nc" : "completed",
+              total: finalTotal,
+              items: formattedOrderItems,
+              updated_at: new Date().toISOString(),
+              discount_amount: isNonChargeable ? subtotal : totalDiscount,
+              discount_percentage: isNonChargeable ? 100 : effectiveDiscountPct,
+              promotion_code: isNonChargeable ? null : (appliedPromo?.promotion_code || appliedPromo?.code || null),
+              promotion_name: isNonChargeable ? null : (appliedPromo?.name || null),
+              ...(discountNotes && { discount_notes: isNonChargeable ? "Non-Chargeable (100% off)" : discountNotes }),
+              ...(isNonChargeable && ncReason && { nc_reason: ncReason }),
+              ...(splitData && { split_payments: splitData }),
+              ...(customerName.trim() && { customer_name: customerName.trim() }),
+              ...(customerMobile && { customer_phone: customerMobile }),
+            }).eq("id", targetOrderId);
+            if (orderUpdateErr) throw orderUpdateErr;
+            settlement.orderUpdated = true;
+            if (attemptId !== paymentAttemptRef.current) return;
+          }
+
+          onOrderUpdated?.();
+          pendingOfflineTxnIdRef.current = null; // C-3: clear on success
+
+          // Log transaction
+          if (!isNonChargeable && restaurantId && !settlement.txnInserted) {
+            const { error: txnErr } = await supabase.from("pos_transactions").insert({
+              id: settlement.txnId,
+              restaurant_id: restaurantId,
+              order_id: targetOrderId || null,
+              kitchen_order_id: ko ? orderId : null,
+              amount: finalTotal,
+              payment_method: finalPaymentMethod,
+              status: finalPaymentMethod === "pay_later" ? "pending" : "completed",
+              customer_name: customerName || null,
+              customer_phone: customerMobile || null,
+              staff_id: user?.id || null,
+              discount_amount: totalDiscount,
+              promotion_id: appliedPromo?.id || null,
+              ...(splitData && { split_payments: splitData }),
+            });
+            if (txnErr) throw txnErr;
+            settlement.txnInserted = true;
+            if (attemptId !== paymentAttemptRef.current) return;
+          }
+
+          // Log promo usage
+          if (appliedPromo && restaurantId) {
+            await supabase.functions.invoke("log-promotion-usage", {
+              body: {
+                orderId,
+                promotionId: appliedPromo.id,
+                restaurantId,
+                customerName: customerName || "Walk-in Customer",
+                customerPhone: customerMobile || null,
+                orderTotal: finalTotal,
+                discountAmount: promoDiscountAmt,
+              },
+            }).catch(console.error);
+          }
+          if (onlineSettlementRef.current?.attemptId === attemptId) {
+            onlineSettlementRef.current = null;
+          }
+        } else {
+          persistedByParentRef.current = true;
+          await Promise.resolve(
+            onSuccess({ ...resultDetails, deferParentClose: true }),
+          );
+          if (attemptId !== paymentAttemptRef.current) return;
+        }
+
+        // ── CRM sync (earn points) ───────────────────────────────────────────
+        if (customerName.trim()) {
+          const pts = await syncCustomerToCRM({
+            customerName: customerName.trim(),
+            customerPhone: customerMobile || undefined,
+            orderTotal: finalTotal,
+            orderId: orderId || undefined,
+            source: tableNumber ? "pos" : "qsr",
+          }).catch(() => null);
+          if (attemptId === paymentAttemptRef.current && (pts as any)?.pointsAwarded) {
+            setLoyaltyPointsAwarded((pts as any).pointsAwarded);
+          }
+        }
+
+        // ── Loyalty redemption: insert loyalty_transactions redeem row ────────
+        if (pointsToRedeem > 0 && customerRecord?.id && restaurantId) {
+          await supabase.from("loyalty_transactions").insert({
+            customer_id: customerRecord.id,
+            restaurant_id: restaurantId,
+            transaction_type: "redeem",
+            points: -pointsToRedeem,
+            order_id: orderId || null,
+            notes: `Redeemed at checkout — ${currencySymbol}${loyaltyDiscount.toFixed(2)} off`,
+          });
+
+          // Update customer's loyalty_points balance in DB
+          await supabase
+            .from("customers")
+            .update({ loyalty_points: (customerRecord.loyalty_points || 0) - pointsToRedeem })
+            .eq("id", customerRecord.id);
+        }
+      }
+
+      if (attemptId !== paymentAttemptRef.current) return;
       lastPaymentDetailsRef.current = resultDetails;
 
       invalidateQueries();
@@ -1238,17 +1789,25 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
       // Auto-close after 5s — stored in ref so it can be cancelled on unmount / early close
       autoCloseTimerRef.current = setTimeout(() => {
         autoCloseTimerRef.current = null;
-        onSuccess(resultDetails);
+        if (attemptId !== paymentAttemptRef.current) return;
+        if (!persistedByParentRef.current) {
+          onSuccess(resultDetails);
+        }
         onClose();
       }, 5000);
     } catch (err: any) {
+      if (attemptId !== paymentAttemptRef.current) return;
+      persistedByParentRef.current = false;
       console.error("MobilePaymentDialog: payment processing failed", err);
       toast({ title: "Payment failed", description: err?.message, variant: "destructive" });
     } finally {
-      setIsSaving(false);
+      if (attemptId === paymentAttemptRef.current) {
+        setIsSaving(false);
+      }
     }
   }, [
-    restaurantInfo, orderId, isNonChargeable, customerName, customerMobile, customerRecord,
+    activeRestaurantId, authUser, isOnline, orderId, linkedOrderId, isNonChargeable,
+    customerName, customerMobile, customerRecord, serverName,
     localItems, getItemUnitPrice, onOrderUpdated,
     subtotal, totalDiscount, finalTotal, manualDiscountPct, manualCash,
     appliedPromo, promoDiscountAmt, ncReason, tableNumber, pointsToRedeem, loyaltyDiscount,
@@ -1295,6 +1854,14 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
         style={{ backgroundColor: '#f8fafc' }}
       >
         
+        {/* Offline indicator banner */}
+        {!isOnline && (
+          <div className="px-4 py-1.5 bg-amber-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 z-20 shrink-0">
+            <WifiOff className="h-3.5 w-3.5" />
+            <span>Offline Mode — Payment saves locally & syncs on reconnect</span>
+          </div>
+        )}
+
         {/* ─── CONFIRM STEP ──────────────────────────────────────────────── */}
         {step === "confirm" && (
           <>
@@ -1508,7 +2075,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                   <input
                     type="text"
                     value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
+                    onChange={(e) => {
+                      customerNameDirtyRef.current = true;
+                      setCustomerName(e.target.value);
+                    }}
                     placeholder="Customer Name (Optional)"
                     className="flex-1 bg-transparent text-sm font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none"
                   />
@@ -1519,7 +2089,10 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                   <input
                     type="tel"
                     value={customerMobile}
-                    onChange={(e) => setCustomerMobile(e.target.value)}
+                    onChange={(e) => {
+                      customerMobileDirtyRef.current = true;
+                      setCustomerMobile(e.target.value);
+                    }}
                     onBlur={handlePhoneBlur}
                     placeholder="Mobile number (auto-lookup)"
                     className="flex-1 bg-transparent text-sm font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none"
@@ -1632,7 +2205,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                         {appliedPromo.discount_percentage ? `${appliedPromo.discount_percentage}% off` : `${currencySymbol}${appliedPromo.discount_amount} off`}
                       </p>
                     </div>
-                    <button onClick={() => { setAppliedPromo(null); setPromoCode(""); }} className="text-[10px] font-medium text-rose-600 px-2 py-1 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors shrink-0">Remove</button>
+                    <button onClick={() => { discountsDirtyRef.current = true; setAppliedPromo(null); setPromoCode(""); }} className="text-[10px] font-medium text-rose-600 px-2 py-1 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors shrink-0">Remove</button>
                   </div>
                 )}
 
@@ -1644,7 +2217,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                       <input
                         type="number"
                         value={manualDiscountPct || ""}
-                        onChange={(e) => setManualDiscountPct(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                        onChange={(e) => { discountsDirtyRef.current = true; setManualDiscountPct(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0))); }}
                         placeholder="0"
                         min={0} max={100}
                         className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 pl-3 pr-8 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 outline-none"
@@ -1660,7 +2233,7 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                       <input
                         type="number"
                         value={manualCash || ""}
-                        onChange={(e) => setManualCash(Math.max(0, parseFloat(e.target.value) || 0))}
+                        onChange={(e) => { discountsDirtyRef.current = true; setManualCash(Math.max(0, parseFloat(e.target.value) || 0)); }}
                         placeholder="0"
                         min={0}
                         className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 pl-6 pr-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 outline-none"
@@ -2054,10 +2627,27 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
               </div>
             </div>
 
-            {/* Payment info */}
+            {/* Payment info (H-14: accurate copy for pay_later and NC) */}
             <div className="space-y-1.5">
-              <h1 className="text-xl font-medium text-slate-900 dark:text-white tracking-tight">Payment Received!</h1>
-              <p className="text-base font-medium text-indigo-600 dark:text-indigo-400">{currencySymbol}{finalTotal.toFixed(2)} collected</p>
+              <h1 className="text-xl font-medium text-slate-900 dark:text-white tracking-tight">
+                {lastPaymentDetailsRef.current?.offlineQueued
+                  ? "Saved Offline!"
+                  : lastPaymentDetailsRef.current?.method === "nc"
+                  ? "Marked Non-Chargeable"
+                  : lastPaymentDetailsRef.current?.method === "pay_later"
+                  ? "Pay Later Recorded"
+                  : "Payment Received!"}
+              </h1>
+              <p className="text-base font-medium text-indigo-600 dark:text-indigo-400">
+                {currencySymbol}{(lastPaymentDetailsRef.current?.total ?? finalTotal).toFixed(2)}{" "}
+                {lastPaymentDetailsRef.current?.offlineQueued
+                  ? "queued for sync"
+                  : lastPaymentDetailsRef.current?.method === "nc"
+                  ? "complimentary"
+                  : lastPaymentDetailsRef.current?.method === "pay_later"
+                  ? "pending collection"
+                  : "collected"}
+              </p>
               {loyaltyPointsAwarded && loyaltyPointsAwarded > 0 && (
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-150">
                   <Star className="h-3.5 w-3.5 text-indigo-500" />
@@ -2117,7 +2707,9 @@ const MobilePaymentDialog: React.FC<PaymentDialogProps> = ({
                   customerMobile: customerMobile.trim() || undefined,
                   items: localItems as any,
                 };
-                onSuccess(detailsToPass);
+                if (!persistedByParentRef.current) {
+                  onSuccess(detailsToPass);
+                }
                 onClose();
               }}
               className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-base font-bold shadow-xl shadow-indigo-600/30 dark:shadow-none hover:shadow-2xl hover:scale-[1.01] active:scale-[0.98] transition-all"

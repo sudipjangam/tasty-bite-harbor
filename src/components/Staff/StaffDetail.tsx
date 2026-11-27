@@ -68,7 +68,7 @@ const StaffDetail: React.FC<StaffDetailProps> = ({
     if (!staffId) return;
 
     const channel = supabase
-      .channel('staff-detail-changes')
+      .channel(`staff-detail-${staffId}`)
       .on(
         'postgres_changes',
         {

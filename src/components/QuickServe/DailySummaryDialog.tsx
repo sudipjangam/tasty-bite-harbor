@@ -4,6 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { useNetworkStatus } from "@/contexts/NetworkStatusContext";
+import {
+  getLocalOrdersByRestaurant,
+  type OfflineQsrOrder,
+} from "@/utils/offlineDB";
 import { format, startOfDay, endOfDay } from "date-fns";
 import {
   Dialog,
@@ -103,6 +108,7 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
   const { restaurantId, restaurantName } = useRestaurantId();
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { isOnline } = useNetworkStatus();
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(!!initialData); // If viewing historical, assume saved
@@ -128,18 +134,256 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
   const { data: summary, isLoading } = useQuery({
     queryKey: ["daily-summary-data", restaurantId, dateStr],
     enabled: !!restaurantId && isOpen && !initialData,
+    networkMode: "always",
     initialData: initialData,
     queryFn: async () => {
       const dayStart = startOfDay(displayDate).toISOString();
       const dayEnd = endOfDay(displayDate).toISOString();
+      const dayStartMs = new Date(dayStart).getTime();
+      const dayEndMs = new Date(dayEnd).getTime();
+      const summaryCacheKey = `qs_daily_summary_${restaurantId}_${dateStr}`;
+      const summaryIdsCacheKey = `qs_daily_summary_ids_${restaurantId}_${dateStr}`;
 
+      const buildOfflineSummary = async (): Promise<DailySummaryData> => {
+        let baseSummary: DailySummaryData | null = null;
+        let syncedIds = new Set<string>();
+        let basePaidTxnCount = 0;
+        let cachedTopItems: TopItem[] | null = null;
+        let syncedContributions: Record<
+          string,
+          {
+            revenue: number;
+            discount: number;
+            paidTxnCount: number;
+            isNC: boolean;
+            paymentBreakdown: PaymentBreakdown;
+          }
+        > = {};
+        try {
+          const cached = localStorage.getItem(summaryCacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.summary) {
+              baseSummary = parsed.summary as DailySummaryData;
+              if (Array.isArray(parsed.orderIds)) {
+                syncedIds = new Set(parsed.orderIds as string[]);
+              }
+              if (Array.isArray(parsed.allTopItems)) {
+                cachedTopItems = parsed.allTopItems as TopItem[];
+              }
+              basePaidTxnCount = Number(parsed.paidTxnCount) || 0;
+              syncedContributions = parsed.syncedContributions || {};
+            } else {
+              // Legacy fallback format
+              baseSummary = parsed as DailySummaryData;
+              const cachedIds = localStorage.getItem(summaryIdsCacheKey);
+              if (cachedIds) syncedIds = new Set(JSON.parse(cachedIds) as string[]);
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+
+        const allLocalOrders = await getLocalOrdersByRestaurant(restaurantId!);
+        const deletedSyncedIds = new Set(
+          allLocalOrders
+            .filter((lo) => lo.status === "deleted" && lo.orderId && syncedIds.has(lo.orderId))
+            .map((lo) => lo.orderId as string),
+        );
+        const localOrders = allLocalOrders.filter((lo) => {
+          if (lo.status === "deleted" || lo.status === "held" || lo.status === "cancelled") {
+            return false;
+          }
+          const ts = new Date(lo.createdAt).getTime();
+          return ts >= dayStartMs && ts <= dayEndMs;
+        });
+
+        const summaryOut: DailySummaryData = baseSummary
+          ? {
+              ...baseSummary,
+              paymentBreakdown: { ...baseSummary.paymentBreakdown },
+              topItems: [...(cachedTopItems || baseSummary.topItems)],
+              orderTypeBreakdown: { ...baseSummary.orderTypeBreakdown },
+              expenseBreakdown: { ...baseSummary.expenseBreakdown },
+              inventoryCostDetails: [...baseSummary.inventoryCostDetails],
+            }
+          : {
+              totalOrders: 0,
+              totalRevenue: 0,
+              totalItemsSold: 0,
+              paymentBreakdown: { cash: 0, upi: 0, card: 0, other: 0 },
+              topItems: [],
+              orderTypeBreakdown: { counter: 0, takeaway: 0, delivery: 0, dine_in: 0 },
+              ncOrders: 0,
+              ncAmount: 0,
+              discountAmount: 0,
+              averageOrderValue: 0,
+              peakHour: "",
+              totalExpenses: 0,
+              expenseBreakdown: {},
+              netProfit: 0,
+              inventoryCostFromOrders: 0,
+              inventoryCostDetails: [],
+            };
+
+        const topItemMap = new Map<string, { quantity: number; revenue: number }>();
+        for (const t of summaryOut.topItems) {
+          topItemMap.set(t.name, { quantity: t.quantity, revenue: t.revenue });
+        }
+
+        let paidTxnCount = basePaidTxnCount;
+        let addedEligibleSale = false;
+
+        for (const delId of deletedSyncedIds) {
+          const prev = syncedContributions[delId];
+          if (!prev) continue;
+          summaryOut.totalOrders = Math.max(0, summaryOut.totalOrders - 1);
+          if (prev.isNC) summaryOut.ncOrders = Math.max(0, summaryOut.ncOrders - 1);
+          summaryOut.totalRevenue = Math.max(0, summaryOut.totalRevenue - (prev.revenue || 0));
+          summaryOut.discountAmount = Math.max(0, summaryOut.discountAmount - (prev.discount || 0));
+          summaryOut.paymentBreakdown.cash = Math.max(0, summaryOut.paymentBreakdown.cash - (prev.paymentBreakdown?.cash || 0));
+          summaryOut.paymentBreakdown.upi = Math.max(0, summaryOut.paymentBreakdown.upi - (prev.paymentBreakdown?.upi || 0));
+          summaryOut.paymentBreakdown.card = Math.max(0, summaryOut.paymentBreakdown.card - (prev.paymentBreakdown?.card || 0));
+          summaryOut.paymentBreakdown.other = Math.max(0, summaryOut.paymentBreakdown.other - (prev.paymentBreakdown?.other || 0));
+          paidTxnCount = Math.max(0, paidTxnCount - (prev.paidTxnCount || 0));
+          addedEligibleSale = true;
+        }
+
+        const computePaymentBreakdown = (lo: OfflineQsrOrder): PaymentBreakdown => {
+          const pb: PaymentBreakdown = { cash: 0, upi: 0, card: 0, other: 0 };
+          const isNC = lo.orderType === "nc" || lo.paymentStatus === "nc";
+          const isPaidSale =
+            !isNC &&
+            (lo.paymentStatus === "paid" || lo.status === "completed") &&
+            lo.paymentStatus !== "pending";
+          if (!isPaidSale) return pb;
+
+          const amt = Number(lo.total) || 0;
+          const m = (lo.paymentMethod || "cash").toLowerCase();
+          if (m === "split" && Array.isArray(lo.splitPayments)) {
+            for (const sp of lo.splitPayments) {
+              const sm = (sp.method || "").toLowerCase();
+              const sa = Number(sp.amount) || 0;
+              if (sm.includes("cash")) pb.cash += sa;
+              else if (sm.includes("upi")) pb.upi += sa;
+              else if (sm.includes("card")) pb.card += sa;
+              else pb.other += sa;
+            }
+          } else if (m.includes("cash")) pb.cash += amt;
+          else if (m.includes("upi")) pb.upi += amt;
+          else if (m.includes("card")) pb.card += amt;
+          else pb.other += amt;
+          return pb;
+        };
+
+        const computeDiscountRs = (lo: OfflineQsrOrder): number => {
+          if (!lo.discount) return 0;
+          return lo.discountType === "percentage"
+            ? ((Number(lo.subtotal) || Number(lo.total) || 0) *
+                Number(lo.discount)) /
+              100
+            : Number(lo.discount) || 0;
+        };
+
+        for (const lo of localOrders) {
+          const isSyncedDuplicate = Boolean(lo.orderId && syncedIds.has(lo.orderId));
+          const isNC = lo.orderType === "nc" || lo.paymentStatus === "nc";
+          const isPaidSale =
+            !isNC &&
+            (lo.paymentStatus === "paid" || lo.status === "completed") &&
+            lo.paymentStatus !== "pending";
+          const nextRevenue = isPaidSale ? Number(lo.total) || 0 : 0;
+          const nextDiscount = computeDiscountRs(lo);
+          const nextPb = computePaymentBreakdown(lo);
+          const nextPaidTxn = isPaidSale ? 1 : 0;
+
+          if (isSyncedDuplicate) {
+            if (lo.synced === true || !lo.orderId) continue;
+            const prev = syncedContributions[lo.orderId];
+            if (!prev) continue;
+            if (isNC !== prev.isNC) {
+              summaryOut.ncOrders = Math.max(
+                0,
+                summaryOut.ncOrders + (isNC ? 1 : -1),
+              );
+            }
+            summaryOut.totalRevenue += nextRevenue - (prev.revenue || 0);
+            summaryOut.discountAmount += nextDiscount - (prev.discount || 0);
+            summaryOut.paymentBreakdown.cash +=
+              nextPb.cash - (prev.paymentBreakdown?.cash || 0);
+            summaryOut.paymentBreakdown.upi +=
+              nextPb.upi - (prev.paymentBreakdown?.upi || 0);
+            summaryOut.paymentBreakdown.card +=
+              nextPb.card - (prev.paymentBreakdown?.card || 0);
+            summaryOut.paymentBreakdown.other +=
+              nextPb.other - (prev.paymentBreakdown?.other || 0);
+            const txnDelta = nextPaidTxn - (prev.paidTxnCount || 0);
+            paidTxnCount = Math.max(0, paidTxnCount + txnDelta);
+            if (txnDelta !== 0) addedEligibleSale = true;
+            continue;
+          }
+
+          summaryOut.totalOrders += 1;
+          const ot = (lo.orderType || "counter").toLowerCase();
+          if (ot.includes("delivery")) summaryOut.orderTypeBreakdown.delivery += 1;
+          else if (ot.includes("take")) summaryOut.orderTypeBreakdown.takeaway += 1;
+          else if (ot.includes("dine")) summaryOut.orderTypeBreakdown.dine_in += 1;
+          else summaryOut.orderTypeBreakdown.counter += 1;
+          if (isNC) {
+            summaryOut.ncOrders += 1;
+          } else if (isPaidSale) {
+            summaryOut.totalRevenue += nextRevenue;
+            summaryOut.paymentBreakdown.cash += nextPb.cash;
+            summaryOut.paymentBreakdown.upi += nextPb.upi;
+            summaryOut.paymentBreakdown.card += nextPb.card;
+            summaryOut.paymentBreakdown.other += nextPb.other;
+            paidTxnCount += 1;
+            addedEligibleSale = true;
+          }
+          summaryOut.discountAmount += nextDiscount;
+
+          for (const it of lo.items || []) {
+            const name = it.name || "Unknown";
+            const qty = Number(it.quantity) || 1;
+            const rev = (Number(it.price) || 0) * qty;
+            summaryOut.totalItemsSold += qty;
+            const cur = topItemMap.get(name) || { quantity: 0, revenue: 0 };
+            topItemMap.set(name, {
+              quantity: cur.quantity + qty,
+              revenue: cur.revenue + rev,
+            });
+          }
+        }
+
+        summaryOut.topItems = Array.from(topItemMap.entries())
+          .map(([name, d]) => ({ name, quantity: d.quantity, revenue: d.revenue }))
+          .sort((a, b) => b.quantity - a.quantity)
+          .slice(0, 5);
+        summaryOut.netProfit = summaryOut.totalRevenue - summaryOut.totalExpenses;
+        // M-18: Recompute averageOrderValue whenever an eligible sale was added/changed or revenue changed
+        if (addedEligibleSale || summaryOut.totalRevenue !== (baseSummary?.totalRevenue ?? 0)) {
+          summaryOut.averageOrderValue =
+            paidTxnCount > 0 ? summaryOut.totalRevenue / paidTxnCount : 0;
+        }
+        return summaryOut;
+      };
+
+      const offlineNow =
+        !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
+
+      if (offlineNow && restaurantId) {
+        return buildOfflineSummary();
+      }
+
+      try {
       // 1. Fetch main orders (primary table for POS, Dine-in, Takeaway, Online)
-      const { data: mainOrders } = await supabase
+      const { data: mainOrders, error: mainOrdersError } = await supabase
         .from("orders")
         .select("*")
         .eq("restaurant_id", restaurantId)
         .gte("created_at", dayStart)
         .lte("created_at", dayEnd);
+      if (mainOrdersError) throw mainOrdersError;
 
       // 2. Fetch kitchen_orders for items, order types, peak hour
       const { data: orders, error } = await supabase
@@ -169,9 +413,20 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         .gte("expense_date", dayStart.split("T")[0])
         .lte("expense_date", dayEnd.split("T")[0]);
 
-      const rawOrders = (mainOrders && mainOrders.length > 0)
-        ? mainOrders
-        : (orders || []);
+      // C-14 fix: always use mainOrders (orders table) for revenue/status logic.
+      // kitchen_orders rows lack payment_status/total so must never be used as revenue source.
+      // Merge both for item/peak-hour counts only.
+      const rawOrders = mainOrders || [];
+      const cancelledOrderIds = new Set(
+        rawOrders
+          .filter((o: any) => o.status === "cancelled")
+          .map((o: any) => o.id),
+      );
+      const kitchenOrdersForItems = (orders || []).filter(
+        (ko: any) =>
+          ko.status !== "cancelled" &&
+          (!ko.order_id || !cancelledOrderIds.has(ko.order_id)),
+      );
 
       const allOrders = rawOrders.filter((o: any) => o.status !== "cancelled");
       const completedOrders = rawOrders.filter(
@@ -380,7 +635,7 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         });
       }
 
-      // Order type breakdown (from kitchen_orders)
+      // Order type breakdown (from orders table — has order_type column)
       const orderTypeBreakdown: OrderTypeBreakdown = {
         counter: 0,
         takeaway: 0,
@@ -396,14 +651,36 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         else orderTypeBreakdown.counter++;
       });
 
-      // Top items (from kitchen_orders items array)
+      // Top items — prefer kitchen_orders (richer item detail) + merge missing allOrders items (incl. QuickServe strings)
+      const coveredOrderIds = new Set(
+        kitchenOrdersForItems.map((ko: any) => ko.order_id).filter(Boolean),
+      );
+      const itemSourceRows = [
+        ...kitchenOrdersForItems,
+        ...allOrders.filter((o: any) => !coveredOrderIds.has(o.id)),
+      ];
       const itemMap = new Map<string, { quantity: number; revenue: number }>();
-      allOrders.forEach((o) => {
+      itemSourceRows.forEach((o) => {
         const items = (o.items as any[]) || [];
         items.forEach((item) => {
-          const name = item.name || "Unknown";
-          const qty = item.quantity || 1;
-          const rev = (item.price || 0) * qty;
+          let name = "Unknown";
+          let qty = 1;
+          let price = 0;
+          if (typeof item === "string") {
+            const match = item.match(/^(\d+)x\s+(.+?)\s+@(\d+(?:\.\d+)?)/);
+            if (match) {
+              qty = parseInt(match[1], 10) || 1;
+              name = match[2].trim();
+              price = parseFloat(match[3]) || 0;
+            } else {
+              name = item;
+            }
+          } else if (item && typeof item === "object") {
+            name = item.name || "Unknown";
+            qty = item.quantity || 1;
+            price = Number(item.price) || 0;
+          }
+          const rev = price * qty;
           const existing = itemMap.get(name) || { quantity: 0, revenue: 0 };
           itemMap.set(name, {
             quantity: existing.quantity + qty,
@@ -412,10 +689,10 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         });
       });
 
-      const topItems: TopItem[] = Array.from(itemMap.entries())
+      const allTopItems: TopItem[] = Array.from(itemMap.entries())
         .map(([name, data]) => ({ name, ...data }))
-        .sort((a, b) => b.quantity - a.quantity)
-        .slice(0, 5);
+        .sort((a, b) => b.quantity - a.quantity);
+      const topItems: TopItem[] = allTopItems.slice(0, 5);
 
       // Total items sold
       const totalItemsSold = Array.from(itemMap.values()).reduce(
@@ -423,7 +700,7 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         0,
       );
 
-      // Peak hour
+      // Peak hour — use orders (has created_at guaranteed)
       const hourMap = new Map<number, number>();
       allOrders.forEach((o) => {
         const hr = new Date(o.created_at).getHours();
@@ -440,13 +717,65 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         }
       });
 
+      const syncedContributions: Record<
+        string,
+        {
+          revenue: number;
+          discount: number;
+          paidTxnCount: number;
+          isNC: boolean;
+          paymentBreakdown: PaymentBreakdown;
+        }
+      > = {};
+      rawOrders.forEach((o: any) => {
+        const isNC =
+          o.order_type === "nc" ||
+          o.order_type === "non-chargeable" ||
+          o.payment_status === "nc";
+        const isPaid =
+          !isNC &&
+          (o.payment_status === "paid" || o.status === "completed") &&
+          o.payment_status !== "pending";
+        const rev = isPaid ? Number(o.total || o.total_amount) || 0 : 0;
+        const disc = isPaid ? Number(o.discount_amount || o.discount) || 0 : 0;
+        const pb: PaymentBreakdown = { cash: 0, upi: 0, card: 0, other: 0 };
+        if (isPaid) {
+          const splits = Array.isArray(o.split_payments)
+            ? o.split_payments
+            : null;
+          if ((o.payment_method || "").toLowerCase() === "split" && splits) {
+            splits.forEach((s: any) => {
+              const m = (s.method || "").toLowerCase();
+              const a = Number(s.amount) || 0;
+              if (m.includes("cash")) pb.cash += a;
+              else if (m.includes("upi")) pb.upi += a;
+              else if (m.includes("card")) pb.card += a;
+              else pb.other += a;
+            });
+          } else {
+            const m = (o.payment_method || "cash").toLowerCase();
+            if (m.includes("cash")) pb.cash += rev;
+            else if (m.includes("upi")) pb.upi += rev;
+            else if (m.includes("card")) pb.card += rev;
+            else pb.other += rev;
+          }
+        }
+        syncedContributions[o.id] = {
+          revenue: rev,
+          discount: disc,
+          paidTxnCount: isPaid ? 1 : 0,
+          isNC,
+          paymentBreakdown: pb,
+        };
+      });
+
       const paidTxnCount = allTxns.filter(
         (t) => (t.payment_method || "").toLowerCase() !== "nc",
       ).length;
       const averageOrderValue =
         paidTxnCount > 0 ? totalRevenue / paidTxnCount : 0;
 
-      return {
+      const summaryResult: DailySummaryData = {
         totalOrders,
         totalRevenue,
         totalItemsSold,
@@ -464,6 +793,32 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
         inventoryCostFromOrders: Math.round(inventoryCostFromOrders * 100) / 100,
         inventoryCostDetails,
       };
+      try {
+        if (restaurantId) {
+          localStorage.setItem(
+            summaryCacheKey,
+            JSON.stringify({
+              version: 2,
+              summary: summaryResult,
+              allTopItems,
+              orderIds: rawOrders.map((o: any) => o.id),
+              paidTxnCount,
+              syncedContributions,
+            }),
+          );
+          localStorage.removeItem(summaryIdsCacheKey);
+        }
+      } catch {
+        /* ignore storage quota */
+      }
+      return summaryResult;
+      } catch (err) {
+        if (restaurantId) {
+          const fallback = await buildOfflineSummary();
+          return { ...fallback, _isOfflineFallback: true } as DailySummaryData;
+        }
+        throw err;
+      }
     },
   });
 
@@ -522,7 +877,6 @@ export const DailySummaryDialog: React.FC<DailySummaryDialogProps> = ({
 
       if (error) throw error;
 
-      setSaved(true);
       setSaved(true);
       toast({
         title: "Report Saved! ✅",
@@ -1235,7 +1589,7 @@ ${extrasSection}${plSection}${notesSection}
             <Button
               size="sm"
               onClick={handleSaveReport}
-              disabled={!summary || saving || saved || !!initialData}
+              disabled={!summary || saving || saved || !!initialData || !!(summary as any)._isOfflineFallback}
               className="bg-gradient-to-r from-orange-500 to-pink-500 text-white hover:from-orange-600 hover:to-pink-600 disabled:opacity-50 text-xs sm:text-sm h-9"
             >
               {saving ? (

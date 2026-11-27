@@ -34,11 +34,27 @@ vi.mock("@/hooks/use-toast", () => ({
 }));
 
 vi.mock("@/hooks/useAuth", () => ({
-  useAuth: () => ({ user: { id: "test-user-id", email: "test@example.com", first_name: "Test", last_name: "User" } }),
+  useAuth: () => ({
+    user: { id: "test-user-id", email: "test@example.com", first_name: "Test", last_name: "User", role_has_full_access: true },
+    loading: false,
+    hasPermission: () => true,
+    hasAnyPermission: () => true,
+    isRole: () => true,
+    signOut: vi.fn(),
+  }),
 }));
 
 vi.mock("@/contexts/CurrencyContext", () => ({
   useCurrencyContext: () => ({ symbol: "₹" }),
+}));
+
+vi.mock("@/contexts/NetworkStatusContext", () => ({
+  useNetworkStatus: () => ({
+    isOnline: true,
+    pendingCount: 0,
+    triggerSync: vi.fn(),
+    refreshCount: vi.fn(),
+  }),
 }));
 
 // Mock react-query

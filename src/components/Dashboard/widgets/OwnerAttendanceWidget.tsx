@@ -33,7 +33,7 @@ const OwnerAttendanceWidget: React.FC = () => {
   } = useCurrentStaff();
 
   // Fetch today's clock-ins for ALL staff
-  const { data: todayClockIns = [], isLoading: isLoadingAttendance } = useQuery(
+  const { data: todayClockIns = [], isLoading: isLoadingAttendance, isError: isAttendanceError, refetch: refetchAttendance } = useQuery(
     {
       queryKey: ["owner-today-attendance", restaurantId],
       queryFn: async () => {
@@ -57,14 +57,12 @@ const OwnerAttendanceWidget: React.FC = () => {
           .lte("clock_in", `${today}T23:59:59`)
           .order("clock_in", { ascending: false });
 
-        if (error) {
-          console.error("Attendance query error:", error);
-          return [];
-        }
+        if (error) throw error;
         return data || [];
       },
       enabled: !!restaurantId,
-      refetchInterval: 60000,
+      staleTime: 120000,
+      refetchInterval: 300000,
     },
   );
 
@@ -189,12 +187,17 @@ const OwnerAttendanceWidget: React.FC = () => {
           throw new Error("You must wait at least 5 minutes before clocking out.");
       }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("staff_time_clock")
         .update({ clock_out: new Date().toISOString() })
-        .eq("id", activeClockEntry.id);
+        .eq("id", activeClockEntry.id)
+        .is("clock_out", null)
+        .select("id");
 
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("This shift has already been clocked out.");
+      }
     },
     onSuccess: () => {
       toast({
@@ -202,6 +205,7 @@ const OwnerAttendanceWidget: React.FC = () => {
         description: "Your shift has ended.",
       });
       refetchTimeEntries();
+      queryClient.invalidateQueries({ queryKey: ["staff-active-clock"] });
       queryClient.invalidateQueries({ queryKey: ["owner-today-attendance"] });
     },
     onError: (error: any) => {
@@ -228,6 +232,12 @@ const OwnerAttendanceWidget: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full rounded-2xl p-1 gap-2">
+      {isAttendanceError && (
+        <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/30 text-amber-800 dark:text-amber-200 text-xs flex items-center justify-between">
+          <span>Failed to refresh attendance. Showing cached data.</span>
+          <button onClick={() => refetchAttendance()} className="font-semibold underline ml-2 hover:opacity-80">Retry</button>
+        </div>
+      )}
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}

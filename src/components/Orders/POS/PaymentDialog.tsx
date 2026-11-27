@@ -65,6 +65,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { useNetworkStatus } from "@/contexts/NetworkStatusContext";
 import { thermalPrinterService } from "@/services/thermalPrinterService";
 import { CustomItemDialog, CustomItem } from "./CustomItemDialog";
 import { PaymentDialogProps } from "./PaymentDialog/types";
@@ -72,6 +73,17 @@ import { resolveInvoiceTemplate } from "@/utils/resolveInvoiceTemplate";
 import { buildReceiptHtml } from "./PaymentDialog/utils/buildReceiptHtml";
 import { calculateOrderTotals } from "./PaymentDialog/utils/paymentCalculations";
 import { BillPreviewStep } from "./PaymentDialog/steps/BillPreviewStep";
+import { enqueueWrite } from "@/utils/syncManager";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  commitLocalOrderAndWritesAtomic,
+  getCachedPaymentSettings,
+  getCachedRestaurant,
+  getLocalOrder,
+  getLocalOrderByAnyId,
+  saveLocalOrder,
+} from "@/utils/offlineDB";
+import { formatOrderItemString } from "@/lib/order-utils";
 
 interface CustomerLoyaltyProfile {
   id: string;
@@ -90,18 +102,62 @@ const PaymentDialog = ({
   tableNumber = "",
   onEditOrder,
   orderId,
+  linkedOrderId,
   onOrderUpdated,
   itemCompletionStatus: initialItemCompletionStatus,
   isNonChargeable = false,
   serverName,
   initialCustomerName = "",
   initialCustomerMobile = "",
+  isSettledReprint = false,
+  initialDiscountAmount,
+  initialDiscountPercentage,
+  initialTotal,
 }: PaymentDialogProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { symbol: currencySymbol } = useCurrencyContext();
+  const { isOnline } = useNetworkStatus();
   const { hasAccess } = useAccessControl();
   const { restaurantName: hookRestaurantName, restaurantId: hookRestaurantId } = useRestaurantId();
+  const { user: authUser } = useAuth();
+  const activeOrderIdRef = useRef<string | undefined>(orderId);
+  activeOrderIdRef.current = orderId;
+  const customerNameDirtyRef = useRef(false);
+  const customerMobileDirtyRef = useRef(false);
+  const discountsDirtyRef = useRef(false);
+  const persistedByParentRef = useRef(false);
+  const paymentAttemptRef = useRef(0);
+  const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reservationLookupSeqRef = useRef(0);
+  const pendingOfflineTxnIdRef = useRef<{ key: string; txnId: string } | null>(null);
+  const isMigratingLegacyRef = useRef(false);
+  const onlineSettlementRef = useRef<{
+    orderId: string;
+    attemptId: number;
+    method: string;
+    total: number;
+    splitPayload?: Array<{ method: string; amount: number }>;
+    koUpdated: boolean;
+    orderUpdated: boolean;
+    txnInserted: boolean;
+    roomInserted: boolean;
+    crmSynced: boolean;
+    loyaltyDone: boolean;
+    txnId: string;
+  } | null>(null);
+  const [settlementWasOffline, setSettlementWasOffline] = useState(false);
+  const [lastSettlementMethod, setLastSettlementMethod] = useState<string | null>(null);
+
+  // H-13: Refresh cached payment settings and restaurant info on reconnect
+  const prevOnlineRef = useRef(isOnline);
+  useEffect(() => {
+    if (isOnline && !prevOnlineRef.current) {
+      queryClient.invalidateQueries({ queryKey: ["payment-settings-pos"] });
+      queryClient.invalidateQueries({ queryKey: ["restaurant-info-pos"] });
+    }
+    prevOnlineRef.current = isOnline;
+  }, [isOnline, queryClient]);
 
   // Check if restaurant subscription plan includes rooms/hotel management
   const hasRoomsPlan = hasAccess("rooms") || hasAccess("hotel");
@@ -177,12 +233,35 @@ const PaymentDialog = ({
   // immediately after the user clicks "Redeem Points".
   const prevOrderKeyRef = useRef<string>("");
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      if (autoCloseTimerRef.current) {
+        clearTimeout(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = null;
+      }
+      prevOrderKeyRef.current = "";
+      paymentAttemptRef.current += 1;
+      persistedByParentRef.current = false;
+      onlineSettlementRef.current = null;
+      setIsProcessingPayment(false);
+      return;
+    }
     const orderKey = `${orderId ?? ""}|${tableNumber ?? ""}`;
     const isNewOrder = orderKey !== prevOrderKeyRef.current;
     if (!isNewOrder && prevOrderKeyRef.current !== "") return; // already initialised this order
     prevOrderKeyRef.current = orderKey;
+    paymentAttemptRef.current += 1;
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
 
+    customerNameDirtyRef.current = false;
+    customerMobileDirtyRef.current = false;
+    discountsDirtyRef.current = false;
+    persistedByParentRef.current = false;
+    onlineSettlementRef.current = null;
+    setSettlementWasOffline(false);
+    setLastSettlementMethod(null);
     setCurrentStep("bill");
     setIsSendingWhatsApp(false);
     setIsPrintingBill(false);
@@ -195,10 +274,16 @@ const PaymentDialog = ({
     setPromotionCode("");
     setManualPromoInput("");
     setAppliedPromotion(null);
-    setManualDiscountPercent(0);
-    setManualDiscountCash(0);
+    setManualDiscountPercent(
+      isSettledReprint && initialDiscountPercentage ? initialDiscountPercentage : 0,
+    );
+    setManualDiscountCash(
+      isSettledReprint && initialDiscountAmount ? initialDiscountAmount : 0,
+    );
     setRedeemedLoyaltyPoints(0);
     setCustomerProfile(null);
+    setDetectedReservation(null); // H-12: clear stale room reservation across dialog reuse
+    pendingOfflineTxnIdRef.current = null;
     setTipAmount(0);
     setIsCustomTip(false);
     setCustomTipInput("");
@@ -215,15 +300,25 @@ const PaymentDialog = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, orderId, tableNumber, initialCustomerName, initialCustomerMobile]);
 
+  // Cleanup auto-close timer on unmount
+  useEffect(() => {
+    return () => {
+      paymentAttemptRef.current += 1;
+      if (autoCloseTimerRef.current) {
+        clearTimeout(autoCloseTimerRef.current);
+      }
+    };
+  }, []);
+
   // Sync customer details whenever parent screen updates them
   useEffect(() => {
-    if (initialCustomerName) {
+    if (initialCustomerName && !customerNameDirtyRef.current) {
       setCustomerName(initialCustomerName);
     }
   }, [initialCustomerName]);
 
   useEffect(() => {
-    if (initialCustomerMobile) {
+    if (initialCustomerMobile && !customerMobileDirtyRef.current) {
       setCustomerMobile(initialCustomerMobile);
     }
   }, [initialCustomerMobile]);
@@ -239,82 +334,145 @@ const PaymentDialog = ({
     requestPermission();
   }, [requestPermission]);
 
-  // ─── Offline Queue Auto-Sync Listener ────────────────────────────────────
+  // ─── Migrate legacy localStorage payment queue once into IndexedDB writeQueue ──
   useEffect(() => {
-    const handleOnline = async () => {
-      const offlineQueue = JSON.parse(localStorage.getItem("pos_offline_payments_queue") || "[]");
-      if (offlineQueue.length === 0) return;
+    if (typeof localStorage === "undefined") return;
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem("pos_offline_payments_queue");
+    } catch {
+      return;
+    }
+    if (!raw) return;
 
-      toast({ title: `Syncing ${offlineQueue.length} offline payment(s)...` });
-      const remaining: any[] = [];
-
-      for (const item of offlineQueue) {
-        try {
-          if (item.orderId) {
-            await supabase
-              .from("kitchen_orders")
-              .update({
-                status: "completed",
-                payment_status: item.payment_status,
-                payment_method: item.payment_method,
-                total_amount: item.total_amount,
-                ...(item.customer_name && { customer_name: item.customer_name }),
-                ...(item.customer_phone && { customer_phone: item.customer_phone }),
-              })
-              .eq("id", item.orderId);
-          }
-        } catch {
-          remaining.push(item);
+    (async () => {
+      try {
+        const legacyQueue = JSON.parse(raw);
+        if (!Array.isArray(legacyQueue) || legacyQueue.length === 0) {
+          localStorage.removeItem("pos_offline_payments_queue");
+          return;
         }
+        // C-12: Don't remove the key before the loop — if the process crashes
+        // mid-drain the items are lost forever. Remove only after all items
+        // have been successfully migrated.
+        const remaining: any[] = [];
+        for (const item of legacyQueue) {
+          if (!item?.orderId) continue;
+          const nextItem = { ...item };
+          try {
+            const nowIso = new Date().toISOString();
+            if (!nextItem._kitchenEnqueued) {
+              await enqueueWrite(
+                "kitchen_order",
+                {
+                  id: item.orderId,
+                  status: "completed",
+                  bumped_at: nowIso,
+                  ...(item.customer_name && { customer_name: item.customer_name }),
+                  ...(item.customer_phone && { customer_phone: item.customer_phone }),
+                },
+                "update",
+              );
+              nextItem._kitchenEnqueued = true;
+            }
+            if (!nextItem._orderEnqueued) {
+              await enqueueWrite(
+                "order",
+                {
+                  id: item.orderId,
+                  _resolveOrderIdFromKitchenOrderId: item.orderId,
+                  status: item.payment_status === "nc" ? "nc" : "completed",
+                  payment_status: item.payment_status,
+                  payment_method: item.payment_method,
+                  total: item.total_amount,
+                  ...(item.customer_name && { customer_name: item.customer_name }),
+                  ...(item.customer_phone && { customer_phone: item.customer_phone }),
+                  updated_at: nowIso,
+                },
+                "update",
+              );
+              nextItem._orderEnqueued = true;
+            }
+          } catch {
+            remaining.push(nextItem);
+          }
+        }
+        // C-12: Only remove (or shrink) the key after the loop completes
+        if (remaining.length > 0) {
+          localStorage.setItem("pos_offline_payments_queue", JSON.stringify(remaining));
+        } else {
+          localStorage.removeItem("pos_offline_payments_queue");
+        }
+      } catch {
+        // Ignore malformed legacy storage
+      } finally {
+        isMigratingLegacyRef.current = false;
       }
+    })();
+  }, [isOnline, isOpen]);
 
-      localStorage.setItem("pos_offline_payments_queue", JSON.stringify(remaining));
-      if (remaining.length === 0) {
-        toast({ title: "All offline payments synced to cloud ✓" });
-        queryClient.invalidateQueries({ queryKey: ["kitchen-orders"] });
-        queryClient.invalidateQueries({ queryKey: ["all-orders"] });
-      }
-    };
-
-    window.addEventListener("online", handleOnline);
-    return () => window.removeEventListener("online", handleOnline);
-  }, [queryClient, toast]);
-
-  // ─── Restaurant Info Query ───────────────────────────────────────────────
-  const { data: restaurantInfo } = useQuery({
+  // ─── Restaurant Info Query (with IDB offline fallback) ───────────────────
+  const { data: restaurantInfo, isError: restaurantInfoError } = useQuery({
     queryKey: ["restaurant-info-pos", hookRestaurantId],
+    networkMode: "always",
     queryFn: async () => {
-      if (hookRestaurantId) {
-        const { data: rData } = await supabase
-          .from("restaurants")
-          .select("*")
-          .eq("id", hookRestaurantId)
+      const offline =
+        !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
+      if (offline && hookRestaurantId) {
+        return (await getCachedRestaurant(hookRestaurantId)) || null;
+      }
+
+      try {
+        if (hookRestaurantId) {
+          const { data: rData, error } = await supabase
+            .from("restaurants")
+            .select("*")
+            .eq("id", hookRestaurantId)
+            .maybeSingle();
+          if (error) throw error;
+          if (rData) {
+            if (rData.name) localStorage.setItem("cached_restaurant_name", rData.name);
+            if ((rData as any).upi_id) {
+              localStorage.setItem(`cached_restaurant_upi_id_${rData.id}`, (rData as any).upi_id);
+            } else {
+              localStorage.removeItem(`cached_restaurant_upi_id_${rData.id}`);
+            }
+            return rData;
+          }
+          return (await getCachedRestaurant(hookRestaurantId)) || null;
+        }
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        const sessionUser = sessionData?.session?.user;
+        if (!sessionUser) return null;
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("restaurant_id")
+          .eq("id", sessionUser.id)
           .maybeSingle();
-        if (rData) {
-          if (rData.name) localStorage.setItem("cached_restaurant_name", rData.name);
+
+        if (profile?.restaurant_id) {
+          const { data: rData } = await supabase
+            .from("restaurants")
+            .select("*")
+            .eq("id", profile.restaurant_id)
+            .maybeSingle();
+          if (rData?.name) localStorage.setItem("cached_restaurant_name", rData.name);
+          if ((rData as any)?.upi_id) {
+            localStorage.setItem(`cached_restaurant_upi_id_${rData.id}`, (rData as any).upi_id);
+          } else if (rData?.id) {
+            localStorage.removeItem(`cached_restaurant_upi_id_${rData.id}`);
+          }
           return rData;
         }
+        return null;
+      } catch {
+        if (hookRestaurantId) {
+          return (await getCachedRestaurant(hookRestaurantId)) || null;
+        }
+        return null;
       }
-
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return null;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("restaurant_id")
-        .eq("id", userData.user.id)
-        .maybeSingle();
-
-      if (profile?.restaurant_id) {
-        const { data: rData } = await supabase
-          .from("restaurants")
-          .select("*")
-          .eq("id", profile.restaurant_id)
-          .maybeSingle();
-        if (rData?.name) localStorage.setItem("cached_restaurant_name", rData.name);
-        return rData;
-      }
-      return null;
     },
     staleTime: 1000 * 60 * 10,
   });
@@ -330,18 +488,29 @@ const PaymentDialog = ({
     );
   }, [hookRestaurantName, restaurantInfo]);
 
-  // ─── Payment Settings Query ──────────────────────────────────────────────
-  const { data: paymentSettings } = useQuery({
+  // ─── Payment Settings Query (with IDB offline fallback) ──────────────────
+  const { data: paymentSettings, isError: paymentSettingsError } = useQuery({
     queryKey: ["payment-settings-pos", restaurantInfo?.id || hookRestaurantId],
+    networkMode: "always",
     queryFn: async () => {
       const targetId = restaurantInfo?.id || hookRestaurantId;
       if (!targetId) return null;
-      const { data } = await supabase
-        .from("payment_settings")
-        .select("*")
-        .eq("restaurant_id", targetId)
-        .maybeSingle();
-      return data;
+      const offline =
+        !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
+      if (offline) {
+        return (await getCachedPaymentSettings(targetId)) || null;
+      }
+      try {
+        const { data, error } = await supabase
+          .from("payment_settings")
+          .select("*")
+          .eq("restaurant_id", targetId)
+          .maybeSingle();
+        if (error) throw error;
+        return data ?? null;
+      } catch {
+        return (await getCachedPaymentSettings(targetId)) || null;
+      }
     },
     enabled: !!(restaurantInfo?.id || hookRestaurantId),
   });
@@ -456,7 +625,11 @@ const PaymentDialog = ({
 
   const checkForActiveReservation = useCallback(async () => {
     if (!hasRoomsPlan) return;
-    if (!customerName.trim() && !customerMobile.trim()) return;
+    if (!customerName.trim() && !customerMobile.trim()) {
+      setDetectedReservation(null);
+      return;
+    }
+    const seq = ++reservationLookupSeqRef.current;
     try {
       let query = supabase
         .from("check_ins")
@@ -477,6 +650,7 @@ const PaymentDialog = ({
       }
 
       const { data } = await query.limit(1);
+      if (seq !== reservationLookupSeqRef.current) return;
       if (data && data.length > 0) {
         const checkIn = data[0];
         setDetectedReservation({
@@ -489,11 +663,15 @@ const PaymentDialog = ({
         setDetectedReservation(null);
       }
     } catch {
-      setDetectedReservation(null);
+      if (seq === reservationLookupSeqRef.current) {
+        setDetectedReservation(null);
+      }
     }
   }, [hasRoomsPlan, customerName, customerMobile]);
 
   useEffect(() => {
+    reservationLookupSeqRef.current += 1;
+    setDetectedReservation(null);
     if (customerMobile.length >= 10 || customerName.length >= 3) {
       checkForActiveReservation();
     }
@@ -502,22 +680,85 @@ const PaymentDialog = ({
   // ─── Load Existing Order Details ─────────────────────────────────────────
   useEffect(() => {
     if (!orderId) return;
+    const loadOrderId = orderId;
+    let cancelled = false;
+    const isCurrentLoad = () => !cancelled && activeOrderIdRef.current === loadOrderId;
     const fetchOrder = async () => {
-      const { data } = await supabase
-        .from("kitchen_orders")
-        .select("order_type, customer_name, customer_phone, manual_discount_percent, promotion_id")
-        .eq("id", orderId)
-        .maybeSingle();
+      const local = await getLocalOrderByAnyId(loadOrderId);
+      if (!isCurrentLoad()) return;
+      if (local) {
+        if (local.orderType) setOrderType(local.orderType);
+        if (local.customerName && !customerNameDirtyRef.current) setCustomerName(local.customerName);
+        if (local.customerPhone && !customerMobileDirtyRef.current) setCustomerMobile(local.customerPhone);
+        if (!discountsDirtyRef.current && local.discount !== undefined) {
+          if (local.discountType === "percentage") {
+            setManualDiscountPercent(local.discount);
+            setManualDiscountCash(0);
+          } else if (local.discountType === "amount") {
+            setManualDiscountCash(local.discount);
+            setManualDiscountPercent(0);
+          }
+        }
+      }
+      if (!isOnline || (typeof navigator !== "undefined" && !navigator.onLine)) {
+        return;
+      }
+      try {
+        const { data } = await supabase
+          .from("kitchen_orders")
+          .select("order_id, order_type, customer_name, customer_phone, manual_discount_percent, promotion_id")
+          .eq("id", loadOrderId)
+          .maybeSingle();
 
-      if (data) {
-        if (data.order_type) setOrderType(data.order_type);
-        if (data.customer_name) setCustomerName(data.customer_name);
-        if (data.customer_phone) setCustomerMobile(data.customer_phone);
-        if (data.manual_discount_percent) setManualDiscountPercent(data.manual_discount_percent);
+        if (!isCurrentLoad()) return;
+        if (data) {
+          if (data.order_type) setOrderType(data.order_type);
+          if (data.customer_name && !customerNameDirtyRef.current) setCustomerName(data.customer_name);
+          if (data.customer_phone && !customerMobileDirtyRef.current) setCustomerMobile(data.customer_phone);
+          if (data.manual_discount_percent && !discountsDirtyRef.current) {
+            setManualDiscountPercent(data.manual_discount_percent);
+          }
+        }
+        const targetOrderId = (data as any)?.order_id || linkedOrderId || local?.orderId;
+        if (targetOrderId) {
+          const { data: orderData } = await supabase
+            .from("orders")
+            .select("order_type, customer_name, customer_phone, discount_percentage, discount_amount")
+            .eq("id", targetOrderId)
+            .maybeSingle();
+          if (!isCurrentLoad()) return;
+          if (orderData) {
+            if ((orderData as any).order_type && !data?.order_type) {
+              setOrderType((orderData as any).order_type);
+            }
+            if ((orderData as any).customer_name && !customerNameDirtyRef.current) {
+              setCustomerName((orderData as any).customer_name);
+            }
+            if ((orderData as any).customer_phone && !customerMobileDirtyRef.current) {
+              setCustomerMobile((orderData as any).customer_phone);
+            }
+            if (!discountsDirtyRef.current) {
+              const pct = Number((orderData as any).discount_percentage) || 0;
+              const amt = Number((orderData as any).discount_amount) || 0;
+              if (pct > 0) {
+                setManualDiscountPercent(pct);
+                setManualDiscountCash(0);
+              } else if (amt > 0) {
+                setManualDiscountCash(amt);
+                setManualDiscountPercent(0);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[PaymentDialog] fetchOrder skipped offline:", err);
       }
     };
     fetchOrder();
-  }, [orderId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId, linkedOrderId, isOnline]);
 
   // ─── Calculations Engine (Totals, Loyalty, Tip, Round-off, Taxes) ─────────
   const hasGstin = Boolean(
@@ -654,6 +895,7 @@ const PaymentDialog = ({
       });
       if (error) throw error;
       if (data?.valid && data?.promotion) {
+        discountsDirtyRef.current = true;
         setAppliedPromotion(data.promotion);
         setPromotionCode(code);
         setManualDiscountPercent(0);
@@ -680,8 +922,29 @@ const PaymentDialog = ({
   // ─── Dynamic QR Generator ────────────────────────────────────────────────
   const generateQRCode = useCallback(async () => {
     const rName = resolvedRestaurantName;
-    const upiId = paymentSettings?.upi_id;
-    if (!upiId) return;
+    const targetId = (restaurantInfo as any)?.id || hookRestaurantId;
+    const isOfflineOrErrored =
+      !isOnline ||
+      (typeof navigator !== "undefined" && !navigator.onLine) ||
+      restaurantInfoError ||
+      paymentSettingsError;
+    const upiId =
+      paymentSettings?.upi_id ||
+      (restaurantInfo as any)?.upi_id ||
+      (isOfflineOrErrored && targetId
+        ? localStorage.getItem(`cached_restaurant_upi_id_${targetId}`)
+        : null);
+    if (!upiId) {
+      setQrCodeUrl("");
+      if (restaurantInfoError || paymentSettingsError) {
+        toast({
+          title: "UPI settings unavailable",
+          description: "Failed to load UPI details. Please check connection.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
 
     try {
       const { default: QRCodeLib } = await import("qrcode");
@@ -691,7 +954,7 @@ const PaymentDialog = ({
     } catch (err) {
       console.error("QR Generation error:", err);
     }
-  }, [resolvedRestaurantName, paymentSettings, total, tableNumber]);
+  }, [resolvedRestaurantName, paymentSettings, restaurantInfo, hookRestaurantId, total, tableNumber, isOnline, restaurantInfoError, paymentSettingsError, toast]);
 
   // ─── Direct Inline Price Editing Handlers ─────────────────────────────────
   const handleStartEditItemPrice = (idx: number, currentPrice: number) => {
@@ -765,7 +1028,7 @@ const PaymentDialog = ({
           cgst: cgstAmount,
           sgst: sgstAmount,
           discount: totalDiscountAmount,
-          netAmount: total,
+          netAmount: isSettledReprint && initialTotal !== undefined ? initialTotal : total,
           currencySymbol,
           upiId: paymentSettings?.upi_id,
         });
@@ -786,7 +1049,7 @@ const PaymentDialog = ({
         restaurantName: resolvedRestaurantName,
         orderItems,
         subtotal,
-        total,
+        total: isSettledReprint && initialTotal !== undefined ? initialTotal : total,
         currencySymbol,
         tableNumber,
         customerName,
@@ -862,6 +1125,7 @@ const PaymentDialog = ({
     paymentSettings,
     qrCodeUrl,
     serverName,
+    hookRestaurantId,
     toast,
   ]);
 
@@ -953,7 +1217,50 @@ const PaymentDialog = ({
 
   // ─── Mark Order as Payment Pending (bill sent/printed before payment) ────
   const handleMarkPaymentPending = useCallback(async () => {
-    if (!orderId) return;
+    if (!orderId || isSettledReprint) return;
+    const isOffline =
+      !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
+    if (isOffline) {
+      const local = await getLocalOrderByAnyId(orderId);
+      const isDirectOrderId = Boolean(
+        linkedOrderId && linkedOrderId === orderId && (!local || local.id !== orderId),
+      );
+      const targetOrderId =
+        linkedOrderId || local?.orderId || (isDirectOrderId ? orderId : undefined);
+      const nextMirror =
+        local && local.paymentStatus !== "paid" && local.paymentStatus !== "nc"
+          ? {
+              ...local,
+              paymentStatus: "pending",
+              ...(customerName.trim() && { customerName: customerName.trim() }),
+              ...(customerMobile.trim() && { customerPhone: customerMobile.trim() }),
+              updatedAt: new Date().toISOString(),
+            }
+          : null;
+      await commitLocalOrderAndWritesAtomic(nextMirror, [
+        {
+          type: "order",
+          operation: "update",
+          payload: {
+            id: targetOrderId || orderId,
+            ...(!targetOrderId && !isDirectOrderId && {
+              _resolveOrderIdFromKitchenOrderId: orderId,
+            }),
+            ...(local?.paymentStatus !== "paid" &&
+              local?.paymentStatus !== "nc" && {
+                payment_status: "pending",
+                _preserveExistingPaidStatus: true,
+              }),
+            ...(customerName.trim() && { customer_name: customerName.trim() }),
+            ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+          },
+        },
+      ]);
+      queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      return;
+    }
+
     try {
       // Resolve kitchen_orders.id → orders.id
       const { data: ko, error: koErr } = await supabase
@@ -964,7 +1271,7 @@ const PaymentDialog = ({
 
       if (koErr) throw koErr;
 
-      const targetOrderId = ko?.order_id ?? orderId;
+      const targetOrderId = ko?.order_id ?? linkedOrderId ?? orderId;
       if (!targetOrderId) return;
 
       // Only update payment_status to pending if not already paid
@@ -1005,7 +1312,7 @@ const PaymentDialog = ({
       console.warn("[PaymentDialog] handleMarkPaymentPending error:", err);
       throw err;
     }
-  }, [orderId, customerName, customerMobile, currentStep, queryClient]);
+  }, [orderId, linkedOrderId, isOnline, customerName, customerMobile, currentStep, queryClient]);
 
   // ─── Bill-Preview WhatsApp: send + mark pending ───────────────────────────
   const handleSendBillWhatsApp = useCallback(async () => {
@@ -1023,14 +1330,23 @@ const PaymentDialog = ({
     setIsPrintingBill(true);
     try {
       await handlePrint({ forceBrowser: true });
-      await handleMarkPaymentPending();
+      try {
+        await handleMarkPaymentPending();
+      } catch (saveErr: any) {
+        toast({
+          title: "Bill printed, but status update failed",
+          description: saveErr?.message || "Please retry marking payment pending.",
+          variant: "destructive",
+        });
+        return;
+      }
       // Close dialog so staff can move on after handing the bill
       setCurrentStep("bill");
       onClose();
     } finally {
       setIsPrintingBill(false);
     }
-  }, [handlePrint, handleMarkPaymentPending, onClose]);
+  }, [handlePrint, handleMarkPaymentPending, onClose, toast]);
 
   // ─── 1-CLICK INSTANT PAYMENT EXECUTION ───────────────────────────────────
   const handleQuickPay = useCallback(
@@ -1039,7 +1355,12 @@ const PaymentDialog = ({
       method: "cash" | "upi" | "card" | "pay_later" | "room" | "nc",
       splitPayload?: Array<{ method: string; amount: number }>
     ) => {
+      if (isSettledReprint) {
+        toast({ title: "Order already settled" });
+        return;
+      }
       if (isProcessingPayment) return;
+      const attemptId = ++paymentAttemptRef.current;
       setIsProcessingPayment(true);
 
       try {
@@ -1054,6 +1375,17 @@ const PaymentDialog = ({
           return;
         }
 
+        // Validate Room Charge
+        if (method === "room" && !detectedReservation) {
+          toast({
+            title: "No Checked-In Guest",
+            description: "Select a checked-in room guest before charging to a room.",
+            variant: "destructive",
+          });
+          setIsProcessingPayment(false);
+          return;
+        }
+
         const targetRestaurantId = restaurantInfo?.id || hookRestaurantId;
         const isSplit = !!splitPayload && splitPayload.length > 0;
         const finalMethod = method === "nc" ? "nc" : isSplit ? "split" : method;
@@ -1061,30 +1393,277 @@ const PaymentDialog = ({
         const finalAmount = method === "nc" ? 0 : total;
         const splitPaymentsJson = isSplit ? JSON.stringify(splitPayload) : null;
 
-        // Check if offline
-        const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+        // Check if offline & lock this attempt's settlement mode for success UI
+        const isOffline =
+          !isOnline || (typeof navigator !== "undefined" && !navigator.onLine);
+        setSettlementWasOffline(isOffline);
+        const nowIso = new Date().toISOString();
+        const effectiveDiscountPct =
+          subtotal > 0 && totalDiscountAmount > 0
+            ? Math.round((totalDiscountAmount / subtotal) * 100)
+            : 0;
+
+        const resultDetails = {
+          method: finalMethod,
+          paymentStatus: finalStatus,
+          total: finalAmount,
+          subtotal,
+          discountAmount: totalDiscountAmount,
+          discountPercentage: effectiveDiscountPct,
+          ncReason: method === "nc" ? ncReason : undefined,
+          splitPayments: splitPayload,
+          customerName: customerName.trim() || undefined,
+          customerMobile: customerMobile.trim() || undefined,
+          items: orderItems,
+          offlineQueued: isOffline,
+          ...(redeemedLoyaltyPoints > 0 && {
+            loyaltyPointsRedeemed: redeemedLoyaltyPoints,
+            loyaltyCustomerId: customerProfile?.id,
+            loyaltyDiscountAmount: loyaltyDiscountRupees,
+          }),
+          ...(method === "room" && detectedReservation && {
+            roomId: detectedReservation.room_id,
+          }),
+        };
 
         if (isOffline) {
-          // Save to local offline queue
-          const queue = JSON.parse(localStorage.getItem("pos_offline_payments_queue") || "[]");
-          queue.push({
-            orderId,
-            tableNumber,
-            total_amount: finalAmount,
-            payment_status: finalStatus,
-            payment_method: finalMethod,
-            customer_name: customerName.trim() || undefined,
-            customer_phone: customerMobile.trim() || undefined,
-            created_at: new Date().toISOString(),
-          });
-          localStorage.setItem("pos_offline_payments_queue", JSON.stringify(queue));
-          toast({
-            title: "Offline Mode: Saved locally",
-            description: "Payment queued. Will auto-sync when online.",
-          });
+          if (orderId) {
+            const localExisting = await getLocalOrderByAnyId(orderId);
+            const isDirectOrderId = Boolean(
+              linkedOrderId && linkedOrderId === orderId && (!localExisting || localExisting.id !== orderId),
+            );
+            const kitchenTargetId =
+              localExisting && localExisting.id !== orderId
+                ? localExisting.id
+                : isDirectOrderId
+                ? null
+                : orderId;
+            const targetOrderId =
+              linkedOrderId || localExisting?.orderId || (isDirectOrderId ? orderId : null);
+            const staffId = authUser?.id || null;
+
+            const kitchenItems = orderItems.map((i) => ({
+              name: i.name,
+              quantity: i.quantity,
+              price: i.customPrice !== undefined ? i.customPrice : i.price,
+              menuItemId: (i as any).menuItemId,
+              notes: i.notes
+                ? Array.isArray(i.notes)
+                  ? i.notes
+                  : [i.notes]
+                : [],
+            }));
+            const formattedOrderItems = orderItems.map((i) =>
+              formatOrderItemString(
+                i.quantity,
+                i.name,
+                i.customPrice !== undefined ? i.customPrice : i.price,
+                i.notes,
+              ),
+            );
+
+            if (kitchenTargetId) {
+              await enqueueWrite(
+                "kitchen_order",
+                {
+                  id: kitchenTargetId,
+                  status: "completed",
+                  bumped_at: nowIso,
+                  items: kitchenItems,
+                  ...(customerName.trim() && { customer_name: customerName.trim() }),
+                  ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+                  ...(method === "nc" && ncReason && { nc_reason: ncReason }),
+                },
+                "update",
+              );
+            } else {
+              await enqueueWrite(
+                "kitchen_order",
+                {
+                  _updateByOrderId: orderId,
+                  status: "completed",
+                  bumped_at: nowIso,
+                  items: kitchenItems,
+                  ...(customerName.trim() && { customer_name: customerName.trim() }),
+                  ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+                  ...(method === "nc" && ncReason && { nc_reason: ncReason }),
+                },
+                "update",
+              );
+            }
+
+            await enqueueWrite(
+              "order",
+              {
+                id: targetOrderId || orderId,
+                ...(!targetOrderId && !isDirectOrderId && {
+                  _resolveOrderIdFromKitchenOrderId: orderId,
+                }),
+                status: method === "nc" ? "nc" : "completed",
+                payment_status: finalStatus,
+                payment_method: finalMethod,
+                total: finalAmount,
+                items: formattedOrderItems,
+                discount_amount: method === "nc" ? subtotal : totalDiscountAmount,
+                discount_percentage:
+                  method === "nc" ? 100 : effectiveDiscountPct,
+                ...(isSplit && splitPayload && { split_payments: splitPayload }),
+                ...(customerName.trim() && { customer_name: customerName.trim() }),
+                ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+                ...(method === "nc" && ncReason && { nc_reason: ncReason }),
+              },
+              "update",
+            );
+
+            if (method !== "nc" && targetRestaurantId) {
+              const txnKey = `${orderId}|${finalMethod}`;
+              const stableTxnId =
+                pendingOfflineTxnIdRef.current?.key === txnKey
+                  ? pendingOfflineTxnIdRef.current.txnId
+                  : (() => {
+                      const id = crypto.randomUUID();
+                      pendingOfflineTxnIdRef.current = { key: txnKey, txnId: id };
+                      return id;
+                    })();
+              await enqueueWrite(
+                "pos_transaction",
+                {
+                  id: stableTxnId,
+                  restaurant_id: targetRestaurantId,
+                  order_id: targetOrderId,
+                  ...(!targetOrderId && !isDirectOrderId && {
+                    _resolveOrderIdFromKitchenOrderId: orderId,
+                  }),
+                  kitchen_order_id: kitchenTargetId,
+                  amount: finalAmount,
+                  payment_method: finalMethod,
+                  status: method === "pay_later" ? "pending" : "completed",
+                  customer_name: customerName.trim() || null,
+                  customer_phone: customerMobile.trim() || null,
+                  staff_id: staffId,
+                  discount_amount: totalDiscountAmount,
+                  ...(isSplit && splitPayload && { split_payments: splitPayload }),
+                  created_at: nowIso,
+                  updated_at: nowIso,
+                },
+                "insert",
+              );
+            }
+
+            if (
+              redeemedLoyaltyPoints > 0 &&
+              (customerProfile?.id || customerMobile.trim()) &&
+              targetRestaurantId
+            ) {
+              const loyaltyId = pendingOfflineTxnIdRef.current?.txnId
+                ? `${pendingOfflineTxnIdRef.current.txnId}_loyalty`
+                : crypto.randomUUID();
+              await enqueueWrite(
+                "loyalty_redemption",
+                {
+                  id: loyaltyId,
+                  restaurant_id: targetRestaurantId,
+                  customer_id: customerProfile?.id || null,
+                  customer_phone: customerMobile.trim() || null,
+                  transaction_type: "redeem",
+                  source: "pos",
+                  source_id: targetOrderId || null,
+                  ...(!targetOrderId && !isDirectOrderId && {
+                    _resolveOrderIdFromKitchenOrderId: orderId,
+                  }),
+                  points_redeemed: redeemedLoyaltyPoints,
+                  notes: `Redeemed ${redeemedLoyaltyPoints} points for ${currencySymbol}${loyaltyDiscountRupees.toFixed(2)} discount`,
+                  created_by: staffId,
+                },
+                "insert",
+              );
+            }
+
+            if (method === "room" && detectedReservation) {
+              await enqueueWrite(
+                "room_food_order",
+                {
+                  room_id: detectedReservation.room_id,
+                  restaurant_id: targetRestaurantId,
+                  customer_name: customerName.trim() || "Room Guest",
+                  order_id: targetOrderId || null,
+                  ...(!targetOrderId && !isDirectOrderId && {
+                    _resolveOrderIdFromKitchenOrderId: orderId,
+                  }),
+                  total: finalAmount,
+                  status: "pending",
+                },
+                "insert",
+              );
+            }
+
+            if (targetRestaurantId && (localExisting || !isDirectOrderId)) {
+              const mirrorId = kitchenTargetId || orderId;
+              await saveLocalOrder({
+                ...(localExisting || {
+                  id: mirrorId,
+                  orderId: targetOrderId,
+                  restaurant_id: targetRestaurantId,
+                  source: tableNumber ? `QSR-Table ${tableNumber}` : "QSR-POS",
+                  orderType: method === "nc" ? "nc" : tableNumber ? "dine_in" : "takeaway",
+                  priority: "normal",
+                  createdAt: nowIso,
+                }),
+                id: mirrorId,
+                orderId: targetOrderId,
+                status: "completed",
+                items: kitchenItems,
+                total: finalAmount,
+                subtotal,
+                discount: effectiveDiscountPct || totalDiscountAmount || undefined,
+                discountType: effectiveDiscountPct ? "percentage" : totalDiscountAmount ? "amount" : undefined,
+                customerName: customerName.trim() || localExisting?.customerName,
+                customerPhone: customerMobile.trim() || localExisting?.customerPhone,
+                attendant: serverName || localExisting?.attendant,
+                paymentMethod: finalMethod,
+                paymentStatus: finalStatus,
+                splitPayments: splitPayload,
+                updatedAt: nowIso,
+                completedAt: nowIso,
+                synced: false,
+              });
+            }
+          }
         } else {
-          // 1. Sync CRM customer details & deduct loyalty points
-          if (customerMobile.trim() && targetRestaurantId) {
+          const settlementScopeId = orderId || "__direct__";
+          const prevSettlement = onlineSettlementRef.current;
+          if (!prevSettlement || prevSettlement.orderId !== settlementScopeId) {
+            onlineSettlementRef.current = {
+              orderId: settlementScopeId,
+              attemptId,
+              method: finalMethod,
+              total: finalAmount,
+              splitPayload,
+              koUpdated: false,
+              orderUpdated: false,
+              txnInserted: false,
+              roomInserted: false,
+              crmSynced: false,
+              loyaltyDone: false,
+              txnId: crypto.randomUUID(),
+            };
+          } else {
+            const changed =
+              prevSettlement.method !== finalMethod ||
+              prevSettlement.total !== finalAmount ||
+              JSON.stringify(prevSettlement.splitPayload) !== JSON.stringify(splitPayload);
+            if (changed) {
+              prevSettlement.orderUpdated = false;
+              prevSettlement.method = finalMethod;
+              prevSettlement.total = finalAmount;
+              prevSettlement.splitPayload = splitPayload;
+            }
+            prevSettlement.attemptId = attemptId;
+          }
+          const settlement = onlineSettlementRef.current;
+
+          // 1. Sync CRM customer details & deduct loyalty points (once per settlement)
+          if (customerMobile.trim() && targetRestaurantId && !settlement.crmSynced) {
             try {
               await syncCustomerToCRM({
                 customerName: customerName.trim() || customerMobile.trim(),
@@ -1093,83 +1672,88 @@ const PaymentDialog = ({
                 orderId: orderId,
                 source: "pos",
               });
+              settlement.crmSynced = true;
             } catch (err) {
               console.warn("CRM Sync warning:", err);
             }
+          }
 
-            if (redeemedLoyaltyPoints > 0 && customerProfile?.id) {
-              const newPoints = Math.max(0, customerProfile.loyalty_points - redeemedLoyaltyPoints);
-              try {
-                await supabase
-                  .from("customers")
-                  .update({
-                    loyalty_points: newPoints,
-                  })
-                  .eq("id", customerProfile.id);
-              } catch (err) {
-                console.warn("Loyalty points update error:", err);
-              }
-
-              // Record in loyalty_transactions
-              try {
-                const { data: authData } = await supabase.auth.getUser();
-                await supabase
-                  .from("loyalty_transactions")
-                  .insert({
-                    restaurant_id: targetRestaurantId,
-                    customer_id: customerProfile.id,
-                    transaction_type: "redeem",
-                    points: -redeemedLoyaltyPoints,
-                    source: "pos",
-                    source_id: orderId || null,
-                    notes: `Redeemed ${redeemedLoyaltyPoints} points for ${currencySymbol}${loyaltyDiscountRupees.toFixed(2)} discount`,
-                    created_by: authData?.user?.id || null,
-                  });
-              } catch (err) {
-                console.warn("Loyalty transaction log error:", err);
-              }
+          if (
+            customerMobile.trim() &&
+            targetRestaurantId &&
+            redeemedLoyaltyPoints > 0 &&
+            customerProfile?.id &&
+            !settlement.loyaltyDone
+          ) {
+            try {
+              await supabase.rpc("redeem_loyalty_points_atomic" as never, {
+                p_tx_id: `${settlement.txnId}_loyalty`,
+                p_restaurant_id: targetRestaurantId,
+                p_customer_id: customerProfile.id,
+                p_customer_phone: customerMobile.trim(),
+                p_points: redeemedLoyaltyPoints,
+                p_transaction_type: "redeem",
+                p_source: "pos",
+                p_source_id: linkedOrderId || orderId || null,
+                p_notes: `Redeemed ${redeemedLoyaltyPoints} points for ${currencySymbol}${loyaltyDiscountRupees.toFixed(2)} discount`,
+                p_created_by: authUser?.id || null,
+              } as never);
+              settlement.loyaltyDone = true;
+            } catch (err) {
+              console.warn("Loyalty redemption error:", err);
             }
           }
 
           // 2. Update kitchen order and orders in DB if orderId exists
+          let resolvedOrderId: string | null = linkedOrderId ?? null;
           if (orderId) {
+
             // First check if orderId is a kitchen_orders.id
-            const { data: ko } = await supabase
+            const { data: ko, error: koLookupErr } = await supabase
               .from("kitchen_orders")
               .select("order_id")
               .eq("id", orderId)
               .maybeSingle();
+            if (koLookupErr) throw koLookupErr;
+            if (attemptId !== paymentAttemptRef.current) return;
 
-            const targetOrderId = ko?.order_id ?? orderId;
+            resolvedOrderId = ko?.order_id ?? linkedOrderId ?? (ko ? null : orderId);
+            const targetOrderId = resolvedOrderId ?? orderId;
 
-            if (ko) {
-              await supabase
-                .from("kitchen_orders")
-                .update({
-                  status: "completed",
-                  bumped_at: new Date().toISOString(),
-                  ...(customerName.trim() && { customer_name: customerName.trim() }),
-                  ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
-                  ...(method === "nc" && { nc_reason: ncReason }),
-                })
-                .eq("id", orderId);
-            } else {
-              // orderId might be orders.id — update linked kitchen_orders if any
-              await supabase
-                .from("kitchen_orders")
-                .update({
-                  status: "completed",
-                  bumped_at: new Date().toISOString(),
-                  ...(customerName.trim() && { customer_name: customerName.trim() }),
-                  ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
-                  ...(method === "nc" && { nc_reason: ncReason }),
-                })
-                .eq("order_id", orderId);
+            if (!settlement.koUpdated) {
+              if (ko) {
+                const { error: koErr } = await supabase
+                  .from("kitchen_orders")
+                  .update({
+                    status: "completed",
+                    bumped_at: new Date().toISOString(),
+                    ...(customerName.trim() && { customer_name: customerName.trim() }),
+                    ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+                    ...(method === "nc" && { nc_reason: ncReason }),
+                  })
+                  .eq("id", orderId);
+                if (koErr) throw koErr;
+              } else {
+                // orderId might be orders.id — update linked kitchen_orders if any
+                const { error: koErr } = await supabase
+                  .from("kitchen_orders")
+                  .update({
+                    status: "completed",
+                    bumped_at: new Date().toISOString(),
+                    ...(customerName.trim() && { customer_name: customerName.trim() }),
+                    ...(customerMobile.trim() && { customer_phone: customerMobile.trim() }),
+                    ...(method === "nc" && { nc_reason: ncReason }),
+                  })
+                  .eq("order_id", orderId);
+                if (koErr) throw koErr;
+              }
+              settlement.koUpdated = true;
+              if (attemptId !== paymentAttemptRef.current) return;
             }
 
             // Always update the orders table record so Orders Management reflects completed status and split payments
-            if (targetOrderId) {
-              await supabase
+            if (targetOrderId && !settlement.orderUpdated) {
+              const { error: orderErr } = await supabase
                 .from("orders")
                 .update({
                   status: method === "nc" ? "nc" : "completed",
@@ -1183,36 +1767,65 @@ const PaymentDialog = ({
                   ...(method === "nc" && { nc_reason: ncReason }),
                 })
                 .eq("id", targetOrderId);
+              if (orderErr) throw orderErr;
+              settlement.orderUpdated = true;
+              if (attemptId !== paymentAttemptRef.current) return;
             }
 
             // 2b. Log pos_transaction (matches MobilePaymentDialog pattern)
-            if (method !== "nc" && !isOffline) {
+            if (method !== "nc" && !isOffline && !settlement.txnInserted) {
               const { data: authData } = await supabase.auth.getUser();
-              await supabase.from("pos_transactions").insert({
+              const { error: txnErr } = await supabase.from("pos_transactions").insert({
+                id: settlement.txnId,
                 restaurant_id: targetRestaurantId,
-                order_id: targetOrderId || orderId || null,
+                order_id: targetOrderId || null,
                 kitchen_order_id: ko ? orderId : null,
                 amount: finalAmount,
                 payment_method: finalMethod,
                 status: method === "pay_later" ? "pending" : "completed",
                 customer_name: customerName.trim() || null,
                 customer_phone: customerMobile.trim() || null,
-                staff_id: authData?.user?.id || null,
+                staff_id: authData?.user?.id || authUser?.id || null,
                 discount_amount: totalDiscountAmount,
                 ...(isSplit && splitPayload && { split_payments: splitPayload }),
-              }).then(() => {}, console.error);
+              });
+              if (txnErr) throw txnErr;
+              settlement.txnInserted = true;
+              if (attemptId !== paymentAttemptRef.current) return;
             }
           }
 
-          // 3. Room Charge handler
-          if (method === "room" && detectedReservation) {
-            await supabase.from("room_food_orders").insert({
+          // 3. Room Charge handler (only when orderId exists; !orderId delegates to parent after order creation)
+          if (orderId && method === "room" && detectedReservation && !onlineSettlementRef.current?.roomInserted) {
+            const { error: roomErr } = await supabase.from("room_food_orders").insert({
               room_id: detectedReservation.room_id,
-              order_id: orderId || null,
+              order_id: resolvedOrderId,
+              restaurant_id: targetRestaurantId,
+              customer_name: customerName.trim() || "Room Guest",
               total: finalAmount,
               status: "pending",
             });
+            if (roomErr) throw roomErr;
+            if (onlineSettlementRef.current) {
+              onlineSettlementRef.current.roomInserted = true;
+            }
+            if (attemptId !== paymentAttemptRef.current) return;
           }
+          if (onlineSettlementRef.current?.attemptId === attemptId) {
+            onlineSettlementRef.current = null;
+          }
+        }
+
+        pendingOfflineTxnIdRef.current = null;
+        if (attemptId !== paymentAttemptRef.current) return;
+
+        // Wait for parent persistence when there is no orderId BEFORE printing/announcing success
+        if (!orderId) {
+          persistedByParentRef.current = true;
+          await Promise.resolve(
+            onSuccess({ ...resultDetails, deferParentClose: true }),
+          );
+          if (attemptId !== paymentAttemptRef.current) return;
         }
 
         // ── FIX #3: Trigger inventory deduction for POS orders that bypass the KDS.
@@ -1276,7 +1889,7 @@ const PaymentDialog = ({
         queryClient.invalidateQueries({ queryKey: ["qsr-tables"] });
 
         // 5. Soundbox announcement & local popup notification
-        if (method !== "nc") {
+        if (method !== "nc" && method !== "pay_later") {
           announcePayment({
             amount: finalAmount,
             tableNumber: tableNumber || undefined,
@@ -1292,31 +1905,45 @@ const PaymentDialog = ({
         // 6. Auto-print bill (forceBrowser: true ensures browser print dialog fires when no thermal printer is connected)
         handlePrint({ forceBrowser: true }).catch(console.warn);
 
-        // 7. Auto-send WhatsApp if checkbox enabled (fire-and-forget, has own error toast)
-        if (sendBillToWhatsApp && customerMobile.trim()) {
+        // 7. Auto-send WhatsApp if checkbox enabled (only when online)
+        if (!isOffline && sendBillToWhatsApp && customerMobile.trim()) {
           handleAutoSendWhatsApp();
         }
 
         toast({
-          title: method === "nc" ? "🎁 Order Marked Complimentary" : "✅ Payment Successful",
-          description: `${currencySymbol}${finalAmount.toFixed(2)} settled via ${method.toUpperCase()}`,
+          title: isOffline
+            ? "Offline Mode: Saved locally ✓"
+            : method === "nc"
+            ? "🎁 Order Marked Complimentary"
+            : method === "pay_later"
+            ? "🕒 Pay Later Recorded"
+            : method === "room"
+            ? "🏨 Charged to Room"
+            : "✅ Payment Successful",
+          description: isOffline
+            ? `${currencySymbol}${finalAmount.toFixed(2)} queued (${method.toUpperCase()}). Will auto-sync when online.`
+            : method === "pay_later"
+            ? `${currencySymbol}${finalAmount.toFixed(2)} recorded as pending collection`
+            : method === "nc"
+            ? "Order marked complimentary"
+            : `${currencySymbol}${finalAmount.toFixed(2)} settled via ${method.toUpperCase()}`,
         });
 
         // 8. Success transition & quick auto-close
+        setLastSettlementMethod(method);
         setCurrentStep("success");
-        setTimeout(() => {
+        autoCloseTimerRef.current = setTimeout(() => {
+          autoCloseTimerRef.current = null;
+          if (attemptId !== paymentAttemptRef.current) return;
           setCurrentStep("checkout");
-          onSuccess({
-            method: finalMethod,
-            paymentStatus: finalStatus,
-            total: finalAmount,
-            splitPayments: splitPayload,
-            customerName: customerName.trim() || undefined,
-            customerMobile: customerMobile.trim() || undefined,
-          });
+          if (!persistedByParentRef.current) {
+            onSuccess(resultDetails);
+          }
           onClose();
         }, 1800);
       } catch (err: any) {
+        if (attemptId !== paymentAttemptRef.current) return;
+        persistedByParentRef.current = false;
         console.error("Payment processing error:", err);
         toast({
           title: "Payment Failed",
@@ -1324,18 +1951,27 @@ const PaymentDialog = ({
           variant: "destructive",
         });
       } finally {
-        setIsProcessingPayment(false);
+        if (attemptId === paymentAttemptRef.current) {
+          setIsProcessingPayment(false);
+        }
       }
     },
     [
       isProcessingPayment,
+      isOnline,
+      authUser,
       ncReason,
       restaurantInfo,
       hookRestaurantId,
+      subtotal,
+      totalDiscountAmount,
       total,
       customerMobile,
       customerName,
       orderId,
+      linkedOrderId,
+      orderItems,
+      serverName,
       detectedReservation,
       tableNumber,
       paymentSettings,
@@ -1343,6 +1979,7 @@ const PaymentDialog = ({
       sendBillToWhatsApp,
       syncCustomerToCRM,
       redeemedLoyaltyPoints,
+      loyaltyDiscountRupees,
       customerProfile,
       queryClient,
       announcePayment,
@@ -1429,6 +2066,13 @@ const PaymentDialog = ({
             <DialogTitle>Quick POS Payment Settlement</DialogTitle>
           </VisuallyHidden>
 
+          {!isOnline && (
+            <div className="px-4 py-1.5 bg-amber-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shrink-0">
+              <WifiOff className="w-3.5 h-3.5" />
+              <span>Offline Mode — Payment will save locally and sync when connected</span>
+            </div>
+          )}
+
           {/* ════════════════════════════════════════════════════════════════ */}
           {/* STEP 1: SUCCESS ANIMATION SCREEN                                 */}
           {/* ════════════════════════════════════════════════════════════════ */}
@@ -1437,10 +2081,32 @@ const PaymentDialog = ({
               <div className="w-20 h-20 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 animate-bounce">
                 <Check className="w-10 h-10 text-white stroke-[3]" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Payment Completed!</h2>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                {settlementWasOffline
+                  ? "Saved Offline!"
+                  : lastSettlementMethod === "pay_later"
+                  ? "Pay Later Recorded!"
+                  : lastSettlementMethod === "nc"
+                  ? "Marked Complimentary!"
+                  : lastSettlementMethod === "room"
+                  ? "Charged to Room!"
+                  : "Payment Completed!"}
+              </h2>
+              {settlementWasOffline && (
+                <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                  Queued locally — will sync automatically when network returns
+                </p>
+              )}
               <p className="text-slate-500 text-sm">
-                Table {tableNumber || "Order"} settled for {currencySymbol}
+                Table {tableNumber || "Order"}{" "}
+                {lastSettlementMethod === "pay_later"
+                  ? "pending collection for"
+                  : lastSettlementMethod === "nc"
+                  ? "marked complimentary ("
+                  : "settled for"}{" "}
+                {currencySymbol}
                 {total.toFixed(2)}
+                {lastSettlementMethod === "nc" ? ")" : ""}
               </p>
               <div className="flex gap-2 pt-2">
                 <Button onClick={() => handlePrint({ forceBrowser: true })} variant="outline" size="sm" className="gap-2">
@@ -1656,7 +2322,10 @@ const PaymentDialog = ({
                     <Input
                       autoFocus
                       value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
+                      onChange={(e) => {
+                        customerNameDirtyRef.current = true;
+                        setCustomerName(e.target.value);
+                      }}
                       placeholder="e.g. Rahul Sharma"
                       className="h-10 text-sm font-semibold bg-white dark:bg-slate-900"
                     />
@@ -1669,7 +2338,10 @@ const PaymentDialog = ({
                     </Label>
                     <Input
                       value={customerMobile}
-                      onChange={(e) => setCustomerMobile(e.target.value)}
+                      onChange={(e) => {
+                        customerMobileDirtyRef.current = true;
+                        setCustomerMobile(e.target.value);
+                      }}
                       placeholder="e.g. 9876543210"
                       type="tel"
                       className="h-10 text-sm font-semibold bg-white dark:bg-slate-900"
@@ -1730,9 +2402,15 @@ const PaymentDialog = ({
               appliedPromotion={appliedPromotion}
               manualDiscountPercent={manualDiscountPercent}
               customerName={customerName}
-              setCustomerName={setCustomerName}
+              setCustomerName={(val: string) => {
+                customerNameDirtyRef.current = true;
+                setCustomerName(val);
+              }}
               customerMobile={customerMobile}
-              setCustomerMobile={setCustomerMobile}
+              setCustomerMobile={(val: string) => {
+                customerMobileDirtyRef.current = true;
+                setCustomerMobile(val);
+              }}
               onPrint={handlePrintBill}
               onSendWhatsApp={handleSendBillWhatsApp}
               onContinue={() => setCurrentStep("checkout")}
@@ -2063,7 +2741,10 @@ const PaymentDialog = ({
                           </span>
                           <Input
                             value={customerMobile}
-                            onChange={(e) => setCustomerMobile(e.target.value)}
+                            onChange={(e) => {
+                              customerMobileDirtyRef.current = true;
+                              setCustomerMobile(e.target.value);
+                            }}
                             placeholder="Phone (10 digits)"
                             type="tel"
                             className="h-8 text-xs bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
@@ -2075,7 +2756,10 @@ const PaymentDialog = ({
                           </span>
                           <Input
                             value={customerName}
-                            onChange={(e) => setCustomerName(e.target.value)}
+                            onChange={(e) => {
+                              customerNameDirtyRef.current = true;
+                              setCustomerName(e.target.value);
+                            }}
                             placeholder="Name (Optional)"
                             className="h-8 text-xs bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
                           />
@@ -2151,6 +2835,7 @@ const PaymentDialog = ({
                         {appliedPromotion && (
                           <button
                             onClick={() => {
+                              discountsDirtyRef.current = true;
                               setAppliedPromotion(null);
                               setPromotionCode("");
                               setManualPromoInput("");
@@ -2170,6 +2855,7 @@ const PaymentDialog = ({
                             onValueChange={(code) => {
                               const promo = activePromotions.find((p: any) => p.promotion_code === code);
                               if (promo) {
+                                discountsDirtyRef.current = true;
                                 setAppliedPromotion(promo);
                                 setPromotionCode(code);
                                 setManualPromoInput(code);
@@ -2230,6 +2916,7 @@ const PaymentDialog = ({
                               value={manualDiscountPercent > 0 ? manualDiscountPercent : ""}
                               onChange={(e) => {
                                 const val = parseFloat(e.target.value) || 0;
+                                discountsDirtyRef.current = true;
                                 setManualDiscountPercent(Math.min(100, Math.max(0, val)));
                                 setManualDiscountCash(0);
                               }}
@@ -2252,6 +2939,7 @@ const PaymentDialog = ({
                               value={manualDiscountCash > 0 ? manualDiscountCash : ""}
                               onChange={(e) => {
                                 const val = parseFloat(e.target.value) || 0;
+                                discountsDirtyRef.current = true;
                                 setManualDiscountCash(Math.max(0, val));
                                 setManualDiscountPercent(0);
                               }}
@@ -2276,6 +2964,7 @@ const PaymentDialog = ({
                             key={d.pct}
                             type="button"
                             onClick={() => {
+                              discountsDirtyRef.current = true;
                               setManualDiscountPercent(d.pct);
                               setManualDiscountCash(0);
                             }}

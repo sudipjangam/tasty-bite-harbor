@@ -115,7 +115,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
       return data;
     },
     enabled: room.status === "cleaning",
-    refetchInterval: room.status === "cleaning" ? 30000 : false,
+    refetchInterval: room.status === "cleaning" ? 120000 : false,
   });
 
   const getStatusBadge = (status: string) => {

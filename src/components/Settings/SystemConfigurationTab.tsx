@@ -18,6 +18,7 @@ import {
   HardDrive, FileJson, Calendar, Star, Instagram, Save, Smartphone, Bike, MessageCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { invalidateCurrencyCache } from '@/contexts/CurrencyContext';
 
 declare const __APP_VERSION__: string;
 
@@ -226,6 +227,7 @@ export function SystemConfigurationTab() {
     if (error) {
       toast({ title: "Error", description: "Failed to update currency", variant: "destructive" });
     } else {
+      invalidateCurrencyCache(restaurantId);
       setSelectedCurrency(currencyId);
       toast({ title: "Success", description: "Currency updated successfully" });
     }
@@ -282,11 +284,15 @@ export function SystemConfigurationTab() {
 
       if (error) throw error;
 
+      // Invalidate currency cache so fresh settings load after restore
+      invalidateCurrencyCache(restaurantId);
+
       toast({ title: "Success", description: "Backup restored successfully. Refreshing page..." });
       // Reload the page to show restored data
       setTimeout(() => window.location.reload(), 2000);
     } catch (error: any) {
       console.error('Restore error:', error);
+      invalidateCurrencyCache(restaurantId);
       toast({ 
         title: "Restore Failed", 
         description: error.message || "Failed to restore backup", 

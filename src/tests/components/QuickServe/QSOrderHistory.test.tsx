@@ -11,6 +11,17 @@ vi.mock("@/contexts/CurrencyContext", () => ({
   useCurrencyContext: () => ({ symbol: "₹" }),
 }));
 
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({
+    user: { id: "user1", email: "test@example.com", role_has_full_access: true },
+    isRole: () => true,
+  }),
+}));
+
+vi.mock("@/contexts/NetworkStatusContext", () => ({
+  useNetworkStatus: () => ({ isOnline: true }),
+}));
+
 const { mockPastOrders } = vi.hoisted(() => ({
   mockPastOrders: [
     {

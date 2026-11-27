@@ -61,7 +61,7 @@ export const LiveOrderStatus = () => {
     if (!restaurantId) return;
 
     const channel = supabase
-      .channel('kitchen-orders-changes')
+      .channel(`kitchen-orders-live-${restaurantId}`)
       .on(
         'postgres_changes',
         {

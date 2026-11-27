@@ -1,4 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Users,
   ShoppingBag,
@@ -29,6 +39,8 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
   isLoading = false,
   onRetry,
 }) => {
+  // M-8: Confirm before opening a table whose occupancy status could not be verified
+  const [pendingUnknownTable, setPendingUnknownTable] = useState<QSRTable | null>(null);
   if (isLoading) {
     return (
       <div className="p-4">
@@ -92,13 +104,20 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
           const isSelected = selectedTableId === table.id;
           const isOccupied = table.status === "occupied";
           const isAvailable = table.status === "available";
+          const isUnknown = table.status === "unknown";
           const isLate = isOccupied && isLateOrder(table.lastActivityAt);
           const isDelivered = isOccupied && table.allItemsDelivered;
 
           return (
             <button
               key={table.id}
-              onClick={() => onSelectTable(table)}
+              onClick={() => {
+                if (isUnknown) {
+                  setPendingUnknownTable(table);
+                } else {
+                  onSelectTable(table);
+                }
+              }}
               style={{ animationDelay: `${idx * 30}ms` }}
               className={cn(
                 "relative p-3 rounded-xl border-2 transition-all duration-200 touch-manipulation",
@@ -109,6 +128,10 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
                 isAvailable &&
                   !isSelected &&
                   "bg-gradient-to-br from-green-100 to-emerald-200 border-green-400 dark:from-green-800/50 dark:to-emerald-800/50 dark:border-green-500 hover:shadow-lg hover:shadow-green-300/60 hover:scale-[1.02]",
+                // Unknown offline occupancy - Neutral slate
+                isUnknown &&
+                  !isSelected &&
+                  "bg-gradient-to-br from-slate-100 to-gray-200 border-slate-400 dark:from-slate-800/60 dark:to-gray-800/60 dark:border-slate-600 hover:shadow-md",
                 // Occupied & Delivered - Purple (ready for payment)
                 isOccupied &&
                   !isSelected &&
@@ -136,6 +159,7 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
                 className={cn(
                   "text-lg font-bold",
                   isAvailable && "text-green-700 dark:text-green-400",
+                  isUnknown && "text-slate-700 dark:text-slate-300",
                   isOccupied &&
                     isDelivered &&
                     "text-purple-700 dark:text-purple-400",
@@ -164,6 +188,7 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
                 className={cn(
                   "text-[10px] font-medium uppercase tracking-wide mt-1",
                   isAvailable && "text-green-600 dark:text-green-500",
+                  isUnknown && "text-slate-600 dark:text-slate-400",
                   isOccupied &&
                     isDelivered &&
                     "text-purple-600 dark:text-purple-500",
@@ -282,6 +307,43 @@ export const QSRTableGrid: React.FC<QSRTableGridProps> = ({
           )}
         </div>
       )}
+
+      {/* M-8: Confirmation prompt when opening a table with unknown occupancy status */}
+      <AlertDialog
+        open={Boolean(pendingUnknownTable)}
+        onOpenChange={(open) => {
+          if (!open) setPendingUnknownTable(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Table Status Unknown</AlertDialogTitle>
+            <AlertDialogDescription>
+              Occupancy for {pendingUnknownTable?.name} could not be verified
+              offline. Opening it may conflict with an existing ticket on another
+              device. Continue anyway?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingUnknownTable) {
+                  const currentTable = tables.find(
+                    (t) => t.id === pendingUnknownTable.id,
+                  );
+                  if (currentTable) {
+                    onSelectTable(currentTable);
+                  }
+                  setPendingUnknownTable(null);
+                }
+              }}
+            >
+              Open Table
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

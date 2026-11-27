@@ -122,6 +122,7 @@ export const usePerformanceMetrics = () => {
       };
     },
     enabled: !!restaurantId && !isRestaurantLoading,
-    refetchInterval: 30000, // Refetch every 30 seconds for live data
+    staleTime: 60000,
+    refetchInterval: 180000, // Refetch every 3 minutes
   });
 };

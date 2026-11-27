@@ -9,6 +9,7 @@ interface UseRealtimeSubscriptionOptions {
   schema?: string;
   filter?: { column: string; value: any } | null;
   debounceMs?: number;
+  enabled?: boolean;
 }
 
 export const useRealtimeSubscription = ({
@@ -17,10 +18,13 @@ export const useRealtimeSubscription = ({
   schema = 'public',
   filter = null,
   debounceMs = 0,
+  enabled = true,
 }: UseRealtimeSubscriptionOptions) => {
   const queryClient = useQueryClient();
   
   useEffect(() => {
+    if (!enabled) return;
+
     let timeoutId: NodeJS.Timeout;
 
     // Create subscription options
@@ -60,7 +64,7 @@ export const useRealtimeSubscription = ({
       clearTimeout(timeoutId);
       supabase.removeChannel(channel);
     };
-  }, [table, schema, queryKey, queryClient, filter?.column, filter?.value, debounceMs]);
+  }, [table, schema, queryKey, queryClient, filter?.column, filter?.value, debounceMs, enabled]);
 };
 
 export default useRealtimeSubscription;

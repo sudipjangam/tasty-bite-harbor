@@ -8,10 +8,21 @@ export interface PaymentSuccessDetails {
   method?: string;
   paymentStatus?: string;
   total?: number;
+  subtotal?: number;
+  discountAmount?: number;
+  discountPercentage?: number;
+  discountNotes?: string;
+  ncReason?: string;
   splitPayments?: Array<{ method: string; amount: number }>;
   customerName?: string;
   customerMobile?: string;
   items?: OrderItem[];
+  offlineQueued?: boolean;
+  loyaltyPointsRedeemed?: number;
+  loyaltyCustomerId?: string;
+  loyaltyDiscountAmount?: number;
+  roomId?: string;
+  deferParentClose?: boolean;
 }
 
 // Payment dialog props
@@ -19,10 +30,11 @@ export interface PaymentDialogProps {
   isOpen: boolean;
   onClose: () => void;
   orderItems: OrderItem[];
-  onSuccess: (paymentDetails?: PaymentSuccessDetails) => void;
+  onSuccess: (paymentDetails?: PaymentSuccessDetails) => void | Promise<void>;
   tableNumber?: string;
   onEditOrder?: () => void;
   orderId?: string;
+  linkedOrderId?: string;
   itemCompletionStatus?: boolean[];
   onOrderUpdated?: () => void;
   isNonChargeable?: boolean; // NC orders - no charge required
@@ -30,6 +42,11 @@ export interface PaymentDialogProps {
   // Pre-fill from the POS screen's customer fields
   initialCustomerName?: string;
   initialCustomerMobile?: string;
+  // Reprint mode for already-settled past orders (prevents re-charging or flipping nc -> pending)
+  isSettledReprint?: boolean;
+  initialDiscountAmount?: number;
+  initialDiscountPercentage?: number;
+  initialTotal?: number;
 }
 
 // Applied promotion state

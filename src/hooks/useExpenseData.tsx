@@ -143,6 +143,7 @@ export const useExpenseData = () => {
       };
     },
     enabled: !!restaurantId && !isRestaurantLoading,
-    refetchInterval: 60000,
+    staleTime: 120000,
+    refetchInterval: 300000, // 5 minutes
   });
 };

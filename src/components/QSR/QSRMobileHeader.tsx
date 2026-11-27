@@ -23,7 +23,7 @@ interface QSRMobileHeaderProps {
   orderMode: QSROrderMode;
   selectedTableName?: string | null;
   activeOrdersCount: number;
-  todaysRevenue: number;
+  todaysRevenue?: number;
   isPrinterConnected: boolean;
   isReconnecting: boolean;
   printerName?: string | null;
@@ -144,17 +144,19 @@ export const QSRMobileHeader: React.FC<QSRMobileHeaderProps> = ({
             {menuOpen && (
               <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
                 {/* Revenue header */}
-                <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500">
-                  <TrendingUp className="w-4 h-4 text-white flex-shrink-0" />
-                  <div>
-                    <p className="text-[10px] font-medium text-white/80 uppercase tracking-wide leading-none">
-                      Today's Revenue
-                    </p>
-                    <p className="text-sm font-bold text-white mt-0.5">
-                      {formatIndianCurrency(todaysRevenue).formatted}
-                    </p>
+                {todaysRevenue !== undefined && (
+                  <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500">
+                    <TrendingUp className="w-4 h-4 text-white flex-shrink-0" />
+                    <div>
+                      <p className="text-[10px] font-medium text-white/80 uppercase tracking-wide leading-none">
+                        Today's Revenue
+                      </p>
+                      <p className="text-sm font-bold text-white mt-0.5">
+                        {formatIndianCurrency(todaysRevenue).formatted}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="p-1.5 space-y-0.5">
                   {/* Active Orders */}

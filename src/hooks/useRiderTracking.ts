@@ -263,7 +263,7 @@ export const useRiderTracking = () => {
       }
     },
     enabled: !!restaurantId,
-    refetchInterval: 8000,
+    refetchInterval: 30000,
   });
 
   // Selected Ticket Object

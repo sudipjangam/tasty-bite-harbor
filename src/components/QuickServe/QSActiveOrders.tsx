@@ -12,12 +12,17 @@ import {
   Wallet,
   Plus,
   UtensilsCrossed,
+  WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKitchenSounds } from "@/hooks/useKitchenSounds";
-import { sanitizeOrderItemDisplay } from "@/lib/order-utils";
+import {
+  formatOrderItemString,
+  sanitizeOrderItemDisplay,
+} from "@/lib/order-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { useNetworkStatus } from "@/contexts/NetworkStatusContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +31,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
 import { startOfDay, endOfDay } from "date-fns";
 import { QSPaymentSheet } from "./QSPaymentSheet";
+import {
+  commitLocalOrderAndWritesAtomic,
+  deleteLocalOrder,
+  getLocalOrder,
+  getLocalOrdersByRestaurant,
+  LOCAL_ORDERS_EVENT,
+  OfflineQsrOrder,
+  saveLocalOrder,
+  SYNC_COMPLETED_EVENT,
+} from "@/utils/offlineDB";
+import { enqueueWrite, removeQueuedWritesForOrder } from "@/utils/syncManager";
 
 export interface ActiveOrder {
   id: string;
@@ -40,6 +56,8 @@ export interface ActiveOrder {
   item_completion_status: boolean[] | null;
   created_at: string;
   source: string | null;
+  paidAmount?: number;
+  isOfflinePending?: boolean;
 }
 
 interface QSActiveOrdersProps {
@@ -93,17 +111,32 @@ const statusConfig: Record<
   },
 };
 
-// Parse "2x Veg Manchurian @150" into structured items
+// Parse "2x Veg Manchurian (extra spicy) @150" into structured items without losing notes
 function parseOrderItem(itemStr: string) {
-  const match = itemStr.match(/^(\d+)x\s+(.+?)\s+@(\d+(?:\.\d+)?)$/);
+  const match = String(itemStr).match(/^(\d+)x\s+([\s\S]+?)\s+@(\d+(?:\.\d+)?)$/);
   if (match) {
+    const rawName = sanitizeOrderItemDisplay(match[2]);
     return {
-      quantity: parseInt(match[1]),
-      name: match[2],
+      quantity: parseInt(match[1], 10),
+      name: rawName,
       price: parseFloat(match[3]),
     };
   }
-  return { quantity: 1, name: itemStr, price: 0 };
+  return { quantity: 1, name: String(itemStr), price: 0 };
+}
+
+function splitItemNameAndNote(displayName: string): {
+  cleanName: string;
+  notes?: string[];
+} {
+  const noteMatch = displayName.match(/^(.*?)\s*\(([^()]+)\)$/);
+  if (noteMatch && noteMatch[1].trim()) {
+    return {
+      cleanName: noteMatch[1].trim(),
+      notes: [noteMatch[2].trim()],
+    };
+  }
+  return { cleanName: displayName };
 }
 
 export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
@@ -114,40 +147,194 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const { isAudioEnabled: soundEnabled, enableAudio, disableAudio, playReadyChime } = useKitchenSounds();
-  const readyAudioRef = useRef<HTMLAudioElement | null>(null);
+  const playReadyChimeRef = useRef(playReadyChime);
+  playReadyChimeRef.current = playReadyChime;
   const { restaurantId } = useRestaurantId();
+  const { isOnline } = useNetworkStatus();
   const { symbol: currencySymbol } = useCurrencyContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [checkoutOrder, setCheckoutOrder] = useState<ActiveOrder | null>(null);
+  const mirrorLocksRef = useRef(new Map<string, Promise<void>>());
 
-  // Fetch active orders (today's orders that aren't fully done, or completed within last 30 min)
+  const runOrderLocked = useCallback(
+    async <T,>(lockKey: string, fn: () => Promise<T>): Promise<T> => {
+      const prev = mirrorLocksRef.current.get(lockKey) || Promise.resolve();
+      const next = prev.then(fn, fn);
+      const settled = next.then(
+        () => undefined,
+        () => undefined,
+      );
+      mirrorLocksRef.current.set(lockKey, settled);
+      return next;
+    },
+    [],
+  );
+
+  const isOfflineNow = useCallback(
+    () => !isOnline || (typeof navigator !== "undefined" && !navigator.onLine),
+    [isOnline],
+  );
+
+  // Fetch active orders with offline snapshot + localOrders fallback
   const {
     data: orders = [],
     isLoading,
     refetch,
   } = useQuery({
     queryKey: ["qs-active-orders", restaurantId],
+    networkMode: "always",
     queryFn: async () => {
       if (!restaurantId) return [];
       const today = new Date();
-      const { data, error } = await supabase
-        .from("orders")
-        .select(
-          "id, order_number, customer_name, customer_phone, items, total, status, payment_status, payment_method, item_completion_status, created_at, source",
-        )
-        .eq("restaurant_id", restaurantId)
-        .in("source", ["quickserve", "pos"])
-        .gte("created_at", startOfDay(today).toISOString())
-        .lte("created_at", endOfDay(today).toISOString())
-        .in("status", ["pending", "preparing", "ready", "served", "completed"])
-        .order("created_at", { ascending: false });
+      const dayStart = startOfDay(today);
+      const dayEnd = endOfDay(today);
+      const dayStartMs = dayStart.getTime();
+      const dayEndMs = dayEnd.getTime();
+      const cacheKey = `qs_active_orders_snapshot_${restaurantId}`;
 
-      if (error) throw error;
-      return (data || []) as ActiveOrder[];
+      let localOrders: OfflineQsrOrder[] = [];
+      try {
+        localOrders = (await getLocalOrdersByRestaurant(restaurantId)).filter(
+          (lo) => {
+            const src = (lo.source || "").toLowerCase();
+            if (src && src !== "quickserve" && src !== "pos") return false;
+            const ts = new Date(lo.createdAt).getTime();
+            return ts >= dayStartMs && ts <= dayEndMs;
+          },
+        );
+      } catch {
+        localOrders = [];
+      }
+
+      const mapLocalToActiveOrder = (lo: OfflineQsrOrder): ActiveOrder => ({
+        id: lo.orderId || lo.id,
+        order_number: lo.orderNumber ?? null,
+        customer_name: lo.customerName || "Walk-in Customer",
+        customer_phone: lo.customerPhone || null,
+        items:
+          lo.formattedItems ||
+          (lo.items || []).map((i) =>
+            formatOrderItemString(
+              i.quantity,
+              i.name,
+              i.price,
+              Array.isArray(i.notes) ? i.notes.join(", ") : i.notes,
+            ),
+          ),
+        total: lo.total,
+        status: lo.status === "held" || lo.status === "new" ? "pending" : lo.status,
+        payment_status: lo.paymentStatus || "pending",
+        payment_method: lo.paymentMethod || null,
+        item_completion_status: lo.itemCompletionStatus || null,
+        created_at: lo.createdAt,
+        source: lo.source || "quickserve",
+        ...(typeof lo.paidAmount === "number" && { paidAmount: lo.paidAmount }),
+        isOfflinePending: !lo.synced,
+      });
+
+      const loadSnapshot = (): ActiveOrder[] => {
+        try {
+          const raw = localStorage.getItem(cacheKey);
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      };
+
+      const mergeOrders = (
+        baseRows: ActiveOrder[],
+        serverSucceeded = false,
+      ): ActiveOrder[] => {
+        const merged = new Map<string, ActiveOrder>();
+        for (const r of baseRows) {
+          const rTs = new Date(r.created_at).getTime();
+          if (rTs < dayStartMs || rTs > dayEndMs) continue;
+          merged.set(r.id, r);
+        }
+        for (const lo of localOrders) {
+          const targetId = lo.orderId || lo.id;
+          if (lo.status === "deleted") {
+            if (!serverSucceeded || !lo.synced) {
+              merged.delete(targetId);
+              merged.delete(lo.id);
+            }
+            continue;
+          }
+          if (serverSucceeded && lo.synced === true) {
+            continue;
+          }
+          const mapped = mapLocalToActiveOrder(lo);
+          const existing = merged.get(mapped.id);
+          if (!existing) {
+            merged.set(mapped.id, mapped);
+            continue;
+          }
+          const existingTs = (existing as any).updated_at
+            ? new Date((existing as any).updated_at).getTime()
+            : 0;
+          const localTs = lo.updatedAt ? new Date(lo.updatedAt).getTime() : 0;
+          if (existingTs > localTs && lo.synced) {
+            continue;
+          }
+          const hasQueuedPayment = Boolean(
+            lo.paymentMethod ||
+              (lo.paymentStatus && lo.paymentStatus !== "pending"),
+          );
+          merged.set(mapped.id, {
+            ...existing,
+            ...mapped,
+            ...(!hasQueuedPayment &&
+            existing.payment_status &&
+            existing.payment_status !== "pending"
+              ? {
+                  payment_status: existing.payment_status,
+                  payment_method: existing.payment_method,
+                }
+              : {}),
+          });
+        }
+        return Array.from(merged.values()).sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
+      };
+
+      if (isOfflineNow()) {
+        return mergeOrders(loadSnapshot(), false);
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("orders")
+          .select(
+            "id, order_number, customer_name, customer_phone, items, total, status, payment_status, payment_method, item_completion_status, created_at, updated_at, source",
+          )
+          .eq("restaurant_id", restaurantId)
+          .in("source", ["quickserve", "pos"])
+          .gte("created_at", dayStart.toISOString())
+          .lte("created_at", dayEnd.toISOString())
+          .in("status", ["pending", "preparing", "ready", "served", "completed"])
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        const rows = (data || []) as ActiveOrder[];
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(rows));
+        } catch {
+          /* ignore storage quota */
+        }
+        return mergeOrders(rows, true);
+      } catch (err) {
+        const snap = loadSnapshot();
+        if (snap.length > 0 || localOrders.some((lo) => lo.status !== "deleted")) {
+          return mergeOrders(snap, false);
+        }
+        throw err;
+      }
     },
     enabled: !!restaurantId && isOpen,
-    refetchInterval: 5000, // Auto-refresh every 5s
+    refetchInterval: 60000, // Fallback refresh every 60s (Realtime handles instant updates)
   });
 
   // Filter orders
@@ -180,27 +367,43 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
     .filter((o) => o.payment_status === "pending")
     .reduce((sum, o) => sum + (o.total || 0), 0);
 
-  // Real-time subscription for immediate updates
+  // Real-time subscription + local offline change listener
   useEffect(() => {
     if (!restaurantId || !isOpen) return;
 
+    // M-21: Coalesce burst realtime query invalidations within a 300ms window
+    let coalesceTimer: ReturnType<typeof setTimeout> | null = null;
+    const invalidateOrderQueries = () => {
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
+      queryClient.invalidateQueries({ queryKey: ["quickserve-todays-revenue"] });
+    };
+    const scheduleCoalescedInvalidate = () => {
+      if (coalesceTimer) return;
+      coalesceTimer = setTimeout(() => {
+        coalesceTimer = null;
+        invalidateOrderQueries();
+      }, 300);
+    };
+
+    const handleLocalRefresh = () => {
+      invalidateOrderQueries();
+    };
+    window.addEventListener(LOCAL_ORDERS_EVENT, handleLocalRefresh);
+    window.addEventListener(SYNC_COMPLETED_EVENT, handleLocalRefresh);
+
     const channel = supabase
-      .channel("qs-active-orders-realtime")
+      .channel(`qs-active-orders-${restaurantId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "orders",
+          filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload: any) => {
-          queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
-          queryClient.invalidateQueries({
-            queryKey: ["quickserve-todays-count"],
-          });
-          queryClient.invalidateQueries({
-            queryKey: ["quickserve-todays-revenue"],
-          });
+          scheduleCoalescedInvalidate();
 
           if (
             payload.eventType === "UPDATE" &&
@@ -209,19 +412,96 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
             payload.new.status === "ready" &&
             payload.old.status !== "ready"
           ) {
-            playReadyChime();
+            playReadyChimeRef.current();
           }
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          invalidateOrderQueries();
+        }
+      });
 
     return () => {
+      if (coalesceTimer) clearTimeout(coalesceTimer);
+      window.removeEventListener(LOCAL_ORDERS_EVENT, handleLocalRefresh);
+      window.removeEventListener(SYNC_COMPLETED_EVENT, handleLocalRefresh);
       supabase.removeChannel(channel);
     };
-  }, [restaurantId, isOpen, queryClient, playReadyChime]);
+  }, [restaurantId, isOpen, queryClient]);
 
-  // Toggle item completion
+  // Resolve local mirror by either mirror key (`id`) or linked `orderId`
+  const findLocalMirror = useCallback(
+    async (id: string): Promise<OfflineQsrOrder | undefined> => {
+      const direct = await getLocalOrder(id);
+      if (direct) return direct;
+      if (!restaurantId) return undefined;
+      const all = await getLocalOrdersByRestaurant(restaurantId);
+      return all.find((lo) => lo.id === id || lo.orderId === id);
+    },
+    [restaurantId],
+  );
+
+  const upsertQuickServeLocalMirror = async (
+    orderId: string,
+    patch: Partial<OfflineQsrOrder>,
+  ): Promise<{ mirror: OfflineQsrOrder; prevMirror: OfflineQsrOrder | undefined } | null> => {
+    if (!restaurantId) return null;
+    const existing = await findLocalMirror(orderId);
+    if (existing) {
+      if (existing.status === "deleted") return null;
+      const updated: OfflineQsrOrder = {
+        ...existing,
+        ...patch,
+        updatedAt: new Date().toISOString(),
+        synced: false,
+        syncFailed: false,
+      };
+      await saveLocalOrder(updated);
+      return { mirror: updated, prevMirror: existing };
+    }
+    const fromList = orders.find((o) => o.id === orderId);
+    if (!fromList) return null;
+    const created: OfflineQsrOrder = {
+      id: fromList.id,
+      orderId: fromList.id,
+      restaurant_id: restaurantId,
+      source: fromList.source || "quickserve",
+      orderType: "takeaway",
+      status: (fromList.status === "pending"
+        ? "new"
+        : fromList.status) as OfflineQsrOrder["status"],
+      priority: "normal",
+      orderNumber: fromList.order_number ?? null,
+      items: fromList.items.map((itemStr) => {
+        const parsed = parseOrderItem(itemStr);
+        const { cleanName, notes } = splitItemNameAndNote(parsed.name);
+        return {
+          name: cleanName,
+          quantity: parsed.quantity,
+          price: parsed.price,
+          ...(notes && { notes }),
+        };
+      }),
+      formattedItems: fromList.items,
+      itemCompletionStatus: fromList.item_completion_status || [],
+      total: fromList.total,
+      customerName: fromList.customer_name,
+      customerPhone: fromList.customer_phone || undefined,
+      paymentMethod: fromList.payment_method || undefined,
+      paymentStatus: fromList.payment_status || undefined,
+      createdAt: fromList.created_at,
+      updatedAt: new Date().toISOString(),
+      synced: false,
+      ...patch,
+    };
+    await saveLocalOrder(created);
+    return { mirror: created, prevMirror: undefined };
+  };
+
+  // Toggle item completion (supports offline queue fallback)
   const toggleItemMutation = useMutation({
+    networkMode: "always",
     mutationFn: async ({
       orderId,
       itemIndex,
@@ -231,6 +511,64 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
       itemIndex: number;
       currentStatus: boolean[];
     }) => {
+      const localExisting = await findLocalMirror(orderId);
+
+      if (isOfflineNow() || localExisting) {
+        return runOrderLocked(orderId, async () => {
+          const latest = await findLocalMirror(orderId);
+          const baseStatus =
+            latest &&
+            latest.synced !== true &&
+            latest.itemCompletionStatus &&
+            latest.itemCompletionStatus.length > 0
+              ? latest.itemCompletionStatus
+              : currentStatus;
+          const newStatus = [...baseStatus];
+          const fullCount = Math.max(
+            newStatus.length,
+            latest?.items?.length || 0,
+            itemIndex + 1,
+          );
+          while (newStatus.length < fullCount) newStatus.push(false);
+          newStatus[itemIndex] = !newStatus[itemIndex];
+          const allDone = newStatus.every((s) => s === true);
+
+          const res = await upsertQuickServeLocalMirror(orderId, {
+            itemCompletionStatus: newStatus,
+            ...(allDone ? { status: "served" } : {}),
+          });
+          if (!res) throw new Error("Unable to update local order mirror");
+          const targetOrderId = res.mirror.orderId || latest?.orderId || orderId;
+          const kitchenKey = res.mirror.id || latest?.id;
+          const hasDistinctKitchenKey = Boolean(kitchenKey && kitchenKey !== targetOrderId);
+          await commitLocalOrderAndWritesAtomic(res.mirror, [
+            {
+              type: "order",
+              operation: "update",
+              payload: {
+                id: targetOrderId,
+                item_completion_status: newStatus,
+                ...(allDone ? { status: "served" } : {}),
+              },
+            },
+            {
+              type: "kitchen_order",
+              operation: "update",
+              payload: {
+                ...(hasDistinctKitchenKey
+                  ? { id: kitchenKey }
+                  : { _updateByOrderId: targetOrderId }),
+                item_completion_status: newStatus,
+                ...(allDone
+                  ? { status: "served", bumped_at: new Date().toISOString() }
+                  : {}),
+              },
+            },
+          ]);
+          return { allDone, orderId };
+        });
+      }
+
       const newStatus = [...currentStatus];
       newStatus[itemIndex] = !newStatus[itemIndex];
 
@@ -278,10 +616,18 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
         playReadyChime();
       }
     },
+    onError: () => {
+      toast({
+        title: "Failed to update item",
+        description: "Could not save item status change. Please retry.",
+        variant: "destructive",
+      });
+    },
   });
 
-  // Change order status
+  // Change order status (supports offline queue fallback)
   const changeStatusMutation = useMutation({
+    networkMode: "always",
     mutationFn: async ({
       orderId,
       newStatus,
@@ -289,6 +635,48 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
       orderId: string;
       newStatus: string;
     }) => {
+      const localExisting = await findLocalMirror(orderId);
+      if (isOfflineNow() || localExisting) {
+        return runOrderLocked(orderId, async () => {
+          const latest = await findLocalMirror(orderId);
+          const nowIso = new Date().toISOString();
+          const res = await upsertQuickServeLocalMirror(orderId, {
+            status: newStatus as OfflineQsrOrder["status"],
+            ...(newStatus === "completed" ? { completedAt: nowIso } : {}),
+          });
+          if (!res) throw new Error("Unable to update local order mirror");
+          const targetOrderId = res.mirror.orderId || latest?.orderId || orderId;
+          const kitchenKey = res.mirror.id || latest?.id;
+          const hasDistinctKitchenKey = Boolean(kitchenKey && kitchenKey !== targetOrderId);
+          const writes: Array<{
+            type: "order" | "kitchen_order";
+            operation: "update";
+            payload: Record<string, unknown>;
+          }> = [
+            {
+              type: "order",
+              operation: "update",
+              payload: { id: targetOrderId, status: newStatus },
+            },
+          ];
+          if (newStatus === "completed") {
+            writes.push({
+              type: "kitchen_order",
+              operation: "update",
+              payload: {
+                ...(hasDistinctKitchenKey
+                  ? { id: kitchenKey }
+                  : { _updateByOrderId: targetOrderId }),
+                status: "completed",
+                bumped_at: nowIso,
+              },
+            });
+          }
+          await commitLocalOrderAndWritesAtomic(res.mirror, writes);
+          return { newStatus, offline: isOfflineNow() };
+        });
+      }
+
       const { error } = await supabase
         .from("orders")
         .update({ status: newStatus })
@@ -298,20 +686,39 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
 
       // Also bump linked kitchen tickets out of the live KDS when completing.
       if (newStatus === "completed") {
-        await supabase
+        const { error: koErr } = await supabase
           .from("kitchen_orders")
           .update({
             status: "completed",
             bumped_at: new Date().toISOString(),
           })
           .eq("order_id", orderId);
+        if (koErr) throw koErr;
       }
+
+      return { newStatus, offline: false };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
       queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
       queryClient.invalidateQueries({
         queryKey: ["quickserve-todays-revenue"],
+      });
+      toast({
+        title: result.offline
+          ? "Order updated locally — will sync when online"
+          : result.newStatus === "completed"
+            ? "Order Completed ✓"
+            : `Order → ${result.newStatus}`,
+        duration: 1500,
+      });
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      toast({
+        title: "Failed to update order",
+        description: "Could not persist order status update. Please retry.",
+        variant: "destructive",
       });
     },
   });
@@ -336,15 +743,8 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
   const handleStatusChange = useCallback(
     (orderId: string, newStatus: string) => {
       changeStatusMutation.mutate({ orderId, newStatus });
-      toast({
-        title:
-          newStatus === "completed"
-            ? "Order Completed ✓"
-            : `Order → ${newStatus}`,
-        duration: 1500,
-      });
     },
-    [changeStatusMutation, toast],
+    [changeStatusMutation],
   );
 
 
@@ -532,6 +932,12 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5">
+                          {order.isOfflinePending && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                              <WifiOff className="w-2.5 h-2.5" />
+                              Pending Sync
+                            </span>
+                          )}
                           <StatusIcon className={cn("w-4 h-4", config.color)} />
                           <span
                             className={cn(
@@ -743,12 +1149,14 @@ export const QSActiveOrders: React.FC<QSActiveOrdersProps> = ({
           onClose={() => setCheckoutOrder(null)}
           items={checkoutOrder.items.map((itemStr, idx) => {
             const parsed = parseOrderItem(itemStr);
+            const { cleanName, notes } = splitItemNameAndNote(parsed.name);
             return {
               id: `existing-item-${idx}`,
               menuItemId: `existing-menu-item-${idx}`,
-              name: parsed.name,
+              name: cleanName,
               price: parsed.price,
               quantity: parsed.quantity,
+              ...(notes && { notes: notes.join(", ") }),
             };
           })}
           customerName={checkoutOrder.customer_name || ""}

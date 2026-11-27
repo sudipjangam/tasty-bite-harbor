@@ -1,5 +1,6 @@
 
 import React, { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +36,8 @@ interface InvoiceFormData {
 }
 
 export const InvoiceManagement = () => {
-  const { data: financialData, isLoading } = useFinancialData();
+  const queryClient = useQueryClient();
+  const { data: financialData, isLoading, isError, error: financialError, refetch } = useFinancialData();
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formData, setFormData] = useState<InvoiceFormData>({
@@ -287,6 +289,8 @@ export const InvoiceManagement = () => {
         .insert(lineItemsData);
 
       if (lineItemsError) throw lineItemsError;
+
+      queryClient.invalidateQueries({ queryKey: ["financial-data"] });
 
       toast({
         title: "Success",
@@ -611,6 +615,19 @@ export const InvoiceManagement = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {isError && (
+            <div className="mb-4 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-sm">Failed to load invoices</p>
+                <p className="text-xs text-muted-foreground">{(financialError as any)?.message || "A network or server error occurred."}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                Retry
+              </Button>
+            </div>
+          )}
+
           <div className="space-y-4">
             {financialData?.invoices?.map((invoice) => (
               <div
@@ -681,7 +698,7 @@ export const InvoiceManagement = () => {
               </div>
             ))}
             
-            {(!financialData?.invoices || financialData.invoices.length === 0) && (
+            {!isError && (!financialData?.invoices || financialData.invoices.length === 0) && (
               <div className="text-center py-8 text-muted-foreground">
                 No invoices found. Create your first invoice to get started.
               </div>

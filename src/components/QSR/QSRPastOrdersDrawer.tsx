@@ -100,7 +100,8 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
   const [sortBy, setSortBy] = useState<SortOption>("time-desc");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isRole } = useAuth();
+  const canViewRevenue = Boolean(user?.role_has_full_access || isRole("admin") || isRole("manager") || isRole("owner"));
   const { symbol: currencySymbol } = useCurrencyContext();
 
   // Maximum items to show before "Show more"
@@ -259,7 +260,11 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
   if (!isOpen) return null;
 
   const totalRevenue = orders
-    .filter((order) => order.orderType !== "non-chargeable")
+    .filter(
+      (order) =>
+        order.orderType !== "non-chargeable" &&
+        order.paymentStatus !== "pending",
+    )
     .reduce((sum, order) => sum + order.total, 0);
 
   // Map selected order items for PaymentDialog
@@ -306,12 +311,14 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
               <span className="text-white/80 text-xs">Total Orders</span>
               <div className="text-white font-bold">{orders.length}</div>
             </div>
-            <div className="px-3 py-1.5 bg-white/20 rounded-lg">
-              <span className="text-white/80 text-xs">Total Revenue</span>
-              <div className="text-white font-bold">
-                <CurrencyDisplay amount={totalRevenue} showTooltip={false} />
+            {canViewRevenue && (
+              <div className="px-3 py-1.5 bg-white/20 rounded-lg">
+                <span className="text-white/80 text-xs">Total Revenue</span>
+                <div className="text-white font-bold">
+                  <CurrencyDisplay amount={totalRevenue} showTooltip={false} />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -539,6 +546,11 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
                                   </span>
                                 );
                               })()}
+                              {order.isOfflinePending && (
+                                <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                                  Pending Sync
+                                </span>
+                              )}
                             </div>
                             {/* Time Info */}
                             <div className="flex items-center gap-3 mt-2">
@@ -723,7 +735,21 @@ export const QSRPastOrdersDrawer: React.FC<QSRPastOrdersDrawerProps> = ({
             .replace("Table ", "")}
           onEditOrder={handlePaymentDialogClose}
           orderId={selectedOrderForPayment.id}
+          linkedOrderId={selectedOrderForPayment.orderId || undefined}
           serverName={selectedOrderForPayment.attendant}
+          initialCustomerName={selectedOrderForPayment.customerName || ""}
+          isSettledReprint={true}
+          initialTotal={selectedOrderForPayment.total}
+          initialDiscountAmount={
+            selectedOrderForPayment.discountType === "amount"
+              ? selectedOrderForPayment.discount
+              : undefined
+          }
+          initialDiscountPercentage={
+            selectedOrderForPayment.discountType === "percentage"
+              ? selectedOrderForPayment.discount
+              : undefined
+          }
         />
       )}
     </>

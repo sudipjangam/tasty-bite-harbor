@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useFinancialData } from "@/hooks/useFinancialData";
-import { Plus, Minus } from "lucide-react";
+import { Plus, Minus, RotateCcw } from "lucide-react";
 
 interface CreateBudgetDialogProps {
   open: boolean;
@@ -22,7 +22,12 @@ interface BudgetLineItem {
 }
 
 export const CreateBudgetDialog = ({ open, onOpenChange }: CreateBudgetDialogProps) => {
-  const { data: financialData } = useFinancialData();
+  const {
+    data: financialData,
+    isError: financialError,
+    error: financialErrorObj,
+    refetch: refetchFinancial,
+  } = useFinancialData();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   
@@ -225,6 +230,21 @@ export const CreateBudgetDialog = ({ open, onOpenChange }: CreateBudgetDialogPro
                 Add Category
               </Button>
             </div>
+
+            {financialError && (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive flex items-center justify-between gap-2 text-xs">
+                <div>
+                  <p className="font-semibold">Failed to load accounts</p>
+                  <p className="text-muted-foreground">
+                    {(financialErrorObj as Error)?.message || "Unable to fetch chart of accounts."}
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => refetchFinancial()}>
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                  Retry
+                </Button>
+              </div>
+            )}
 
             <div className="space-y-3">
               {lineItems.map((item, index) => (

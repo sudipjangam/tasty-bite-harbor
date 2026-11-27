@@ -75,7 +75,8 @@ const OrdersView = ({
   const { toast } = useToast();
   const { restaurantName } = useRestaurantId();
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { isRole } = useAuth();
+  const { isRole, user } = useAuth();
+  const canViewRevenue = Boolean(user?.role_has_full_access || isRole("admin") || isRole("manager") || isRole("owner"));
   const { symbol: currencySymbol } = useCurrencyContext();
 
   // Handle triggers from parent component
@@ -430,7 +431,7 @@ const OrdersView = ({
           {/* ── Stat Cards ── */}
           {isMobile ? (
             /* Compact Mobile Micro-Stats Row (<55px) */
-            <div className="grid grid-cols-4 gap-1.5 mb-3">
+            <div className={`grid ${canViewRevenue ? "grid-cols-4" : "grid-cols-3"} gap-1.5 mb-3`}>
               {/* Active */}
               <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-2 text-white shadow-sm flex flex-col justify-center text-center">
                 <span className="text-[9px] font-bold uppercase tracking-wider text-amber-100/90 leading-none mb-1">Active</span>
@@ -447,14 +448,16 @@ const OrdersView = ({
                 <span className="text-base font-extrabold font-mono leading-none">{orderStats.totalOrders}</span>
               </div>
               {/* Revenue */}
-              <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl p-2 text-white shadow-sm flex flex-col justify-center text-center">
+              {canViewRevenue && (
+                <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl p-2 text-white shadow-sm flex flex-col justify-center text-center">
                 <span className="text-[9px] font-bold uppercase tracking-wider text-purple-100/90 leading-none mb-1">Revenue</span>
                 <span className="text-xs font-extrabold font-mono leading-none truncate">{currencySymbol}{orderStats.totalRevenue.toLocaleString()}</span>
               </div>
+              )}
             </div>
           ) : (
             /* Full Desktop 4 Cards */
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-3.5 mb-5 md:mb-6">
+            <div className={`grid grid-cols-2 ${canViewRevenue ? "md:grid-cols-4" : "md:grid-cols-3"} gap-3 md:gap-3.5 mb-5 md:mb-6`}>
               {/* Active Orders */}
               <div className="relative overflow-hidden rounded-2xl p-4 md:p-[18px] text-white cursor-default transition-transform hover:-translate-y-0.5"
                 style={{ background: "linear-gradient(135deg, #f97316 0%, #fb923c 100%)", boxShadow: "0 8px 28px rgba(249,115,22,0.45)" }}>
@@ -492,7 +495,7 @@ const OrdersView = ({
               </div>
 
               {/* Revenue */}
-              {(isRole("admin") || isRole("manager") || isRole("owner")) && (
+              {canViewRevenue && (
                 <div className="relative overflow-hidden rounded-2xl p-4 md:p-[18px] text-white cursor-default transition-transform hover:-translate-y-0.5"
                   style={{ background: "linear-gradient(135deg, #f97316 0%, #1d4ed8 100%)", boxShadow: "0 8px 28px rgba(249,115,22,0.35)" }}>
                   <div className="absolute -right-5 -bottom-5 w-[90px] h-[90px] rounded-full bg-white/[0.12]" />

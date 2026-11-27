@@ -56,7 +56,8 @@ const HourlySalesWidget: React.FC = () => {
       }
       return hours;
     },
-    refetchInterval: 60000,
+    staleTime: 120000,
+    refetchInterval: 300000, // 5 minutes
   });
 
   if (isLoading) {

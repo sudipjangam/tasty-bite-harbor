@@ -98,7 +98,7 @@ export function MarketingWallet({
 
       // Subscribe to wallet changes
       const subscription = supabase
-        .channel("wallet_changes")
+        .channel(`wallet_changes_${restaurantId}`)
         .on(
           "postgres_changes",
           {

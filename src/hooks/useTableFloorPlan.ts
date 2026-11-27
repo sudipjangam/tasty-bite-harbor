@@ -202,7 +202,7 @@ export function useTableFloorPlan() {
   const { data: activeOrders = [] } = useQuery({
     queryKey: ["active-table-orders", restaurantId],
     enabled: !!restaurantId,
-    refetchInterval: 10000, // Poll every 10s or rely on realtime
+    refetchInterval: 60000, // Fallback refresh every 60s (Realtime handles instant updates)
     queryFn: async () => {
       if (!restaurantId) return [];
       const { data, error } = await supabase
@@ -250,7 +250,12 @@ export function useTableFloorPlan() {
           queryClient.invalidateQueries({ queryKey: ["active-table-orders", restaurantId] });
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          queryClient.invalidateQueries({ queryKey: ["floor-tables", restaurantId] });
+          queryClient.invalidateQueries({ queryKey: ["active-table-orders", restaurantId] });
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

@@ -30,6 +30,52 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+const clearSensitiveSessionStorage = () => {
+  try {
+    const theme = localStorage.getItem("restaurant-pro-theme");
+    sessionStorage.clear();
+
+    const SENSITIVE_LS_KEYS = [
+      "session_start_time",
+      "pos_held_orders",
+      "qs-held-orders",
+      "kds_tv_auth",
+      "qs_owner_whatsapp",
+      "active_branch_id",
+      "active_branch_name",
+      "restaurant_name",
+      "cached_restaurant_name",
+      "cached_restaurant_address",
+      "cached_restaurant_phone",
+      "cached_restaurant_gstin",
+      "cached_restaurant_upi_id",
+    ];
+    SENSITIVE_LS_KEYS.forEach((key) => localStorage.removeItem(key));
+    const SENSITIVE_LS_PREFIXES = [
+      "qs-held-orders",
+      "qsr_active_orders_snapshot_",
+      "qsr_past_orders_snapshot_",
+      "qsr_todays_revenue_",
+      "qs_active_orders_snapshot_",
+      "qs_order_history_snapshot_",
+      "qs_past_orders_snapshot_",
+      "qsr_active_tickets_snapshot_",
+      "qs_daily_summary_",
+      "qs_daily_summary_ids_",
+      "cached_restaurant_",
+      "tbh_currency_",
+    ];
+    Object.keys(localStorage).forEach((key) => {
+      if (SENSITIVE_LS_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+        localStorage.removeItem(key);
+      }
+    });
+    if (theme) localStorage.setItem("restaurant-pro-theme", theme);
+  } catch {
+    // Ignore storage errors on sign-out cleanup
+  }
+};
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -276,13 +322,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const SENSITIVE_LS_KEYS = [
       "session_start_time",
       "pos_held_orders",      // Held POS orders (customer + item data)
+      "qs-held-orders",       // Held QuickServe orders (and qs-held-orders_* via prefix cleanup)
+      "qs-held-orders",       // Held QuickServe orders (and qs-held-orders_* via prefix cleanup)
       "kds_tv_auth",          // Kitchen TV session
       "qs_owner_whatsapp",    // Owner phone number
       "active_branch_id",     // Stale franchise branch override
       "restaurant_name",      // Stale cached restaurant name
       "cached_restaurant_name",
+      "cached_restaurant_address",
+      "cached_restaurant_phone",
+      "cached_restaurant_gstin",
+      "cached_restaurant_upi_id",
     ];
     SENSITIVE_LS_KEYS.forEach((key) => localStorage.removeItem(key));
+    const SENSITIVE_LS_PREFIXES = [
+      "qs-held-orders",
+      "qsr_active_orders_snapshot_",
+      "qsr_past_orders_snapshot_",
+      "qs_active_orders_snapshot_",
+      "qs_order_history_snapshot_",
+      "qs_past_orders_snapshot_",
+      "qsr_active_tickets_snapshot_",
+      "qs_daily_summary_",
+      "qs_daily_summary_ids_",
+      "qsr_todays_revenue_",
+      "tbh_currency_",
+    ];
+    try {
+      Object.keys(localStorage).forEach((key) => {
+        if (SENSITIVE_LS_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch {
+      // Ignore storage errors on sign-out cleanup
+    }
 
     if (theme) localStorage.setItem("restaurant-pro-theme", theme);
 

@@ -409,7 +409,10 @@ const OrderList: React.FC<OrderListProps> = ({
           }}
           tableNumber={printBillOrder.customer_name || "Order"}
           orderId={printBillOrder.id}
+          linkedOrderId={printBillOrder.id}
           serverName={printBillOrder.attendant}
+          initialCustomerName={printBillOrder.customer_name || ""}
+          initialCustomerMobile={printBillOrder.customer_phone || ""}
         />
       )}
 

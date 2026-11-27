@@ -100,7 +100,8 @@ const LowInventoryAlert = () => {
       return alerts;
     },
     enabled: !!restaurantId,
-    refetchInterval: 30000,
+    staleTime: 120000,
+    refetchInterval: 300000,
   });
 
   if (isLoading) {

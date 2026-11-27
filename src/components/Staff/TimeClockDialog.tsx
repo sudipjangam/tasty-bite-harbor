@@ -373,16 +373,23 @@ const TimeClockDialog: React.FC<TimeClockDialogProps> = ({
         }
         
         // Update the session with clock-out time
-        const { error } = await supabase
+        const { data: updatedClockOut, error } = await supabase
           .from("staff_time_clock")
           .update({
             clock_out: new Date().toISOString(),
             notes: notes ? `${activeSession.notes || ''} ${notes}`.trim() : activeSession.notes
           })
-          .eq("id", activeSession.id);
+          .eq("id", activeSession.id)
+          .is("clock_out", null)
+          .select("id");
 
         if (error) {
           throw new Error(`Error clocking out: ${error.message}`);
+        }
+        if (!updatedClockOut || updatedClockOut.length === 0) {
+          await refetchActiveSession();
+          onSuccess();
+          throw new Error("This shift has already been clocked out.");
         }
 
         // Reset staff status back to active

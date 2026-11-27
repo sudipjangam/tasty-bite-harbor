@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQSRMenuItems, QSRMenuItem } from "@/hooks/useQSRMenuItems";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,7 +24,24 @@ import { useHeldOrders } from "@/hooks/useHeldOrders";
 import { useAuth } from "@/hooks/useAuth";
 import { useCRMSync } from "@/hooks/useCRMSync";
 import { useCurrencyContext } from "@/contexts/CurrencyContext";
+import { useNetworkStatus } from "@/contexts/NetworkStatusContext";
 import { useToast } from "@/hooks/use-toast";
+import {
+  commitLocalOrderAndWritesAtomic,
+  getLocalOrder,
+  getLocalOrdersByRestaurant,
+  LOCAL_ORDERS_EVENT,
+  saveLocalOrder,
+  SYNC_COMPLETED_EVENT,
+} from "@/utils/offlineDB";
+import {
+  allocateOfflineQuickServeToken,
+  enqueueWrite,
+  recordQuickServeOrderNumber,
+} from "@/utils/syncManager";
+import { thermalPrinterService } from "@/services/thermalPrinterService";
+import { nativePrinterBridge } from "@/services/nativePrinterBridge";
+import { QSRPrinterDialog } from "@/components/QSR/QSRPrinterDialog";
 import {
   History,
   ShoppingBag,
@@ -34,6 +51,7 @@ import {
   Hash,
   Zap,
   PauseCircle,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,53 +88,157 @@ const QuickServePOS: React.FC = () => {
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [editingOrderNumber, setEditingOrderNumber] = useState<number | null>(null);
   const [editingOrderItems, setEditingOrderItems] = useState<QSOrderItem[]>([]);
+  const [editingOrderCompletionStatus, setEditingOrderCompletionStatus] = useState<boolean[]>([]);
+  const [editingOrderPaidAmount, setEditingOrderPaidAmount] = useState<number>(0);
+  const pendingKitchenSubmitRef = useRef<{
+    fingerprint: string;
+    orderId: string;
+    kitchenOrderId: string;
+    orderNumber: number;
+  } | null>(null);
   const { toast } = useToast();
   const { symbol: currencySymbol } = useCurrencyContext();
   const queryClient = useQueryClient();
   const { restaurantId } = useRestaurantId();
-  const { user } = useAuth();
+  const { isOnline } = useNetworkStatus();
+  const { user, isRole } = useAuth();
+  const canViewRevenue = Boolean(
+    user?.role_has_full_access ||
+      (typeof isRole === "function" &&
+        (isRole("admin") || isRole("manager") || isRole("owner"))),
+  );
+  const [showPrinterDialog, setShowPrinterDialog] = useState(false);
+  const [isPrinterConnected, setIsPrinterConnected] = useState(
+    () => nativePrinterBridge.isConnected() || thermalPrinterService.isConnected(),
+  );
+
+  const isOfflineNow = useCallback(
+    () => !isOnline || (typeof navigator !== "undefined" && !navigator.onLine),
+    [isOnline],
+  );
+
+  // Printer auto-reconnect & live status tracking
+  useEffect(() => {
+    const refreshStatus = () => {
+      setIsPrinterConnected(
+        nativePrinterBridge.isConnected() || thermalPrinterService.isConnected(),
+      );
+    };
+    const unsubWeb = thermalPrinterService.onConnectionChange(refreshStatus);
+    const unsubNative = nativePrinterBridge.onStatusChange(refreshStatus);
+    thermalPrinterService.tryAutoReconnect().then(refreshStatus).catch(() => {});
+    return () => {
+      unsubWeb();
+      unsubNative();
+    };
+  }, []);
+
+  // Refresh QuickServe queries when offline orders change or sync completes
+  useEffect(() => {
+    const refreshQuickServe = () => {
+      queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["quickserve-order-history"] });
+      queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
+      queryClient.invalidateQueries({ queryKey: ["quickserve-todays-revenue"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-summary-data", restaurantId] });
+    };
+    window.addEventListener(LOCAL_ORDERS_EVENT, refreshQuickServe);
+    window.addEventListener(SYNC_COMPLETED_EVENT, refreshQuickServe);
+    return () => {
+      window.removeEventListener(LOCAL_ORDERS_EVENT, refreshQuickServe);
+      window.removeEventListener(SYNC_COMPLETED_EVENT, refreshQuickServe);
+    };
+  }, [queryClient]);
+
+  // Revoke daily summary view immediately if revenue access is lost
+  useEffect(() => {
+    if (!canViewRevenue && showDailySummary) {
+      setShowDailySummary(false);
+    }
+  }, [canViewRevenue, showDailySummary]);
   const { syncCustomerToCRM } = useCRMSync();
   const { heldOrders, heldCount, holdOrder, resumeOrder, deleteHeldOrder } = useHeldOrders();
 
-  // Fetch loyalty program settings for redemption cap and point value
+  // Fetch loyalty program settings for redemption cap and point value (cached offline)
   const { data: loyaltyProgram } = useQuery({
     queryKey: ["loyalty-program-qs", restaurantId],
+    networkMode: "always",
     queryFn: async () => {
       if (!restaurantId) return null;
-      const { data, error } = await supabase
-        .from("loyalty_programs")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .maybeSingle();
-      if (error && error.code !== "PGRST116") {
-        console.error("Loyalty program fetch error:", error);
-        return null;
+      const cacheKey = `qs_loyalty_program_${restaurantId}`;
+      const loadCached = () => {
+        try {
+          const raw = localStorage.getItem(cacheKey);
+          return raw ? JSON.parse(raw) : null;
+        } catch {
+          return null;
+        }
+      };
+      if (isOfflineNow()) return loadCached();
+      try {
+        const { data, error } = await supabase
+          .from("loyalty_programs")
+          .select("*")
+          .eq("restaurant_id", restaurantId)
+          .maybeSingle();
+        if (error && error.code !== "PGRST116") {
+          console.error("Loyalty program fetch error:", error);
+          return loadCached();
+        }
+        try {
+          if (data) localStorage.setItem(cacheKey, JSON.stringify(data));
+          else localStorage.removeItem(cacheKey);
+        } catch {
+          /* ignore */
+        }
+        return data;
+      } catch {
+        return loadCached();
       }
-      return data;
     },
     enabled: !!restaurantId,
     staleTime: 1000 * 60 * 30,
   });
 
-  // Fetch active coupons
+  // Fetch active coupons (cached offline)
   const { data: availableCoupons = [] } = useQuery({
     queryKey: ["active-coupons", restaurantId],
+    networkMode: "always",
     queryFn: async () => {
       if (!restaurantId) return [];
+      const cacheKey = `qs_coupons_${restaurantId}`;
+      const loadCached = () => {
+        try {
+          const raw = localStorage.getItem(cacheKey);
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      };
+      if (isOfflineNow()) return loadCached();
       const today = new Date().toISOString();
-      const { data, error } = await supabase
-        .from("promotion_campaigns")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .eq("is_active", true)
-        .lte("start_date", today)
-        .gte("end_date", today);
-        
-      if (error) {
-        console.error("Failed to fetch coupons:", error);
-        return [];
+      try {
+        const { data, error } = await supabase
+          .from("promotion_campaigns")
+          .select("*")
+          .eq("restaurant_id", restaurantId)
+          .eq("is_active", true)
+          .lte("start_date", today)
+          .gte("end_date", today);
+
+        if (error) {
+          console.error("Failed to fetch coupons:", error);
+          return loadCached();
+        }
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(data || []));
+        } catch {
+          /* ignore */
+        }
+        return data || [];
+      } catch {
+        return loadCached();
       }
-      return data;
     },
     enabled: !!restaurantId,
     staleTime: 1000 * 60 * 5,
@@ -140,46 +262,254 @@ const QuickServePOS: React.FC = () => {
     isRestoring,
   } = useQSRMenuItems();
 
-  // Today's revenue — counts all chargeable orders (pending + paid), excludes NC
+  // Today's revenue — counts all chargeable orders (pending + paid), excludes NC + merges offline edits by order ID
   const { data: todaysRevenue = 0 } = useQuery({
     queryKey: ["quickserve-todays-revenue", restaurantId],
+    networkMode: "always",
     queryFn: async () => {
-      if (!restaurantId) return 0;
+      if (!restaurantId || !canViewRevenue) return 0;
       const today = new Date();
-      const { data } = await supabase
-        .from("orders")
-        .select("total")
-        .eq("restaurant_id", restaurantId)
-        .in("status", ["preparing", "ready", "completed"])
-        .neq("payment_status", "nc")
-        .neq("order_type", "non-chargeable")
-        .gte("created_at", startOfDay(today).toISOString())
-        .lte("created_at", endOfDay(today).toISOString());
-      if (!data) return 0;
-      return data.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+      const dayStart = startOfDay(today);
+      const dayEnd = endOfDay(today);
+      const ymd = dayStart.toISOString().slice(0, 10);
+      const cacheKey = `qs_todays_revenue_${restaurantId}_${ymd}`;
+
+      const localOrders = (await getLocalOrdersByRestaurant(restaurantId)).filter(
+        (lo) => {
+          const src = (lo.source || "").toLowerCase();
+          if (src && src !== "quickserve" && src !== "pos") return false;
+          const ts = new Date(lo.createdAt).getTime();
+          return ts >= dayStart.getTime() && ts <= dayEnd.getTime();
+        },
+      );
+
+      const computeMergedRevenue = (
+        serverRows: Array<{ id: string; total: number }>,
+        serverSucceeded: boolean,
+      ) => {
+        const totalsById = new Map<string, number>();
+        for (const r of serverRows) {
+          totalsById.set(r.id, Number(r.total) || 0);
+        }
+        for (const lo of localOrders) {
+          const targetId = lo.orderId || lo.id;
+          if (
+            lo.status === "deleted" ||
+            lo.status === "held" ||
+            lo.status === "new" ||
+            lo.status === "cancelled" ||
+            lo.orderType === "nc" ||
+            lo.paymentStatus === "nc"
+          ) {
+            totalsById.delete(targetId);
+            totalsById.delete(lo.id);
+            continue;
+          }
+          if (serverSucceeded && lo.synced === true) continue;
+          totalsById.set(targetId, Number(lo.total) || 0);
+        }
+        let sum = 0;
+        totalsById.forEach((v) => {
+          sum += v;
+        });
+        return sum;
+      };
+
+      const readCachedRevenue = () => {
+        try {
+          const raw = localStorage.getItem(cacheKey);
+          if (!raw) return computeMergedRevenue([], false);
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.rows)) {
+            return computeMergedRevenue(parsed.rows, false);
+          }
+          const scalar = Number(parsed) || 0;
+          const fallbackLocal = localOrders
+            .filter(
+              (lo) =>
+                lo.status !== "deleted" &&
+                lo.status !== "held" &&
+                lo.status !== "new" &&
+                lo.status !== "cancelled" &&
+                lo.orderType !== "nc" &&
+                lo.paymentStatus !== "nc",
+            )
+            .reduce((s, lo) => s + (Number(lo.total) || 0), 0);
+          return scalar + fallbackLocal;
+        } catch {
+          return 0;
+        }
+      };
+
+      if (isOfflineNow()) {
+        return readCachedRevenue();
+      }
+
+      try {
+        const PAGE_SIZE = 1000;
+        const allRows: Array<{ id: string; total: number }> = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await supabase
+            .from("orders")
+            .select("id, total")
+            .eq("restaurant_id", restaurantId)
+            .in("source", ["quickserve", "pos"])
+            .in("status", ["preparing", "ready", "served", "completed"])
+            .or("payment_status.is.null,payment_status.neq.nc")
+            .or("order_type.is.null,order_type.neq.non-chargeable")
+            .gte("created_at", dayStart.toISOString())
+            .lte("created_at", dayEnd.toISOString())
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, from + PAGE_SIZE - 1);
+          if (error) throw error;
+          const batch = (data || []) as Array<{ id: string; total: number }>;
+          allRows.push(...batch);
+          if (batch.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+
+        const serverRevenue = allRows.reduce(
+          (sum, o) => sum + (Number(o.total) || 0),
+          0,
+        );
+        try {
+          localStorage.setItem(
+            cacheKey,
+            JSON.stringify({ total: serverRevenue, rows: allRows }),
+          );
+        } catch {
+          /* ignore */
+        }
+        return computeMergedRevenue(allRows, true);
+      } catch {
+        return readCachedRevenue();
+      }
     },
-    enabled: !!restaurantId,
-    refetchInterval: 30000,
+    enabled: !!restaurantId && canViewRevenue,
+    refetchInterval: 120000,
   });
 
-  // Today's order count — counts all non-NC orders processed today
+  // Today's order count — counts all non-NC orders processed today (online + offline)
   const { data: todaysOrderCount = 0 } = useQuery({
     queryKey: ["quickserve-todays-count", restaurantId],
+    networkMode: "always",
     queryFn: async () => {
       if (!restaurantId) return 0;
       const today = new Date();
-      const { count } = await supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("restaurant_id", restaurantId)
-        .in("status", ["preparing", "ready", "completed"])
-        .neq("payment_status", "nc")
-        .gte("created_at", startOfDay(today).toISOString())
-        .lte("created_at", endOfDay(today).toISOString());
-      return count || 0;
+      const dayStart = startOfDay(today);
+      const dayEnd = endOfDay(today);
+      const ymd = dayStart.toISOString().slice(0, 10);
+      const cacheKey = `qs_todays_count_${restaurantId}_${ymd}`;
+
+      const localOrders = (await getLocalOrdersByRestaurant(restaurantId)).filter(
+        (lo) => {
+          const src = (lo.source || "").toLowerCase();
+          if (src && src !== "quickserve" && src !== "pos") return false;
+          const ts = new Date(lo.createdAt).getTime();
+          return ts >= dayStart.getTime() && ts <= dayEnd.getTime();
+        },
+      );
+
+      const computeMergedCount = (
+        serverRows: Array<{ id: string; order_number?: number | null }>,
+        serverSucceeded: boolean,
+      ) => {
+        const ids = new Set<string>(serverRows.map((r) => r.id));
+        for (const lo of localOrders) {
+          const targetId = lo.orderId || lo.id;
+          if (
+            lo.status === "deleted" ||
+            lo.status === "held" ||
+            lo.status === "new" ||
+            lo.status === "cancelled" ||
+            lo.orderType === "nc" ||
+            lo.paymentStatus === "nc"
+          ) {
+            ids.delete(targetId);
+            ids.delete(lo.id);
+            continue;
+          }
+          if (serverSucceeded && lo.synced === true) continue;
+          ids.add(targetId);
+        }
+        return ids.size;
+      };
+
+      const readCachedCount = () => {
+        try {
+          const raw = localStorage.getItem(cacheKey);
+          if (!raw) return computeMergedCount([], false);
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.rows)) {
+            return computeMergedCount(parsed.rows, false);
+          }
+          const scalar = Number(parsed) || 0;
+          const activeLocal = localOrders.filter(
+            (lo) =>
+              lo.status !== "deleted" &&
+              lo.status !== "held" &&
+              lo.status !== "new" &&
+              lo.status !== "cancelled" &&
+              lo.orderType !== "nc" &&
+              lo.paymentStatus !== "nc",
+          ).length;
+          return scalar + activeLocal;
+        } catch {
+          return 0;
+        }
+      };
+
+      if (isOfflineNow()) {
+        return readCachedCount();
+      }
+
+      try {
+        const PAGE_SIZE = 1000;
+        const serverRows: Array<{ id: string; order_number?: number | null }> = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await supabase
+            .from("orders")
+            .select("id, order_number")
+            .eq("restaurant_id", restaurantId)
+            .in("source", ["quickserve", "pos"])
+            .in("status", ["preparing", "ready", "served", "completed"])
+            .or("payment_status.is.null,payment_status.neq.nc")
+            .gte("created_at", dayStart.toISOString())
+            .lte("created_at", dayEnd.toISOString())
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, from + PAGE_SIZE - 1);
+          if (error) throw error;
+          const batch = (data || []) as Array<{ id: string; order_number?: number | null }>;
+          serverRows.push(...batch);
+          if (batch.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+
+        const maxNum = serverRows.reduce(
+          (m: number, r: any) => Math.max(m, Number(r.order_number) || 0),
+          0,
+        );
+        if (maxNum > 0) recordQuickServeOrderNumber(restaurantId, maxNum);
+        const serverCount = serverRows.length;
+        try {
+          localStorage.setItem(
+            cacheKey,
+            JSON.stringify({ count: serverCount, rows: serverRows }),
+          );
+        } catch {
+          /* ignore */
+        }
+        return computeMergedCount(serverRows, true);
+      } catch {
+        return readCachedCount();
+      }
     },
     enabled: !!restaurantId,
-    refetchInterval: 30000,
+    refetchInterval: 120000,
   });
 
   // Cart counts for menu badges
@@ -260,6 +590,11 @@ const QuickServePOS: React.FC = () => {
     setOrderItems([]);
     setCustomerName("");
     setCustomerPhone("");
+    setEditingOrderId(null);
+    setEditingOrderNumber(null);
+    setEditingOrderItems([]);
+    setEditingOrderCompletionStatus([]);
+    setEditingOrderPaidAmount(0);
     toast({
       title: "Order Cleared",
       description: "All items removed",
@@ -285,6 +620,8 @@ const QuickServePOS: React.FC = () => {
     setEditingOrderId(null);
     setEditingOrderNumber(null);
     setEditingOrderItems([]);
+    setEditingOrderCompletionStatus([]);
+    setEditingOrderPaidAmount(0);
     // Refresh active orders and stats
     queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
     queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
@@ -405,7 +742,405 @@ const QuickServePOS: React.FC = () => {
       );
       const orderTotal = Math.max(0, afterDiscount - loyaltyDiscountAmount);
 
-      // Generate daily sequential order token
+      const totalDiscountAmount =
+        discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
+      const discountNotesParts: string[] = [];
+      if (discountPercentage > 0) {
+        discountNotesParts.push(
+          `${discountPercentage}% off (₹${discountValue.toFixed(2)})`,
+        );
+      } else if (discountValue > 0) {
+        discountNotesParts.push(
+          `Manual discount ₹${discountValue.toFixed(2)}`,
+        );
+      }
+      if (couponDiscountAmount > 0) {
+        discountNotesParts.push(
+          `Coupon (₹${couponDiscountAmount.toFixed(2)})`,
+        );
+      }
+      if (loyaltyDiscountAmount > 0) {
+        discountNotesParts.push(
+          `${loyaltyPointsUsed} pts redeemed (₹${loyaltyDiscountAmount.toFixed(2)})`,
+        );
+      }
+      const discountNotes = discountNotesParts.join(" + ");
+      const effectiveDiscountPct =
+        itemsSubtotal > 0 && totalDiscountAmount > 0
+          ? Math.round((totalDiscountAmount / itemsSubtotal) * 100)
+          : 0;
+
+      // ─── OFFLINE SEND TO KITCHEN (new order OR edit existing order) ──────
+      if (isOfflineNow()) {
+        const nowIso = new Date().toISOString();
+        const printOfflineKot = (
+          tokenNum: number,
+          kotItems: Array<{
+            name: string;
+            quantity: number;
+            price?: number;
+            notes?: string[] | string;
+          }>,
+          isAddition = false,
+        ) => {
+          if (!isPrinterConnected) return;
+          thermalPrinterService
+            .printKOT({
+              tableName: `Token #${String(tokenNum).padStart(3, "0")}`,
+              serverName: attendantName,
+              items: kotItems.map((item) => ({
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price,
+                notes: Array.isArray(item.notes)
+                  ? item.notes.length > 0
+                    ? item.notes.join(", ")
+                    : undefined
+                  : item.notes,
+              })),
+              ...(isAddition ? { isAddition: true } : {}),
+              orderType: "takeaway",
+            })
+            .catch((err) => {
+              console.error("Offline KOT print error:", err);
+              toast({
+                title: "KOT Print Failed",
+                description: err?.message || "Order saved, but KOT could not be printed.",
+                variant: "destructive",
+              });
+            });
+        };
+
+        if (editingOrderId) {
+          const localExisting = await getLocalOrder(editingOrderId);
+          const orderNum =
+            editingOrderNumber || localExisting?.orderNumber || 0;
+          const fullTotal = orderItems.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0,
+          );
+          const existingCompletionStatus =
+            localExisting?.itemCompletionStatus &&
+            localExisting.itemCompletionStatus.length > 0
+              ? localExisting.itemCompletionStatus
+              : editingOrderCompletionStatus;
+          const consumedIndices = new Set<number>();
+          const preciseCompletionStatus = orderItems.map((item) => {
+            const matchIdx = editingOrderItems.findIndex((orig, origIdx) => {
+              if (consumedIndices.has(origIdx)) return false;
+              return (
+                orig.name === item.name &&
+                orig.price === item.price &&
+                (orig.notes || "") === (item.notes || "")
+              );
+            });
+            if (matchIdx !== -1) {
+              consumedIndices.add(matchIdx);
+              return existingCompletionStatus[matchIdx] ?? false;
+            }
+            return false;
+          });
+
+          const collectedPaidAmount =
+            typeof localExisting?.paidAmount === "number"
+              ? localExisting.paidAmount
+              : editingOrderPaidAmount > 0
+              ? editingOrderPaidAmount
+              : localExisting?.paymentStatus === "paid"
+              ? Number(localExisting?.total) || 0
+              : 0;
+          const isNonChargeable =
+            localExisting?.paymentStatus === "nc" ||
+            localExisting?.orderType === "nc";
+          const rawDiscountVal = Number(localExisting?.discount) || 0;
+          const existingDiscount =
+            localExisting?.discountType === "percentage"
+              ? (fullTotal * rawDiscountVal) / 100
+              : rawDiscountVal;
+          const adjustedTotal = isNonChargeable
+            ? 0
+            : Math.max(0, fullTotal - existingDiscount);
+          const hasBalanceDue =
+            !isNonChargeable && adjustedTotal > collectedPaidAmount + 0.005;
+          const nextPaymentStatus = isNonChargeable
+            ? "nc"
+            : hasBalanceDue
+            ? "pending"
+            : collectedPaidAmount > 0
+            ? "paid"
+            : localExisting?.paymentStatus || "pending";
+
+          const queuedWrites: Parameters<typeof commitLocalOrderAndWritesAtomic>[1] = [
+            {
+              type: "order",
+              operation: "update",
+              payload: {
+                id: editingOrderId,
+                items: formattedItems,
+                total: adjustedTotal,
+                status: "preparing",
+                item_completion_status: preciseCompletionStatus,
+                payment_status: nextPaymentStatus,
+                updated_at: nowIso,
+              },
+            },
+          ];
+
+          const originalMap = new Map<string, number>();
+          editingOrderItems.forEach((item) => {
+            const key = `${item.name}@@${item.price}@@${item.notes || ""}`;
+            originalMap.set(key, (originalMap.get(key) || 0) + item.quantity);
+          });
+          const currentMap = new Map<
+            string,
+            {
+              name: string;
+              price: number;
+              quantity: number;
+              notes?: string;
+              menuItemId?: string;
+            }
+          >();
+          orderItems.forEach((item) => {
+            const key = `${item.name}@@${item.price}@@${item.notes || ""}`;
+            const existing = currentMap.get(key);
+            if (existing) existing.quantity += item.quantity;
+            else {
+              currentMap.set(key, {
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity,
+                notes: item.notes,
+                menuItemId: item.menuItemId,
+              });
+            }
+          });
+          const newKitchenItems: any[] = [];
+          currentMap.forEach((current, key) => {
+            const netNew = current.quantity - (originalMap.get(key) || 0);
+            if (netNew > 0) {
+              const cartItem = orderItems.find(
+                (it) =>
+                  `${it.name}@@${it.price}@@${it.notes || ""}` === key,
+              );
+              newKitchenItems.push({
+                name: current.name,
+                quantity: netNew,
+                price: current.price,
+                menuItemId: current.menuItemId,
+                notes: current.notes ? [current.notes] : [],
+                priority: cartItem?.priority || "normal",
+                is_addition: true,
+                parent_order_number: orderNum,
+              });
+            }
+          });
+
+          if (newKitchenItems.length > 0) {
+            queuedWrites.push({
+              type: "kitchen_order",
+              operation: "insert",
+              payload: {
+                id: crypto.randomUUID(),
+                order_id: editingOrderId,
+                restaurant_id: restaurantId,
+                source: "QuickServe",
+                status: "preparing",
+                items: newKitchenItems,
+                order_type: "takeaway",
+                customer_name: finalCustomerName,
+                server_name: attendantName,
+                priority: "normal",
+                _deductInventory: true,
+                created_at: nowIso,
+                updated_at: nowIso,
+              },
+            });
+
+            printOfflineKot(orderNum, newKitchenItems, true);
+          }
+
+          await commitLocalOrderAndWritesAtomic(
+            {
+              ...(localExisting || {
+                id: editingOrderId,
+                orderId: editingOrderId,
+                restaurant_id: restaurantId,
+                source: "quickserve",
+                orderType: "takeaway",
+                priority: "normal",
+                createdAt: nowIso,
+              }),
+              id: editingOrderId,
+              orderId: editingOrderId,
+              orderNumber: orderNum || null,
+              status: "preparing",
+              items: kitchenItems,
+              formattedItems,
+              itemCompletionStatus: preciseCompletionStatus,
+              total: adjustedTotal,
+              subtotal: fullTotal,
+              paidAmount: collectedPaidAmount,
+              customerName: finalCustomerName,
+              customerPhone: customerPhone || undefined,
+              attendant: attendantName,
+              paymentStatus: nextPaymentStatus,
+              updatedAt: nowIso,
+              synced: false,
+            },
+            queuedWrites,
+          );
+
+          const newItemCount = newKitchenItems.reduce(
+            (s, i) => s + i.quantity,
+            0,
+          );
+          toast({
+            title: `Token #${String(orderNum).padStart(3, "0")} — Updated (Offline)`,
+            description:
+              newItemCount > 0
+                ? `${newItemCount} new item(s) queued — will sync when connected`
+                : "Order updated locally — will sync when connected",
+            duration: 3000,
+          });
+        } else {
+          const fingerprint = `${restaurantId}|${orderTotal}|${finalCustomerName}|${formattedItems.join(",")}`;
+          const reused =
+            pendingKitchenSubmitRef.current?.fingerprint === fingerprint
+              ? pendingKitchenSubmitRef.current
+              : null;
+          const offlineOrderId = reused?.orderId || crypto.randomUUID();
+          const offlineKitchenOrderId =
+            reused?.kitchenOrderId || crypto.randomUUID();
+          const nextOrderNumber =
+            reused?.orderNumber || allocateOfflineQuickServeToken(restaurantId);
+          pendingKitchenSubmitRef.current = {
+            fingerprint,
+            orderId: offlineOrderId,
+            kitchenOrderId: offlineKitchenOrderId,
+            orderNumber: nextOrderNumber,
+          };
+          const initialCompletionStatus = orderItems.map(() => false);
+
+          // Enqueue parent `order` BEFORE `kitchen_order` so replay satisfies FK constraint
+          await commitLocalOrderAndWritesAtomic(
+            {
+              id: offlineOrderId,
+              orderId: offlineOrderId,
+              restaurant_id: restaurantId,
+              source: "quickserve",
+              orderType: "takeaway",
+              status: "preparing",
+              priority: "normal",
+              orderNumber: nextOrderNumber,
+              items: kitchenItems,
+              formattedItems,
+              itemCompletionStatus: initialCompletionStatus,
+              total: orderTotal,
+              subtotal: itemsSubtotal,
+              paidAmount: 0,
+              discount: effectiveDiscountPct || totalDiscountAmount || undefined,
+              discountType: effectiveDiscountPct
+                ? "percentage"
+                : totalDiscountAmount
+                ? "amount"
+                : undefined,
+              customerName: finalCustomerName,
+              customerPhone: customerPhone || undefined,
+              attendant: attendantName,
+              paymentStatus: "pending",
+              createdAt: nowIso,
+              updatedAt: nowIso,
+              synced: false,
+            },
+            [
+              {
+                type: "order",
+                operation: "insert",
+                payload: {
+                  id: offlineOrderId,
+                  restaurant_id: restaurantId,
+                  customer_name: finalCustomerName,
+                  items: formattedItems,
+                  total: orderTotal,
+                  status: "preparing",
+                  payment_status: "pending",
+                  source: "quickserve",
+                  order_type: "takeaway",
+                  attendant: attendantName,
+                  order_number: nextOrderNumber,
+                  item_completion_status: initialCompletionStatus,
+                  ...(totalDiscountAmount > 0 && {
+                    discount_amount: totalDiscountAmount,
+                  }),
+                  ...(effectiveDiscountPct > 0 && {
+                    discount_percentage: effectiveDiscountPct,
+                  }),
+                  ...(discountNotes && { discount_notes: discountNotes }),
+                  ...(customerPhone && { customer_phone: customerPhone }),
+                  created_at: nowIso,
+                  updated_at: nowIso,
+                },
+              },
+              {
+                type: "kitchen_order",
+                operation: "insert",
+                payload: {
+                  id: offlineKitchenOrderId,
+                  order_id: offlineOrderId,
+                  restaurant_id: restaurantId,
+                  source: "QuickServe",
+                  status: "preparing",
+                  items: kitchenItems,
+                  order_type: "takeaway",
+                  customer_name: finalCustomerName,
+                  server_name: attendantName,
+                  priority: "normal",
+                  _deductInventory: true,
+                  created_at: nowIso,
+                  updated_at: nowIso,
+                },
+              },
+            ],
+          );
+          pendingKitchenSubmitRef.current = null;
+
+          printOfflineKot(nextOrderNumber, kitchenItems);
+
+          toast({
+            title: `Token #${String(nextOrderNumber).padStart(3, "0")} — Saved Offline ✓`,
+            description: `Queued for ${finalCustomerName} — will sync automatically when connected.`,
+            duration: 3000,
+          });
+        }
+
+        setOrderItems([]);
+        setCustomerName("");
+        setCustomerPhone("");
+        setShowMobileCart(false);
+        setDiscountAmount(0);
+        setDiscountPercentage(0);
+        setLoyaltyCustomer(null);
+        setLoyaltyPointsUsed(0);
+        setLoyaltyDiscountAmount(0);
+        setAppliedCoupon(null);
+        setCouponDiscountAmount(0);
+        setCouponError(null);
+        setEditingOrderId(null);
+        setEditingOrderNumber(null);
+        setEditingOrderItems([]);
+        setEditingOrderCompletionStatus([]);
+        setEditingOrderPaidAmount(0);
+
+        queryClient.invalidateQueries({ queryKey: ["qs-active-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["quickserve-todays-count"] });
+        queryClient.invalidateQueries({
+          queryKey: ["quickserve-todays-revenue"],
+        });
+        return;
+      }
+
+      // Generate daily sequential order token (online)
       const today = new Date();
       const todayStart = new Date(
         today.getFullYear(),
@@ -428,6 +1163,7 @@ const QuickServePOS: React.FC = () => {
         .limit(1);
       const nextOrderNumber =
         ((maxOrderRow?.[0]?.order_number as number) || 0) + 1;
+      recordQuickServeOrderNumber(restaurantId, nextOrderNumber);
 
       // Initialize item completion status
       const initialCompletionStatus = orderItems.map(() => false);
@@ -644,37 +1380,7 @@ const QuickServePOS: React.FC = () => {
 
       if (kitchenError) throw kitchenError;
 
-      const totalDiscountAmount =
-        discountValue + couponDiscountAmount + (loyaltyDiscountAmount || 0);
-
-      // Build discount notes
-      const discountNotesParts: string[] = [];
-      if (discountPercentage > 0) {
-        discountNotesParts.push(
-          `${discountPercentage}% off (₹${discountValue.toFixed(2)})`,
-        );
-      } else if (discountValue > 0) {
-        discountNotesParts.push(
-          `Manual discount ₹${discountValue.toFixed(2)}`,
-        );
-      }
-      if (couponDiscountAmount > 0) {
-        discountNotesParts.push(
-          `Coupon (₹${couponDiscountAmount.toFixed(2)})`,
-        );
-      }
-      if (loyaltyDiscountAmount > 0) {
-        discountNotesParts.push(
-          `${loyaltyPointsUsed} pts redeemed (₹${loyaltyDiscountAmount.toFixed(2)})`,
-        );
-      }
-      const discountNotes = discountNotesParts.join(" + ");
-      const effectiveDiscountPct =
-        itemsSubtotal > 0 && totalDiscountAmount > 0
-          ? Math.round((totalDiscountAmount / itemsSubtotal) * 100)
-          : 0;
-
-      // 2. Create order with payment_status: "pending"
+      // 2. Create order with payment_status: "pending" (reuses discount totals computed above)
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -779,9 +1485,9 @@ const QuickServePOS: React.FC = () => {
   }, [
     orderItems, restaurantId, sendingToKitchen, user, customerName,
     customerPhone, discountAmount, discountPercentage, couponDiscountAmount,
-    loyaltyDiscountAmount, loyaltyPointsUsed, appliedCoupon, toast,
-    queryClient, syncCustomerToCRM, editingOrderId, editingOrderItems,
-    currencySymbol,
+    loyaltyDiscountAmount, loyaltyPointsUsed, toast,
+    queryClient, syncCustomerToCRM, editingOrderId, editingOrderNumber, editingOrderItems,
+    isOfflineNow, isPrinterConnected, currencySymbol,
   ]);
 
   // Add custom item
@@ -824,46 +1530,61 @@ const QuickServePOS: React.FC = () => {
       setCouponError(null);
 
       try {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const { data, error } = await supabase
-          .from("promotion_campaigns")
-          .select("*")
-          .eq("restaurant_id", restaurantId)
-          .eq("promotion_code", code.trim())
-          .eq("is_active", true)
-          .lte("start_date", todayStr)
-          .gte("end_date", todayStr)
-          .maybeSingle();
+        const todayStr = new Date().toISOString().split("T")[0];
+        let matchedCoupon: any = null;
 
-        if (error || !data) {
+        if (isOfflineNow()) {
+          matchedCoupon =
+            (availableCoupons || []).find(
+              (c: any) =>
+                c.is_active !== false &&
+                (!c.start_date || String(c.start_date) <= todayStr) &&
+                (!c.end_date || String(c.end_date) >= todayStr) &&
+                String(c.promotion_code || "").toLowerCase() ===
+                  code.trim().toLowerCase(),
+            ) || null;
+        } else {
+          const { data, error } = await supabase
+            .from("promotion_campaigns")
+            .select("*")
+            .eq("restaurant_id", restaurantId)
+            .eq("promotion_code", code.trim())
+            .eq("is_active", true)
+            .lte("start_date", todayStr)
+            .gte("end_date", todayStr)
+            .maybeSingle();
+          if (!error && data) matchedCoupon = data;
+        }
+
+        if (!matchedCoupon) {
           setCouponError("Invalid or expired coupon");
           return;
         }
 
         setAppliedCoupon({
-          id: data.id,
-          code: data.promotion_code,
-          name: data.name,
-          discount_percentage: data.discount_percentage,
-          discount_amount: data.discount_amount,
+          id: matchedCoupon.id,
+          code: matchedCoupon.promotion_code,
+          name: matchedCoupon.name,
+          discount_percentage: matchedCoupon.discount_percentage,
+          discount_amount: matchedCoupon.discount_amount,
         });
-        
+
         // Reset manual discount when applying a coupon to avoid double dipping
         setDiscountAmount(0);
         setDiscountPercentage(0);
 
         toast({
           title: "Coupon Applied",
-          description: `${data.name} applied successfully!`,
+          description: `${matchedCoupon.name} applied successfully!`,
           duration: 2000,
         });
-      } catch (e) {
+      } catch {
         setCouponError("Failed to apply coupon");
       } finally {
         setCouponLoading(false);
       }
     },
-    [restaurantId, toast],
+    [restaurantId, availableCoupons, isOfflineNow, toast],
   );
 
   const handleRemoveCoupon = useCallback(() => {
@@ -967,6 +1688,20 @@ const QuickServePOS: React.FC = () => {
 
       setEditingOrderId(order.id);
       setEditingOrderNumber(order.order_number || null);
+      setEditingOrderCompletionStatus(
+        Array.isArray(order.item_completion_status)
+          ? order.item_completion_status
+          : [],
+      );
+      setEditingOrderPaidAmount(
+        typeof (order as any).paid_amount === "number"
+          ? (order as any).paid_amount
+          : typeof (order as any).paidAmount === "number"
+          ? (order as any).paidAmount
+          : order.payment_status === "paid"
+          ? Number(order.total) || 0
+          : 0,
+      );
       // Store original items snapshot for kitchen diff (what was originally in the order)
       setEditingOrderItems(existingParsed.map(item => ({ ...item })));
       // Load ALL existing items into the editable cart
@@ -1049,13 +1784,15 @@ const QuickServePOS: React.FC = () => {
                 {todaysOrderCount}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md rounded-xl px-2.5 py-1.5 border border-white/10">
-              <TrendingUp className="h-3 w-3 text-emerald-300" />
-              <span className="text-xs font-bold text-white">
-                {currencySymbol}
-                {todaysRevenue.toFixed(0)}
-              </span>
-            </div>
+            {canViewRevenue && (
+              <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md rounded-xl px-2.5 py-1.5 border border-white/10">
+                <TrendingUp className="h-3 w-3 text-emerald-300" />
+                <span className="text-xs font-bold text-white">
+                  {currencySymbol}
+                  {todaysRevenue.toFixed(0)}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1089,12 +1826,33 @@ const QuickServePOS: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setShowDailySummary(true)}
-            className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-md rounded-xl px-3 py-2 border border-white/10 transition-all active:scale-95 ml-auto"
+            onClick={() => setShowPrinterDialog(true)}
+            className={`flex items-center gap-1.5 backdrop-blur-md rounded-xl px-3 py-2 border transition-all active:scale-95 ${
+              isPrinterConnected
+                ? "bg-emerald-500/30 hover:bg-emerald-500/40 border-emerald-300/40"
+                : "bg-white/15 hover:bg-white/25 border-white/10"
+            }`}
+            title={isPrinterConnected ? "Thermal Printer Connected" : "Setup Thermal Printer"}
           >
-            <FileText className="h-3.5 w-3.5 text-pink-200" />
-            <span className="text-xs font-semibold text-white">End Day</span>
+            <Printer
+              className={`h-3.5 w-3.5 ${
+                isPrinterConnected ? "text-emerald-200" : "text-white/80"
+              }`}
+            />
+            <span className="text-xs font-semibold text-white">
+              {isPrinterConnected ? "Printer ✓" : "Printer"}
+            </span>
           </button>
+
+          {canViewRevenue && (
+            <button
+              onClick={() => setShowDailySummary(true)}
+              className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-md rounded-xl px-3 py-2 border border-white/10 transition-all active:scale-95 ml-auto"
+            >
+              <FileText className="h-3.5 w-3.5 text-pink-200" />
+              <span className="text-xs font-semibold text-white">End Day</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -1161,6 +1919,8 @@ const QuickServePOS: React.FC = () => {
               setEditingOrderId(null);
               setEditingOrderNumber(null);
               setEditingOrderItems([]);
+              setEditingOrderCompletionStatus([]);
+              setEditingOrderPaidAmount(0);
               setOrderItems([]);
               setCustomerName("");
               setCustomerPhone("");
@@ -1248,6 +2008,8 @@ const QuickServePOS: React.FC = () => {
                 setEditingOrderId(null);
                 setEditingOrderNumber(null);
                 setEditingOrderItems([]);
+                setEditingOrderCompletionStatus([]);
+                setEditingOrderPaidAmount(0);
                 setOrderItems([]);
                 setCustomerName("");
                 setCustomerPhone("");
@@ -1278,6 +2040,8 @@ const QuickServePOS: React.FC = () => {
           id: editingOrderId,
           total: orderItems.reduce((s, i) => s + i.price * i.quantity, 0),
           orderNumber: editingOrderNumber,
+          itemCompletionStatus: editingOrderCompletionStatus,
+          paidAmount: editingOrderPaidAmount,
         } : undefined}
         editingOrderItems={editingOrderItems}
       />
@@ -1314,8 +2078,20 @@ const QuickServePOS: React.FC = () => {
 
       {/* Daily Summary */}
       <DailySummaryDialog
-        isOpen={showDailySummary}
+        isOpen={showDailySummary && canViewRevenue}
         onClose={() => setShowDailySummary(false)}
+      />
+
+      {/* Printer Setup Dialog */}
+      <QSRPrinterDialog
+        isOpen={showPrinterDialog}
+        onClose={() => setShowPrinterDialog(false)}
+        onPrinterStateChange={() =>
+          setIsPrinterConnected(
+            nativePrinterBridge.isConnected() ||
+              thermalPrinterService.isConnected(),
+          )
+        }
       />
     </div>
   );

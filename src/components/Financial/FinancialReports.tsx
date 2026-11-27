@@ -19,15 +19,39 @@ import {
   DollarSign,
   FileText,
   Download,
+  AlertTriangle,
+  RotateCcw,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 
 export const FinancialReports = () => {
-  const { data: plData, isLoading: plLoading } = useProfitLoss();
-  const { data: financialData, isLoading: financialLoading } =
-    useFinancialData();
-  const { data: trendsData, isLoading: trendsLoading } = useFinancialTrends();
+  const {
+    data: plData,
+    isLoading: plLoading,
+    isError: plError,
+    error: plErrorObj,
+    refetch: refetchPL,
+  } = useProfitLoss();
+  const {
+    data: financialData,
+    isLoading: financialLoading,
+    isError: financialError,
+    error: financialErrorObj,
+    refetch: refetchFinancial,
+  } = useFinancialData();
+  const {
+    data: trendsData,
+    isLoading: trendsLoading,
+    isError: trendsError,
+    error: trendsErrorObj,
+    refetch: refetchTrends,
+  } = useFinancialTrends();
   const { hasHotelAccess } = useFinancialTabAccess();
+
+  const handleRetryAll = () =>
+    Promise.all([refetchFinancial(), refetchPL(), refetchTrends()]);
+  const hasAnyError = financialError || plError || trendsError;
+  const firstErrorObj = financialErrorObj || plErrorObj || trendsErrorObj;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -101,8 +125,44 @@ export const FinancialReports = () => {
     return <div>Loading financial overview...</div>;
   }
 
+  if (hasAnyError && (!financialData || !plData || !trendsData)) {
+    return (
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
+            <div>
+              <p className="font-semibold text-sm text-destructive">Failed to load financial overview</p>
+              <p className="text-xs text-muted-foreground">
+                {(firstErrorObj as Error)?.message || "A network or server error occurred."}
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleRetryAll}>
+            <RotateCcw className="mr-2 h-3.5 w-3.5" />
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {hasAnyError && (
+        <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive flex items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold text-sm">Failed to refresh financial data</p>
+            <p className="text-xs text-muted-foreground">
+              Showing cached data. {(firstErrorObj as Error)?.message || "Please retry."}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleRetryAll}>
+            <RotateCcw className="mr-2 h-3.5 w-3.5" />
+            Retry
+          </Button>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 bg-clip-text text-transparent">

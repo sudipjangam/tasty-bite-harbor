@@ -22,7 +22,7 @@ const RealtimeCustomers = () => {
 
     // Single channel for all CRM-related table subscriptions
     const crmChannel = supabase
-      .channel('crm-realtime')
+      .channel(`crm-realtime-${restaurantId}`)
       .on(
         'postgres_changes',
         {

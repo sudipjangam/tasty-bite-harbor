@@ -28,13 +28,15 @@ export const useKitchenThrottle = () => {
   useRealtimeSubscription({
     table: "kitchen_orders",
     queryKey: ["kitchen-throttle-orders", restaurantId],
+    filter: restaurantId ? { column: "restaurant_id", value: restaurantId } : null,
+    enabled: !!restaurantId,
   });
 
   // Fetch active kitchen orders
   const { data: activeOrders = [] } = useQuery({
     queryKey: ["kitchen-throttle-orders", restaurantId],
     enabled: !!restaurantId,
-    refetchInterval: 15000,
+    refetchInterval: 60000,
     queryFn: async () => {
       if (!restaurantId) return [];
       const { data, error } = await supabase
