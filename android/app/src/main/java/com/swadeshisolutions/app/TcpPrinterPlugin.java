@@ -1,13 +1,17 @@
 package com.swadeshisolutions.app;
 
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.posthog.android.PostHogAndroid;
 import android.util.Base64;
+import android.util.Log;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.Map;
 
 /**
  * TcpPrinterPlugin — raw TCP socket writer for WiFi/LAN thermal printers.
@@ -64,12 +68,90 @@ public class TcpPrinterPlugin extends Plugin {
                 Thread.sleep(200);
 
                 socket.close();
+                logPrinterJobCompleted();
                 call.resolve();
 
             } catch (Exception e) {
+                logPrinterJobFailed(e);
                 call.reject("TCP print failed: " + e.getMessage());
             }
         }).start();
+    }
+
+    private void logPrinterJobCompleted() {
+        try {
+            PostHogAndroid.getInstance().getLogger().info(
+                "native_printer_job_completed",
+                Map.of("connection_type", "lan")
+            );
+        } catch (Exception exception) {
+            Log.w("PostHogLogs", "Unable to log completed printer job", exception);
+        }
+    }
+
+    private void logPrinterJobFailed(Exception printException) {
+        try {
+            PostHogAndroid.getInstance().getLogger().error(
+                "native_printer_job_failed",
+                Map.of(
+                    "connection_type", "lan",
+                    "error_type", printException.getClass().getSimpleName()
+                )
+            );
+        } catch (Exception exception) {
+            Log.w("PostHogLogs", "Unable to log failed printer job", exception);
+        }
+    }
+
+    /**
+     * identifyPostHogUser — bind the native PostHog client to the authenticated WebView user.
+     */
+    @PluginMethod
+    public void identifyPostHogUser(PluginCall call) {
+        String distinctId = call.getString("distinctId");
+        if (distinctId == null || distinctId.trim().isEmpty()) {
+            call.reject("A stable user id is required");
+            return;
+        }
+
+        try {
+            JSObject properties = call.getObject("properties", new JSObject());
+            Map<String, Object> personProperties = properties.toMap();
+            PostHogAndroid.getInstance().identify(distinctId, personProperties);
+        } catch (Exception exception) {
+            Log.w("PostHogIdentity", "Unable to identify PostHog user", exception);
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void resetPostHogUser(PluginCall call) {
+        try {
+            PostHogAndroid.getInstance().reset();
+        } catch (Exception exception) {
+            Log.w("PostHogIdentity", "Unable to reset PostHog user", exception);
+        }
+        call.resolve();
+    }
+
+    /**
+     * capturePostHogEvent — capture an authenticated app action with non-PII properties.
+     */
+    @PluginMethod
+    public void capturePostHogEvent(PluginCall call) {
+        String event = call.getString("event");
+        if (event == null || event.trim().isEmpty()) {
+            call.reject("An event name is required");
+            return;
+        }
+
+        try {
+            JSObject properties = call.getObject("properties", new JSObject());
+            PostHogAndroid.getInstance().capture(event, properties.toMap());
+        } catch (Exception exception) {
+            Log.w("PostHogCapture", "Unable to capture PostHog event", exception);
+        }
+        call.resolve();
     }
 
     /**

@@ -10,6 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { withRetry, isNetworkError } from "@/utils/withRetry";
+import { identifyNativeUser, resetNativeUser } from "@/services/nativePrinterBridge";
 import {
   Permission,
   UserProfile,
@@ -51,11 +52,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(false);
 
       if (session?.user) {
+        if (event === "SIGNED_IN") {
+          void identifyNativeUser(session.user.id, session.user.email);
+        }
+
         // Defer Supabase calls with setTimeout to prevent deadlock
         setTimeout(() => {
           fetchUserProfile(session.user.id, session.user.email);
         }, 0);
       } else {
+        if (event === "SIGNED_OUT") {
+          void resetNativeUser();
+        }
         setUser(null);
       }
     });
@@ -257,6 +265,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signOut = useCallback(async (): Promise<void> => {
     // Sign out from Supabase
     await supabase.auth.signOut();
+    await resetNativeUser();
 
     // Clear all React Query cache to prevent stale data from previous session
     queryClient.clear();

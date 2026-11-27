@@ -2,6 +2,8 @@ package com.swadeshisolutions.app;
 
 import android.app.Application;
 import android.util.Log;
+import com.posthog.android.PostHogAndroid;
+import com.posthog.android.PostHogAndroidConfig;
 
 public class MainApplication extends Application {
     private static final String TAG = "SwadeshiCrashGuard";
@@ -38,5 +40,34 @@ public class MainApplication extends Application {
                 defaultHandler.uncaughtException(thread, throwable);
             }
         });
+
+        // Set up after the existing handler so PostHog autocapture wraps it.
+        initializePostHog();
+    }
+
+    private void initializePostHog() {
+        if (BuildConfig.POSTHOG_PROJECT_TOKEN.trim().isEmpty()) {
+            if (BuildConfig.DEBUG) {
+                throw new IllegalStateException("POSTHOG_PROJECT_TOKEN variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once POSTHOG_PROJECT_TOKEN is configured");
+            }
+            return;
+        }
+
+        if (BuildConfig.POSTHOG_HOST.trim().isEmpty()) {
+            if (BuildConfig.DEBUG) {
+                throw new IllegalStateException("POSTHOG_HOST variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once POSTHOG_HOST is configured");
+            }
+            return;
+        }
+
+        PostHogAndroidConfig config = new PostHogAndroidConfig(
+            BuildConfig.POSTHOG_PROJECT_TOKEN,
+            BuildConfig.POSTHOG_HOST
+        );
+        config.setDebug(BuildConfig.DEBUG);
+        config.getErrorTrackingConfig().setAutoCapture(true);
+        config.getLogs().setServiceName(getPackageName());
+        config.getLogs().setEnvironment(BuildConfig.DEBUG ? "debug" : "production");
+        PostHogAndroid.setup(this, config);
     }
 }

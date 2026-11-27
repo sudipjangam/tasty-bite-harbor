@@ -19,6 +19,7 @@ import {
 import { User, Phone, Mail, Users, Calendar, Clock, MessageSquare, Sparkles, Building, Car } from 'lucide-react';
 import { useTables } from '@/hooks/useTables';
 import { useRooms } from '@/hooks/useRooms';
+import { captureNativeEvent } from '@/services/nativePrinterBridge';
 
 interface UnifiedReservationDialogProps {
   isOpen: boolean;
@@ -98,6 +99,11 @@ const UnifiedReservationDialog: React.FC<UnifiedReservationDialogProps> = ({
     setIsSubmitting(true);
     try {
       await onSubmit(formData);
+      captureNativeEvent('reservation_created', {
+        reservation_type: type,
+        party_size: formData.party_size,
+        duration_minutes: formData.duration_minutes,
+      });
       setFormData({
         customer_name: '',
         customer_phone: '',

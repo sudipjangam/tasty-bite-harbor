@@ -103,6 +103,7 @@ import { FeatureLock } from "@/components/Auth/FeatureLock";
 import { Quick86Modal } from "@/components/Menu/Quick86Modal";
 import { use86Cascade } from "@/hooks/use86Cascade";
 import { useOnlineDelivery } from "@/hooks/useOnlineDelivery";
+import { captureNativeEvent } from "@/services/nativePrinterBridge";
 
 interface InventoryItem {
   id: string;
@@ -411,6 +412,11 @@ const Inventory = () => {
           title: "Item updated successfully",
           description: `"${itemData.name}" has been updated.`,
         });
+        captureNativeEvent("inventory_item_saved", {
+          operation: "updated",
+          category: itemData.category,
+          quantity: itemData.quantity,
+        });
       } else if (editingItem && isAddingStock) {
         await addStockToExistingItem(editingItem, itemData, userProfile.restaurant_id);
       } else {
@@ -682,6 +688,11 @@ const Inventory = () => {
             title: "Item added successfully",
             description: `"${itemData.name}" has been added to inventory.`,
           });
+          captureNativeEvent("inventory_item_saved", {
+            operation: "created",
+            category: itemData.category,
+            quantity: itemData.quantity,
+          });
         }
       }
 
@@ -749,6 +760,10 @@ const Inventory = () => {
       toast({
         title: "Item deleted",
         description: `"${itemToDelete.name}" has been removed.`,
+      });
+      captureNativeEvent("inventory_item_deleted", {
+        category: itemToDelete.category,
+        was_produced: Boolean(itemToDelete.is_produced),
       });
       refetch();
       setItemToDelete(null);

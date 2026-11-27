@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { GoogleGenAI } from "https://esm.sh/@google/genai";
+import {
+  createAiGenerationContext,
+  createGeminiClient,
+  flushPostHog,
+  type AiGenerationContext,
+} from "../_shared/posthog-ai.ts";
 import { 
   checkRateLimit, 
   createRateLimitResponse, 
@@ -34,7 +39,7 @@ serve(async (req) => {
   try {
     console.log("chat-with-gemini function called");
     const requestData = await req.json();
-    const { messages, restaurantId, analysisType, days } = requestData;
+    const { messages, restaurantId, analysisType, days, aiSessionId } = requestData;
 
     if (!messages || !Array.isArray(messages)) {
       console.error("Invalid messages format");
@@ -69,6 +74,7 @@ serve(async (req) => {
 
     let restaurantData = null;
     let verifiedRestaurantId: string | null = null;
+    let authenticatedUserId: string | undefined;
     
     // SECURITY FIX: Create Supabase client with user's token (NOT service_role key)
     // This ensures RLS policies automatically enforce access control
@@ -105,6 +111,7 @@ serve(async (req) => {
         }
 
         // Use verified restaurant_id from profile - IGNORE any restaurantId from request body
+        authenticatedUserId = user.id;
         verifiedRestaurantId = profile.restaurant_id;
         console.log(`Verified user ${user.id} belongs to restaurant: ${verifiedRestaurantId}`);
         
@@ -408,15 +415,17 @@ serve(async (req) => {
       }
     }
 
+    const aiContext = createAiGenerationContext(aiSessionId, authenticatedUserId);
+
     if (analysisType && restaurantData) {
       console.log(`Processing ${analysisType} request`);
       
       if (analysisType === 'sales_forecast') {
-        return await handleSalesForecast(apiKey, restaurantData, days || 7, corsHeaders);
+        return await handleSalesForecast(apiKey, restaurantData, days || 7, corsHeaders, aiContext);
       }
       
       if (analysisType === 'inventory_recommendations') {
-        return await handleInventoryRecommendations(apiKey, restaurantData, corsHeaders);
+        return await handleInventoryRecommendations(apiKey, restaurantData, corsHeaders, aiContext);
       }
     }
 
@@ -712,7 +721,7 @@ ALWAYS base your answers on this specific data. When asked for MTD, QTD, or YTD,
       systemPrompt += " When asked for predictions, forecasts, or future insights, use statistical methods on the historical data to provide informed predictions. Consider trends, seasonality, and day-of-week patterns.";
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createGeminiClient(apiKey);
 
     // Construct contents for SDK
     const contents = messages.map(msg => ({
@@ -736,7 +745,8 @@ ALWAYS base your answers on this specific data. When asked for MTD, QTD, or YTD,
             systemInstruction: {
               parts: [{ text: systemInstructionContent }]
             }
-          }
+          },
+          ...aiContext,
         });
         break; // Success, exit retry loop
       } catch (e: any) {
@@ -760,6 +770,7 @@ ALWAYS base your answers on this specific data. When asked for MTD, QTD, or YTD,
       throw lastError || new Error('Failed to get response from Gemini API');
     }
 
+    await flushPostHog();
     console.log("Received successful Gemini API SDK response");
     
     // access response text safely
@@ -809,7 +820,7 @@ interface RevenueDataItem {
   order_count: number;
 }
 
-async function handleSalesForecast(apiKey: string, restaurantData: Record<string, unknown> & { revenueStats: RevenueDataItem[] }, days: number, corsHeaders: Record<string, string>) {
+async function handleSalesForecast(apiKey: string, restaurantData: Record<string, unknown> & { revenueStats: RevenueDataItem[] }, days: number, corsHeaders: Record<string, string>, aiContext: AiGenerationContext) {
   console.log(`Generating sales forecast for ${days} days`);
   
   try {
@@ -845,7 +856,7 @@ Base your forecast on trends, patterns, seasonality, and day-of-week effects vis
 For each prediction, include a confidence level (0-100) and the key factors that influenced the prediction.
 `;
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createGeminiClient(apiKey);
 
     const response = await ai.models.generateContent({
       model: "gemini-3.7-flash",
@@ -859,9 +870,11 @@ For each prediction, include a confidence level (0-100) and the key factors that
         temperature: 0.2,
         topP: 0.8,
         topK: 40
-      }
+      },
+      ...aiContext,
     });
 
+    await flushPostHog();
     console.log("Received successful Gemini API forecast response");
     
     // access response text safely
@@ -896,7 +909,7 @@ interface InventoryDataItem {
   category: string;
 }
 
-async function handleInventoryRecommendations(apiKey: string, restaurantData: Record<string, unknown> & { inventoryItems: InventoryDataItem[], recentOrders: unknown[] }, corsHeaders: Record<string, string>) {
+async function handleInventoryRecommendations(apiKey: string, restaurantData: Record<string, unknown> & { inventoryItems: InventoryDataItem[], recentOrders: unknown[] }, corsHeaders: Record<string, string>, aiContext: AiGenerationContext) {
   console.log("Generating inventory recommendations");
   
   try {
@@ -946,7 +959,7 @@ Sort the recommendations by urgency (items closest to stockout first).
 Only include items that need attention - don't include items with sufficient stock.
 `;
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createGeminiClient(apiKey);
 
     const response = await ai.models.generateContent({
       model: "gemini-3.7-flash",
@@ -960,9 +973,11 @@ Only include items that need attention - don't include items with sufficient sto
         temperature: 0.2,
         topP: 0.8,
         topK: 40
-      }
+      },
+      ...aiContext,
     });
 
+    await flushPostHog();
     console.log("Received successful Gemini API inventory recommendations response");
     
     const textContent = response.text || '';

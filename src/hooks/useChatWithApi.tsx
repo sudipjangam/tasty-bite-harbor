@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useRestaurantId } from "./useRestaurantId";
@@ -19,6 +19,7 @@ export const useChatWithApi = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [pendingMessage, setPendingMessage] = useState("");
+  const aiSessionId = useRef(crypto.randomUUID());
   const { toast } = useToast();
 
   // Use centralized restaurant ID hook
@@ -56,6 +57,7 @@ export const useChatWithApi = () => {
               content: m.content,
             })),
             restaurantId,
+            aiSessionId: aiSessionId.current,
           },
         }
       );
@@ -338,6 +340,7 @@ export const useChatWithApi = () => {
               content: m.content,
             })),
             restaurantId, // Pass the restaurant ID for context
+            aiSessionId: aiSessionId.current,
           },
         });
 

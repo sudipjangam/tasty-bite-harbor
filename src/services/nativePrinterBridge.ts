@@ -19,9 +19,52 @@ import { App } from "@capacitor/app";
 interface TcpPrinterPlugin {
   connectAndPrint(opts: { ip: string; port: number; data: string }): Promise<void>;
   testConnection(opts: { ip: string; port: number }): Promise<void>;
+  identifyPostHogUser(opts: {
+    distinctId: string;
+    properties: Record<string, string>;
+  }): Promise<void>;
+  resetPostHogUser(): Promise<void>;
+  capturePostHogEvent(opts: {
+    event: string;
+    properties: Record<string, string | number | boolean>;
+  }): Promise<void>;
 }
 
 const TcpPrinter = registerPlugin<TcpPrinterPlugin>("TcpPrinter");
+
+export async function identifyNativeUser(distinctId: string, email?: string): Promise<void> {
+  if (!Capacitor.isNativePlatform() || !distinctId) return;
+
+  try {
+    await TcpPrinter.identifyPostHogUser({
+      distinctId,
+      properties: email ? { email } : {},
+    });
+  } catch (error) {
+    console.warn("[PostHog] Native user identification failed:", error);
+  }
+}
+
+export async function resetNativeUser(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+
+  try {
+    await TcpPrinter.resetPostHogUser();
+  } catch (error) {
+    console.warn("[PostHog] Native user reset failed:", error);
+  }
+}
+
+export function captureNativeEvent(
+  event: string,
+  properties: Record<string, string | number | boolean> = {},
+): void {
+  if (!Capacitor.isNativePlatform()) return;
+
+  void TcpPrinter.capturePostHogEvent({ event, properties }).catch((error) => {
+    console.warn("[PostHog] Native event capture failed:", error);
+  });
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

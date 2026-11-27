@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenAI } from "https://esm.sh/@google/genai";
+import {
+  createAiGenerationContext,
+  createGeminiClient,
+  flushPostHog,
+} from "../_shared/posthog-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,7 +64,8 @@ Return ONLY a valid JSON object without markdown or code fences:
   "summary": "Brief 1-sentence explanation of why this copy drives clicks"
 }`;
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createGeminiClient(apiKey);
+    const aiContext = createAiGenerationContext();
 
     let text = "";
     const modelsToTry = ["gemini-3.5-flash-lite", "gemini-3.5-flash"];
@@ -81,6 +86,7 @@ Return ONLY a valid JSON object without markdown or code fences:
             systemInstruction: { parts: [{ text: systemPrompt }] },
             temperature: 0.7,
           },
+          ...aiContext,
         });
         text = response.text || "";
         if (text) {
@@ -96,6 +102,8 @@ Return ONLY a valid JSON object without markdown or code fences:
     if (!text) {
       throw lastErr || new Error("All Gemini models failed to return content");
     }
+
+    await flushPostHog();
 
     // Bulletproof JSON parsing with regex fallback
     let parsed: any;

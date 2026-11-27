@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenAI } from "https://esm.sh/@google/genai";
+import {
+  createAiGenerationContext,
+  createGeminiClient,
+  flushPostHog,
+} from "../_shared/posthog-ai.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,7 +38,8 @@ serve(async (req) => {
     }
 
     console.log("Initializing GoogleGenAI...");
-    const genAI = new GoogleGenAI({ apiKey });
+    const genAI = createGeminiClient(apiKey);
+    const aiContext = createAiGenerationContext();
     
     // Extract base64 data (remove data URL prefix if present)
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
@@ -103,7 +108,8 @@ If you cannot read a value clearly, use null for that field. For items array, in
               { text: prompt }
             ]
           }
-        ]
+        ],
+        ...aiContext,
       });
     } catch (modelErr: any) {
       console.warn("Primary gemini-3.7-flash failed, attempting fallback to gemini-2.0-flash:", modelErr.message || modelErr);
@@ -122,10 +128,12 @@ If you cannot read a value clearly, use null for that field. For items array, in
               { text: prompt }
             ]
           }
-        ]
+        ],
+        ...aiContext,
       });
     }
 
+    await flushPostHog();
     console.log("Received response from Gemini");
     
     // Access the text property (not a function in this SDK version)

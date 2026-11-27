@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenAI } from "https://esm.sh/@google/genai";
+import {
+  createAiGenerationContext,
+  createGeminiClient,
+  flushPostHog,
+} from "../_shared/posthog-ai.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,7 +49,8 @@ serve(async (req) => {
     }
 
     console.log("Initializing GoogleGenAI...");
-    const genAI = new GoogleGenAI({ apiKey });
+    const genAI = createGeminiClient(apiKey);
+    const aiContext = createAiGenerationContext();
 
     const systemPrompt = `You are a professional restaurant menu extraction assistant.
 Your task is to parse the user's input (which could be unstructured text list or one or more images of a restaurant menu) and extract all menu items.
@@ -134,7 +139,8 @@ You MUST respond with a single valid JSON object of the following format, with N
           systemInstruction: {
             parts: [{ text: systemPrompt }]
           }
-        }
+        },
+        ...aiContext,
       });
     } catch (modelErr: any) {
       console.warn("Primary gemini-3.7-flash failed, attempting fallback to gemini-2.0-flash:", modelErr.message || modelErr);
@@ -145,10 +151,12 @@ You MUST respond with a single valid JSON object of the following format, with N
           systemInstruction: {
             parts: [{ text: systemPrompt }]
           }
-        }
+        },
+        ...aiContext,
       });
     }
 
+    await flushPostHog();
     console.log("Received response from Gemini");
     let textContent = response.text || "";
     

@@ -72,6 +72,7 @@ import { resolveInvoiceTemplate } from "@/utils/resolveInvoiceTemplate";
 import { buildReceiptHtml } from "./PaymentDialog/utils/buildReceiptHtml";
 import { calculateOrderTotals } from "./PaymentDialog/utils/paymentCalculations";
 import { BillPreviewStep } from "./PaymentDialog/steps/BillPreviewStep";
+import { captureNativeEvent } from "@/services/nativePrinterBridge";
 
 interface CustomerLoyaltyProfile {
   id: string;
@@ -1300,6 +1301,13 @@ const PaymentDialog = ({
         toast({
           title: method === "nc" ? "🎁 Order Marked Complimentary" : "✅ Payment Successful",
           description: `${currencySymbol}${finalAmount.toFixed(2)} settled via ${method.toUpperCase()}`,
+        });
+
+        captureNativeEvent("payment_completed", {
+          payment_method: finalMethod,
+          payment_status: finalStatus,
+          item_count: orderItems.length,
+          total: finalAmount,
         });
 
         // 8. Success transition & quick auto-close

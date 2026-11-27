@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenAI } from "https://esm.sh/@google/genai";
+import {
+  createAiGenerationContext,
+  createGeminiClient,
+  flushPostHog,
+} from "../_shared/posthog-ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,7 +71,8 @@ Return ONLY a valid JSON object (no markdown fences, no explanation) with this e
   "category_reason": "One line reason why this category was chosen"
 }`;
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createGeminiClient(apiKey);
+    const aiContext = createAiGenerationContext();
 
     const response = await ai.models.generateContent({
       model: "gemini-3.7-flash",
@@ -86,8 +91,10 @@ Return ONLY a valid JSON object (no markdown fences, no explanation) with this e
           parts: [{ text: systemPrompt }],
         },
       },
+      ...aiContext,
     });
 
+    await flushPostHog();
     const text = response.text || "";
 
     // Try to parse JSON from response

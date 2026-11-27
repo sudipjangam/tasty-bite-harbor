@@ -39,6 +39,7 @@ import { useCurrencyContext } from "@/contexts/CurrencyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { formatOrderItemString } from "@/lib/order-utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { captureNativeEvent } from "@/services/nativePrinterBridge";
 
 interface ImprovedAddOrderFormProps {
   onSuccess: () => void;
@@ -440,6 +441,14 @@ const ImprovedAddOrderForm = ({
           description: "Order created successfully",
         });
       }
+
+      captureNativeEvent("order_saved", {
+        operation: editingOrder ? "updated" : "created",
+        order_type: orderData.order_type,
+        item_count: values.orderItems.length,
+        total: orderTotal,
+        payment_status: orderData.payment_status,
+      });
 
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
       queryClient.invalidateQueries({ queryKey: ["active-kitchen-orders"] });
